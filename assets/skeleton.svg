@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="9" ry="2.5" fill="rgba(0,0,0,0.2)"/>
+  <!-- 足 -->
+  <line x1="20" y1="40" x2="17" y2="46" stroke="#e0ddd8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="28" y1="40" x2="31" y2="46" stroke="#e0ddd8" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- 腕 -->
+  <line x1="18" y1="24" x2="10" y2="32" stroke="#e0ddd8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="30" y1="24" x2="38" y2="32" stroke="#e0ddd8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="10" y1="32" x2="7" y2="40" stroke="#e0ddd8" stroke-width="2" stroke-linecap="round"/>
+  <line x1="38" y1="32" x2="41" y2="40" stroke="#e0ddd8" stroke-width="2" stroke-linecap="round"/>
+  <!-- 胴体（肋骨） -->
+  <rect x="18" y="22" width="12" height="18" rx="2" fill="#d6d3ce" stroke="#a0a09a" stroke-width="1"/>
+  <line x1="24" y1="22" x2="24" y2="40" stroke="#a0a09a" stroke-width="1"/>
+  <line x1="18" y1="26" x2="30" y2="26" stroke="#a0a09a" stroke-width="1"/>
+  <line x1="18" y1="30" x2="30" y2="30" stroke="#a0a09a" stroke-width="1"/>
+  <line x1="18" y1="34" x2="30" y2="34" stroke="#a0a09a" stroke-width="1"/>
+  <line x1="18" y1="38" x2="30" y2="38" stroke="#a0a09a" stroke-width="1"/>
+  <!-- 首 -->
+  <rect x="22" y="17" width="4" height="6" rx="1" fill="#d6d3ce" stroke="#a0a09a" stroke-width="1"/>
+  <!-- 頭蓋骨 -->
+  <ellipse cx="24" cy="12" rx="9" ry="8" fill="#e8e5e0" stroke="#a0a09a" stroke-width="1.2"/>
+  <ellipse cx="24" cy="16" rx="7" ry="4" fill="#d0cdc8" stroke="#a0a09a" stroke-width="1"/>
+  <!-- 目（黒い穴） -->
+  <ellipse cx="19.5" cy="11" rx="3" ry="3.5" fill="#1a1a1a"/>
+  <ellipse cx="28.5" cy="11" rx="3" ry="3.5" fill="#1a1a1a"/>
+  <ellipse cx="19.5" cy="11" rx="1.5" ry="2" fill="#ff4400" opacity="0.7"/>
+  <ellipse cx="28.5" cy="11" rx="1.5" ry="2" fill="#ff4400" opacity="0.7"/>
+  <!-- 鼻穴 -->
+  <ellipse cx="22.5" cy="15" rx="1" ry="1.2" fill="#888"/>
+  <ellipse cx="25.5" cy="15" rx="1" ry="1.2" fill="#888"/>
+  <!-- 歯 -->
+  <rect x="19" y="17" width="2.5" height="3" rx="0.5" fill="white" stroke="#aaa" stroke-width="0.5"/>
+  <rect x="22.5" y="17" width="2.5" height="3.5" rx="0.5" fill="white" stroke="#aaa" stroke-width="0.5"/>
+  <rect x="26" y="17" width="2.5" height="3" rx="0.5" fill="white" stroke="#aaa" stroke-width="0.5"/>
+</svg>

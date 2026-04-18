@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- 影 -->
+  <ellipse cx="24" cy="45" rx="10" ry="3" fill="rgba(0,0,0,0.18)"/>
+  <!-- 左翼 -->
+  <path d="M24,22 Q14,14 4,16 Q8,20 10,26 Q14,22 24,26Z" fill="#4a3f3f" stroke="#2a1f1f" stroke-width="1"/>
+  <path d="M10,26 Q7,30 8,34 Q12,28 18,28Z" fill="#4a3f3f" stroke="#2a1f1f" stroke-width="0.8"/>
+  <!-- 右翼 -->
+  <path d="M24,22 Q34,14 44,16 Q40,20 38,26 Q34,22 24,26Z" fill="#4a3f3f" stroke="#2a1f1f" stroke-width="1"/>
+  <path d="M38,26 Q41,30 40,34 Q36,28 30,28Z" fill="#4a3f3f" stroke="#2a1f1f" stroke-width="0.8"/>
+  <!-- 翼膜の縦筋 -->
+  <line x1="24" y1="22" x2="8" y2="30" stroke="#2a1f1f" stroke-width="0.7" opacity="0.6"/>
+  <line x1="24" y1="22" x2="40" y2="30" stroke="#2a1f1f" stroke-width="0.7" opacity="0.6"/>
+  <!-- 体 -->
+  <ellipse cx="24" cy="24" rx="7" ry="9" fill="#5a4545" stroke="#2a1f1f" stroke-width="1.2"/>
+  <!-- 耳 -->
+  <polygon points="19,16 17,10 22,15" fill="#5a4545" stroke="#2a1f1f" stroke-width="1"/>
+  <polygon points="29,16 31,10 26,15" fill="#5a4545" stroke="#2a1f1f" stroke-width="1"/>
+  <polygon points="19.5,15.5 18,11.5 21.5,15" fill="#cc8080" stroke="none"/>
+  <polygon points="28.5,15.5 30,11.5 26.5,15" fill="#cc8080" stroke="none"/>
+  <!-- 目 -->
+  <ellipse cx="20" cy="22" rx="3" ry="3.5" fill="#cc2200"/>
+  <ellipse cx="28" cy="22" rx="3" ry="3.5" fill="#cc2200"/>
+  <ellipse cx="20" cy="22" rx="1.5" ry="2" fill="#000"/>
+  <ellipse cx="28" cy="22" rx="1.5" ry="2" fill="#000"/>
+  <ellipse cx="20.8" cy="21" rx="0.8" ry="1" fill="white"/>
+  <ellipse cx="28.8" cy="21" rx="0.8" ry="1" fill="white"/>
+  <!-- 鼻 -->
+  <path d="M22,27 Q24,29 26,27" stroke="#2a1f1f" stroke-width="1" fill="none"/>
+  <!-- 牙 -->
+  <line x1="22" y1="30" x2="21" y2="33" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="26" y1="30" x2="27" y2="33" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

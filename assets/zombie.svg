@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="10" ry="3" fill="rgba(0,0,0,0.2)"/>
+  <!-- 足 -->
+  <rect x="18" y="38" width="5" height="8" rx="2" fill="#4a6a20" stroke="#2a4a10" stroke-width="1"/>
+  <rect x="25" y="38" width="5" height="8" rx="2" fill="#4a6a20" stroke="#2a4a10" stroke-width="1"/>
+  <!-- 腕（前に伸ばす） -->
+  <path d="M16,24 Q8,26 5,22" stroke="#4a6a20" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M32,24 Q40,22 43,18" stroke="#4a6a20" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- 指（左） -->
+  <line x1="5" y1="22" x2="2" y2="18" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="5" y1="22" x2="2" y2="22" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="5" y1="22" x2="3" y2="26" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 指（右） -->
+  <line x1="43" y1="18" x2="46" y2="14" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="43" y1="18" x2="46" y2="18" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="43" y1="18" x2="45" y2="22" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 胴体 -->
+  <rect x="16" y="22" width="16" height="18" rx="3" fill="#5a7a28" stroke="#2a4a10" stroke-width="1.2"/>
+  <!-- 傷跡 -->
+  <path d="M20,26 Q22,28 20,32" stroke="#3a5a10" stroke-width="1.2" fill="none"/>
+  <path d="M26,28 L28,34" stroke="#3a5a10" stroke-width="1.2"/>
+  <!-- 首 -->
+  <rect x="21" y="17" width="6" height="6" rx="1" fill="#5a7a28" stroke="#2a4a10" stroke-width="1"/>
+  <!-- 頭 -->
+  <ellipse cx="24" cy="12" rx="9" ry="8" fill="#607a2e" stroke="#2a4a10" stroke-width="1.4"/>
+  <!-- 腐った肌の質感 -->
+  <ellipse cx="18" cy="10" rx="3" ry="2" fill="#4a6a20" opacity="0.5"/>
+  <ellipse cx="30" cy="13" rx="2.5" ry="2" fill="#4a6a20" opacity="0.5"/>
+  <!-- 目（黄濁した） -->
+  <ellipse cx="19" cy="12" rx="3.5" ry="3" fill="#c8c060"/>
+  <ellipse cx="29" cy="12" rx="3.5" ry="3" fill="#c8c060"/>
+  <ellipse cx="19" cy="12" rx="2" ry="1.8" fill="#8a7a00"/>
+  <ellipse cx="29" cy="12" rx="2" ry="1.8" fill="#8a7a00"/>
+  <line x1="16" y1="10" x2="22" y2="14" stroke="#2a4a10" stroke-width="1.2"/>
+  <!-- 口（うめき） -->
+  <path d="M19,17 Q24,21 29,17" stroke="#2a4a10" stroke-width="1.5" fill="#2a1a08"/>
+</svg>

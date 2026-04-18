@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <radialGradient id="sf_body" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#f0f8ff"/>
+      <stop offset="60%" stop-color="#ddeeff"/>
+      <stop offset="100%" stop-color="#b8d4ee"/>
+    </radialGradient>
+    <radialGradient id="sf_head" cx="38%" cy="32%" r="58%">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="55%" stop-color="#e4f0ff"/>
+      <stop offset="100%" stop-color="#c0d8f0"/>
+    </radialGradient>
+    <radialGradient id="sf_blush" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffaaaa" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#ffaaaa" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sf_glow">
+      <feGaussianBlur stdDeviation="0.6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ═══ 胴体 ═══ -->
+  <ellipse cx="24" cy="35" rx="13" ry="11" fill="url(#sf_body)" stroke="#9abcd8" stroke-width="0.8"/>
+  <!-- 胴体シャドウ -->
+  <ellipse cx="26" cy="38" rx="9" ry="6" fill="rgba(100,140,180,0.12)"/>
+
+  <!-- ═══ マフラー ═══ -->
+  <path d="M13,28 Q24,25 35,28 Q35,31 24,30 Q13,31 13,28 Z" fill="#e83030"/>
+  <path d="M13,28 Q13,31 15,33 L17,32 L16,29 Z" fill="#c02020"/>
+  <!-- マフラー縞 -->
+  <line x1="16" y1="26.5" x2="16" y2="30.5" stroke="#ff6060" stroke-width="0.8" opacity="0.6"/>
+  <line x1="20" y1="25.8" x2="20" y2="30" stroke="#ff6060" stroke-width="0.8" opacity="0.6"/>
+  <line x1="24" y1="25.5" x2="24" y2="30" stroke="#ff6060" stroke-width="0.8" opacity="0.6"/>
+  <line x1="28" y1="25.8" x2="28" y2="30" stroke="#ff6060" stroke-width="0.8" opacity="0.6"/>
+  <line x1="32" y1="26.5" x2="32" y2="30.5" stroke="#ff6060" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- ═══ 腕（枝）═══ -->
+  <!-- 左腕 -->
+  <line x1="11" y1="33" x2="4" y2="28" stroke="#6b4020" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="5.5" y1="28.5" x2="3" y2="26" stroke="#6b4020" stroke-width="1.4" stroke-linecap="round"/>
+  <line x1="5.5" y1="28.5" x2="4" y2="25.5" stroke="#6b4020" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- 右腕（剣持ち） -->
+  <line x1="37" y1="33" x2="44" y2="28" stroke="#6b4020" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="43" y1="28" x2="45" y2="25.5" stroke="#6b4020" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- 剣 -->
+  <rect x="43" y="14" width="2.2" height="14" rx="0.5" fill="#d0e8f8" stroke="#88aacc" stroke-width="0.5"/>
+  <line x1="44.1" y1="14" x2="44.1" y2="27" stroke="white" stroke-width="0.5" opacity="0.8"/>
+  <rect x="41" y="26.5" width="6.5" height="1.8" rx="0.8" fill="#d4a820"/>
+  <ellipse cx="44.1" cy="29" rx="1.5" ry="1.2" fill="#d4a820"/>
+
+  <!-- ═══ ボタン ═══ -->
+  <circle cx="24" cy="30.5" r="1.1" fill="#334"/>
+  <circle cx="24" cy="34.5" r="1.1" fill="#334"/>
+  <circle cx="24" cy="38.5" r="1.1" fill="#334"/>
+
+  <!-- ═══ 頭 ═══ -->
+  <ellipse cx="24" cy="18" rx="11" ry="10.5" fill="url(#sf_head)" stroke="#9abcd8" stroke-width="0.8"/>
+
+  <!-- ═══ 帽子 ═══ -->
+  <rect x="16" y="7.5" width="16" height="9" rx="1" fill="#1a1a2e"/>
+  <rect x="13.5" y="15.5" width="21" height="2.5" rx="1" fill="#1a1a2e"/>
+  <!-- 帽子のバンド -->
+  <rect x="16" y="13.5" width="16" height="2" rx="0.5" fill="#e83030"/>
+  <rect x="22" y="13.5" width="4" height="2" fill="#d4a820"/>
+
+  <!-- ═══ 顔 ═══ -->
+  <!-- ほっぺ -->
+  <ellipse cx="17.5" cy="20" rx="3" ry="2" fill="url(#sf_blush)"/>
+  <ellipse cx="30.5" cy="20" rx="3" ry="2" fill="url(#sf_blush)"/>
+
+  <!-- 目（黒石） -->
+  <ellipse cx="20" cy="17.5" rx="2" ry="2.2" fill="#1a1a2e"/>
+  <ellipse cx="28" cy="17.5" rx="2" ry="2.2" fill="#1a1a2e"/>
+  <!-- 目のハイライト -->
+  <ellipse cx="20.8" cy="16.5" rx="0.7" ry="0.6" fill="white" opacity="0.9"/>
+  <ellipse cx="28.8" cy="16.5" rx="0.7" ry="0.6" fill="white" opacity="0.9"/>
+
+  <!-- 鼻（にんじん） -->
+  <path d="M24,20 L27.5,21.5 L24,22.5 Z" fill="#e87020"/>
+  <line x1="24.5" y1="20.8" x2="27" y2="21.5" stroke="#c05010" stroke-width="0.4"/>
+
+  <!-- 口（石ボタン） -->
+  <circle cx="21" cy="23.5" r="0.9" fill="#334"/>
+  <circle cx="23.2" cy="24.5" r="0.9" fill="#334"/>
+  <circle cx="25.5" cy="24.5" r="0.9" fill="#334"/>
+  <circle cx="27" cy="23.5" r="0.9" fill="#334"/>
+
+  <!-- ═══ 雪キラキラ ═══ -->
+  <g filter="url(#sf_glow)" opacity="0.7">
+    <circle cx="8" cy="20" r="1" fill="white"/>
+    <circle cx="40" cy="15" r="0.8" fill="white"/>
+    <circle cx="6" cy="38" r="0.7" fill="white"/>
+    <circle cx="42" cy="40" r="0.9" fill="white"/>
+    <circle cx="12" cy="10" r="0.6" fill="white"/>
+  </g>
+</svg>

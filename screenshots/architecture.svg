@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 400" width="660" height="400">
+  <defs>
+    <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L8,4 L0,7 Z" fill="#6b7280"/>
+    </marker>
+    <marker id="ar-v" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,1 L8,4 L0,7 Z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="400" fill="#0d0d1c"/>
+
+  <!-- ══════════════════════════════════
+       Layer 1: main.js  (JavaScript)
+  ══════════════════════════════════ -->
+  <rect x="20" y="20" width="620" height="90" rx="6" fill="#131330" stroke="#4f46e5" stroke-width="1.5"/>
+  <!-- header -->
+  <rect x="20" y="20" width="620" height="26" rx="5" fill="#1e1b4b"/>
+  <text x="36" y="38" fill="#c7d2fe" font-size="13" font-family="monospace" font-weight="bold">main.js</text>
+  <rect x="108" y="26" width="76" height="14" rx="4" fill="#3730a3"/>
+  <text x="146" y="37" text-anchor="middle" fill="#a5b4fc" font-size="9" font-family="sans-serif">JavaScript</text>
+  <text x="570" y="38" fill="#4338ca" font-size="10" font-family="sans-serif">グルー層</text>
+
+  <!-- 3 responsibilities -->
+  <rect x="34"  y="54" width="172" height="44" rx="4" fill="#1e1b4b"/>
+  <text x="120" y="72" text-anchor="middle" fill="#818cf8" font-size="11" font-family="sans-serif">グローバル状態</text>
+  <text x="120" y="88" text-anchor="middle" fill="#374151" font-size="9" font-family="monospace">player · enemies · map · ...</text>
+
+  <rect x="226" y="54" width="200" height="44" rx="4" fill="#1e1b4b"/>
+  <text x="326" y="72" text-anchor="middle" fill="#818cf8" font-size="11" font-family="sans-serif">コンテキストビルダー</text>
+  <text x="326" y="88" text-anchor="middle" fill="#374151" font-size="9" font-family="monospace">_makePACtx()  _makeEnemyAICtx()</text>
+
+  <rect x="446" y="54" width="178" height="44" rx="4" fill="#1e1b4b"/>
+  <text x="535" y="72" text-anchor="middle" fill="#818cf8" font-size="11" font-family="sans-serif">描画ループ・入力</text>
+  <text x="535" y="88" text-anchor="middle" fill="#374151" font-size="9" font-family="monospace">rAF · Canvas · InputManager</text>
+
+  <!-- ── arrow down ── -->
+  <line x1="280" y1="113" x2="280" y2="147" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#ar-v)"/>
+  <text x="292" y="134" fill="#7c3aed" font-size="10" font-family="sans-serif">ctx（状態 ＋ コールバック）を注入</text>
+
+  <!-- ══════════════════════════════════
+       Layer 2: systems/ (TypeScript)
+            + ui/ alongside
+  ══════════════════════════════════ -->
+  <rect x="20" y="154" width="492" height="164" rx="6" fill="#0b1a0b" stroke="#16a34a" stroke-width="1.5"/>
+  <!-- header -->
+  <rect x="20" y="154" width="492" height="26" rx="5" fill="#052e16"/>
+  <text x="36" y="172" fill="#bbf7d0" font-size="13" font-family="monospace" font-weight="bold">systems/</text>
+  <rect x="120" y="160" width="148" height="14" rx="4" fill="#14532d"/>
+  <text x="194" y="171" text-anchor="middle" fill="#86efac" font-size="9" font-family="sans-serif">TypeScript  ·  strict: true</text>
+
+  <!-- module chips row 1 -->
+  <rect x="32"  y="190" width="140" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="102" y="208" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">combat.ts</text>
+
+  <rect x="184" y="190" width="140" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="254" y="208" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">enemy-ai.ts</text>
+
+  <rect x="336" y="190" width="160" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="416" y="208" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">player-actions.ts</text>
+
+  <!-- module chips row 2 -->
+  <rect x="32"  y="228" width="140" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="102" y="246" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">fov.ts</text>
+
+  <rect x="184" y="228" width="140" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="254" y="246" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">casino-logic.ts</text>
+
+  <rect x="336" y="228" width="160" height="26" rx="4" fill="#052e16" stroke="#22c55e" stroke-width="1"/>
+  <text x="416" y="246" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="monospace">wave-spawn.ts</text>
+
+  <!-- design principles -->
+  <line x1="32" y1="270" x2="496" y2="270" stroke="#052e16" stroke-width="1"/>
+  <text x="42" y="288" fill="#4ade80" font-size="10" font-family="sans-serif">▸ グローバル変数を参照しない ― ctx 経由のみ</text>
+  <text x="42" y="306" fill="#4ade80" font-size="10" font-family="sans-serif">▸ 副作用はコールバックで表現（フラッシュ・ログ・ゲームオーバーなど）</text>
+
+  <!-- ui/ box -->
+  <rect x="526" y="154" width="114" height="164" rx="6" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+  <rect x="526" y="154" width="114" height="26" rx="5" fill="#1f2937"/>
+  <text x="583" y="172" text-anchor="middle" fill="#9ca3af" font-size="13" font-family="monospace">ui/</text>
+  <text x="583" y="204" text-anchor="middle" fill="#4b5563" font-size="10" font-family="monospace">hud.ts</text>
+  <text x="583" y="222" text-anchor="middle" fill="#4b5563" font-size="10" font-family="monospace">inventory.ts</text>
+  <text x="583" y="240" text-anchor="middle" fill="#4b5563" font-size="10" font-family="monospace">casino.ts</text>
+  <text x="583" y="258" text-anchor="middle" fill="#4b5563" font-size="10" font-family="monospace">dungeon.ts</text>
+  <text x="583" y="284" text-anchor="middle" fill="#374151" font-size="9" font-family="sans-serif">描画のみ</text>
+  <text x="583" y="300" text-anchor="middle" fill="#374151" font-size="9" font-family="sans-serif">main.js から</text>
+  <text x="583" y="312" text-anchor="middle" fill="#374151" font-size="9" font-family="sans-serif">直接呼ぶ</text>
+
+  <!-- ── arrow down ── -->
+  <line x1="200" y1="320" x2="200" y2="353" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="212" y="342" fill="#6b7280" font-size="9" font-family="sans-serif">import</text>
+
+  <!-- ══════════════════════════════════
+       Layer 3: 基盤層
+  ══════════════════════════════════ -->
+  <rect x="20" y="360" width="620" height="24" rx="4" fill="#061820" stroke="#0e7490" stroke-width="1"/>
+  <text x="156" y="376" text-anchor="middle" fill="#22d3ee" font-size="11" font-family="monospace">entities/</text>
+  <text x="260" y="376" fill="#164e63" font-size="11" font-family="monospace">·</text>
+  <text x="330" y="376" text-anchor="middle" fill="#22d3ee" font-size="11" font-family="monospace">world/</text>
+  <text x="410" y="376" fill="#164e63" font-size="11" font-family="monospace">·</text>
+  <text x="480" y="376" text-anchor="middle" fill="#22d3ee" font-size="11" font-family="monospace">data/</text>
+  <text x="560" y="376" fill="#164e63" font-size="11" font-family="sans-serif">Player · Enemy · GameMap · ITEMS · SPELLS</text>
+</svg>

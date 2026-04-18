@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- ── アニメ勇者（白銀鎧・青髪） ── -->
+
+  <!-- ブーツ -->
+  <rect x="10" y="28" width="5"   height="4" rx="1.5" fill="#1e3a5f"/>
+  <rect x="17" y="28" width="5"   height="4" rx="1.5" fill="#1e3a5f"/>
+  <rect x="9"  y="29" width="5.5" height="2" rx="1"   fill="#2563eb" opacity="0.5"/>
+  <rect x="17" y="29" width="5.5" height="2" rx="1"   fill="#2563eb" opacity="0.5"/>
+
+  <!-- 脚 -->
+  <rect x="10.5" y="23" width="4.5" height="6" rx="2" fill="#dbeafe"/>
+  <rect x="17"   y="23" width="4.5" height="6" rx="2" fill="#dbeafe"/>
+
+  <!-- 胴体（白銀鎧） -->
+  <rect x="8" y="18" width="16" height="11" rx="3" fill="#e2e8f0"/>
+  <!-- 鎧の中央プレート -->
+  <rect x="13" y="18" width="6" height="8"  rx="1.5" fill="#f8fafc"/>
+  <!-- 鎧ライン -->
+  <line x1="8"  y1="23" x2="24" y2="23" stroke="#94a3b8" stroke-width="0.8"/>
+  <!-- 紋章（星） -->
+  <polygon points="16,19.5 16.5,21 18,21 16.8,21.9 17.3,23.4 16,22.5 14.7,23.4 15.2,21.9 14,21 15.5,21" fill="#fbbf24"/>
+
+  <!-- 腕（鎧プレート） -->
+  <rect x="3.5" y="18" width="5.5" height="8" rx="2.5" fill="#cbd5e1"/>
+  <rect x="23"  y="18" width="5.5" height="8" rx="2.5" fill="#cbd5e1"/>
+
+  <!-- 手 -->
+  <circle cx="6"  cy="27" r="3" fill="#fde68a"/>
+  <circle cx="26" cy="27" r="3" fill="#fde68a"/>
+
+  <!-- 剣（右手） -->
+  <line x1="26" y1="25" x2="31" y2="17" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="27" y1="21" x2="30" y2="19" stroke="#e2e8f0" stroke-width="1"   stroke-linecap="round"/>
+  <!-- 鍔 -->
+  <line x1="25.5" y1="24" x2="28.5" y2="22" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- マント（赤） -->
+  <path d="M8 18 Q3 24 5 30" stroke="#dc2626" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- 首 -->
+  <rect x="14" y="15" width="4" height="4" fill="#fde68a"/>
+
+  <!-- 頭 -->
+  <circle cx="16" cy="12" r="9" fill="#fde68a"/>
+
+  <!-- 青髪（ショート・跳ね気味） -->
+  <path d="M7 11 Q16 0 25 11" fill="#1d4ed8"/>
+  <path d="M7 12 Q9 3 13 6 Q16 1 19 6 Q23 3 25 12" fill="#2563eb"/>
+  <!-- 跳ねた前髪 -->
+  <path d="M10 9 Q13 5 16 7" fill="#3b82f6"/>
+  <path d="M22 9 Q19 5 16 7" fill="#3b82f6"/>
+  <!-- ハイライト -->
+  <path d="M11 6 Q14 3 17 5" stroke="#93c5fd" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- 目（大きなアニメ目・青） -->
+  <ellipse cx="12.5" cy="13" rx="3.5" ry="3.2" fill="white"/>
+  <ellipse cx="19.5" cy="13" rx="3.5" ry="3.2" fill="white"/>
+  <!-- 虹彩（ロイヤルブルー） -->
+  <ellipse cx="12.5" cy="13.3" rx="2.2" ry="2.6" fill="#1d4ed8"/>
+  <ellipse cx="19.5" cy="13.3" rx="2.2" ry="2.6" fill="#1d4ed8"/>
+  <!-- 瞳 -->
+  <ellipse cx="12.5" cy="13.5" rx="1.3" ry="1.6" fill="#0f172a"/>
+  <ellipse cx="19.5" cy="13.5" rx="1.3" ry="1.6" fill="#0f172a"/>
+  <!-- ハイライト -->
+  <circle cx="13.5" cy="12.2" r="1.1" fill="white"/>
+  <circle cx="20.5" cy="12.2" r="1.1" fill="white"/>
+  <circle cx="12.0" cy="14.2" r="0.5" fill="white" opacity="0.7"/>
+  <circle cx="19.0" cy="14.2" r="0.5" fill="white" opacity="0.7"/>
+
+  <!-- 眉（きりっと） -->
+  <path d="M9.5 10.5 Q12.5 9.2 14.8 10.5" stroke="#1d4ed8" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <path d="M17.2 10.5 Q19.5 9.2 22.5 10.5" stroke="#1d4ed8" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+
+  <!-- ほっぺ -->
+  <ellipse cx="9.5"  cy="15" rx="2.2" ry="1.3" fill="#fda4af" opacity="0.5"/>
+  <ellipse cx="22.5" cy="15" rx="2.2" ry="1.3" fill="#fda4af" opacity="0.5"/>
+
+  <!-- 口（にっこり） -->
+  <path d="M14 16.5 Q16 18 18 16.5" stroke="#f9a8d4" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+</svg>

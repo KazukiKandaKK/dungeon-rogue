@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="12" ry="3" fill="rgba(0,0,0,0.25)"/>
+  <!-- 尻尾 -->
+  <path d="M36,28 Q46,20 47,13 Q47,8 42,9" fill="none" stroke="#3a3636" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- 後ろ足 -->
+  <path d="M17,38 Q15,44 13,46" stroke="#2e2c2c" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M28,38 Q30,44 32,46" stroke="#2e2c2c" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- 前足 -->
+  <path d="M13,30 Q10,38 9,44" stroke="#2e2c2c" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M22,32 Q21,40 20,44" stroke="#2e2c2c" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- 体 -->
+  <ellipse cx="24" cy="28" rx="15" ry="10" fill="#3a3838" stroke="#222" stroke-width="1.5"/>
+  <!-- 背の逆立った毛 -->
+  <path d="M10,22 L12,17 L15,22 L18,16 L21,22 L24,16 L27,22 L30,17 L33,22 L36,18 L38,23" stroke="#222" stroke-width="1.2" fill="none"/>
+  <!-- 首 -->
+  <path d="M14,22 Q12,15 15,11 Q19,7 23,8 L25,20Z" fill="#3a3838" stroke="#222" stroke-width="1.3"/>
+  <!-- 頭（大きい） -->
+  <ellipse cx="18" cy="13" rx="11" ry="9" fill="#404040" stroke="#222" stroke-width="1.5"/>
+  <!-- 耳（尖り） -->
+  <polygon points="12,8 9,1 16,7" fill="#3a3838" stroke="#222" stroke-width="1.2"/>
+  <polygon points="22,7 23,1 27,7" fill="#3a3838" stroke="#222" stroke-width="1.2"/>
+  <!-- 傷跡 -->
+  <path d="M16,11 L20,15" stroke="#222" stroke-width="1.5"/>
+  <!-- 鼻 -->
+  <ellipse cx="9" cy="15" rx="4" ry="3" fill="#1a1a1a" stroke="#111" stroke-width="0.8"/>
+  <!-- 目（赤く輝く） -->
+  <ellipse cx="14" cy="9" rx="3.5" ry="3" fill="#cc0000"/>
+  <ellipse cx="23" cy="9" rx="3.5" ry="3" fill="#cc0000"/>
+  <ellipse cx="14" cy="9" rx="2" ry="1.8" fill="#660000"/>
+  <ellipse cx="23" cy="9" rx="2" ry="1.8" fill="#660000"/>
+  <circle cx="15" cy="8.2" r="0.8" fill="rgba(255,150,150,0.7)"/>
+  <circle cx="24" cy="8.2" r="0.8" fill="rgba(255,150,150,0.7)"/>
+  <!-- 牙 -->
+  <line x1="11" y1="17" x2="10" y2="21" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="14" y1="18" x2="14" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

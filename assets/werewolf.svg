@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="10" ry="3" fill="rgba(0,0,0,0.22)"/>
+  <!-- 尻尾 -->
+  <path d="M32,32 Q42,28 44,20" fill="none" stroke="#5a3a18" stroke-width="3" stroke-linecap="round"/>
+  <!-- 足 -->
+  <path d="M18,38 Q16,42 14,46" stroke="#4a2a10" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M30,38 Q32,42 34,46" stroke="#4a2a10" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- 腕（前に出す） -->
+  <path d="M16,22 Q8,26 5,24" stroke="#5a3a18" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M32,22 Q40,20 43,18" stroke="#5a3a18" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- 爪（左） -->
+  <line x1="5" y1="24" x2="2" y2="20" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="5" y1="24" x2="1" y2="24" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="5" y1="24" x2="2" y2="28" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 爪（右） -->
+  <line x1="43" y1="18" x2="46" y2="14" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="43" y1="18" x2="47" y2="18" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="43" y1="18" x2="46" y2="22" stroke="#2a1a08" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 胴体 -->
+  <ellipse cx="24" cy="30" rx="11" ry="10" fill="#6a4020" stroke="#3a1a08" stroke-width="1.4"/>
+  <!-- 毛並み -->
+  <path d="M14,24 L16,20 L19,24 L22,19 L25,24 L28,20 L31,24 L33,20 L35,25" stroke="#3a1a08" stroke-width="1" fill="none"/>
+  <!-- 首 -->
+  <rect x="20" y="18" width="8" height="8" rx="2" fill="#6a4020" stroke="#3a1a08" stroke-width="1.2"/>
+  <!-- 頭（狼っぽい） -->
+  <ellipse cx="24" cy="13" rx="10" ry="8" fill="#7a4a24" stroke="#3a1a08" stroke-width="1.4"/>
+  <!-- 耳（尖り） -->
+  <polygon points="17,8 14,1 20,7" fill="#6a4020" stroke="#3a1a08" stroke-width="1.2"/>
+  <polygon points="31,8 34,1 28,7" fill="#6a4020" stroke="#3a1a08" stroke-width="1.2"/>
+  <!-- 吻 -->
+  <ellipse cx="24" cy="18" rx="5" ry="3.5" fill="#5a3010" stroke="#3a1a08" stroke-width="1"/>
+  <!-- 鼻 -->
+  <ellipse cx="24" cy="16" rx="2.5" ry="1.8" fill="#1a1a1a"/>
+  <!-- 目（月の光を反射） -->
+  <ellipse cx="18" cy="11" rx="3.5" ry="3" fill="#ff8c00"/>
+  <ellipse cx="30" cy="11" rx="3.5" ry="3" fill="#ff8c00"/>
+  <ellipse cx="18" cy="11" rx="2" ry="2" fill="#cc4400"/>
+  <ellipse cx="30" cy="11" rx="2" ry="2" fill="#cc4400"/>
+  <circle cx="19" cy="10" r="0.8" fill="white"/>
+  <circle cx="31" cy="10" r="0.8" fill="white"/>
+  <!-- 牙 -->
+  <line x1="21" y1="20" x2="20" y2="24" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="27" y1="20" x2="28" y2="24" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="8" ry="2" fill="rgba(80,0,80,0.3)"/>
+  <!-- 霊体の尾（下部が霧散） -->
+  <path d="M20,38 Q18,42 16,46" stroke="#4a0060" stroke-width="2.5" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <path d="M24,40 Q24,44 23,47" stroke="#4a0060" stroke-width="2"   fill="none" opacity="0.5" stroke-linecap="round"/>
+  <path d="M28,38 Q30,42 32,46" stroke="#4a0060" stroke-width="2.5" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <!-- 霊体（体） -->
+  <path d="M12,20 Q10,30 14,38 Q18,44 24,44 Q30,44 34,38 Q38,30 36,20 Q32,14 24,12 Q16,14 12,20Z" fill="#1a0030" stroke="#5500aa" stroke-width="1.2"/>
+  <!-- 霊体の光沢 -->
+  <path d="M14,22 Q12,30 16,38 Q20,42 24,42 Q28,42 32,38 Q36,30 34,22" fill="none" stroke="#7700cc" stroke-width="0.8" opacity="0.5"/>
+  <!-- 触手腕（左） -->
+  <path d="M14,24 Q8,20 4,22 Q2,26 6,28" stroke="#4a0080" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="6" cy="28" r="3" fill="#2a0050" stroke="#6600aa" stroke-width="0.8"/>
+  <!-- 触手腕（右） -->
+  <path d="M34,24 Q40,20 44,22 Q46,26 42,28" stroke="#4a0080" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="42" cy="28" r="3" fill="#2a0050" stroke="#6600aa" stroke-width="0.8"/>
+  <!-- 触手先の目 -->
+  <circle cx="6"  cy="28" r="1.5" fill="#aa00ff"/>
+  <circle cx="42" cy="28" r="1.5" fill="#aa00ff"/>
+  <!-- 頭（頭蓋風） -->
+  <ellipse cx="24" cy="14" rx="12" ry="10" fill="#1a0030" stroke="#5500aa" stroke-width="1.4"/>
+  <!-- 頭の光 -->
+  <ellipse cx="24" cy="12" rx="8"  ry="5"  fill="#2a0050" opacity="0.5"/>
+  <!-- 目（大きく虚ろ） -->
+  <ellipse cx="18" cy="12" rx="5"  ry="5.5" fill="#080010"/>
+  <ellipse cx="30" cy="12" rx="5"  ry="5.5" fill="#080010"/>
+  <ellipse cx="18" cy="12" rx="3"  ry="3.5" fill="#6600cc"/>
+  <ellipse cx="30" cy="12" rx="3"  ry="3.5" fill="#6600cc"/>
+  <ellipse cx="18" cy="11" rx="1.5" ry="2"  fill="#cc44ff"/>
+  <ellipse cx="30" cy="11" rx="1.5" ry="2"  fill="#cc44ff"/>
+  <circle cx="18.8" cy="10.5" r="0.8" fill="white"/>
+  <circle cx="30.8" cy="10.5" r="0.8" fill="white"/>
+  <!-- 口（叫び） -->
+  <ellipse cx="24" cy="19" rx="4" ry="3" fill="#080010"/>
+  <ellipse cx="24" cy="19" rx="2.5" ry="2" fill="#3a0060"/>
+  <!-- 魂の粒子 -->
+  <circle cx="8"  cy="14" r="1.5" fill="#8800cc" opacity="0.7"/>
+  <circle cx="40" cy="10" r="1.2" fill="#aa00ff" opacity="0.6"/>
+  <circle cx="6"  cy="34" r="1"   fill="#6600aa" opacity="0.5"/>
+  <circle cx="42" cy="36" r="1.3" fill="#8800cc" opacity="0.6"/>
+</svg>

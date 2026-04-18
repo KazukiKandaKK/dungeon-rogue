@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="11" ry="3" fill="rgba(0,0,0,0.2)"/>
+  <!-- 尻尾（上に巻く） -->
+  <path d="M30,28 Q42,22 44,14 Q44,8 38,6 Q34,4 32,8" fill="none" stroke="#8B4513" stroke-width="3" stroke-linecap="round"/>
+  <polygon points="30,5 34,2 36,9 32,9" fill="#cc2200"/>
+  <!-- 脚（左） -->
+  <line x1="18" y1="26" x2="6" y2="20" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="17" y1="28" x2="4" y2="27" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="17" y1="30" x2="5" y2="35" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="18" y1="32" x2="7" y2="40" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 脚（右） -->
+  <line x1="26" y1="26" x2="38" y2="21" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="27" y1="28" x2="40" y2="28" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="27" y1="30" x2="39" y2="35" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="26" y1="32" x2="37" y2="40" stroke="#7a3800" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 胴体 -->
+  <ellipse cx="22" cy="30" rx="10" ry="12" fill="#a05020" stroke="#7a3800" stroke-width="1.4"/>
+  <!-- 甲羅の節 -->
+  <path d="M12,26 Q22,24 32,26" stroke="#7a3800" stroke-width="1" fill="none"/>
+  <path d="M12,30 Q22,28 32,30" stroke="#7a3800" stroke-width="1" fill="none"/>
+  <path d="M13,34 Q22,32 31,34" stroke="#7a3800" stroke-width="1" fill="none"/>
+  <!-- 頭 -->
+  <ellipse cx="22" cy="20" rx="8" ry="6" fill="#b86030" stroke="#7a3800" stroke-width="1.2"/>
+  <!-- ハサミ（左） -->
+  <path d="M16,22 Q8,18 6,14 Q10,12 12,16 Q14,18 16,22Z" fill="#a05020" stroke="#7a3800" stroke-width="1"/>
+  <path d="M16,22 Q8,22 6,26 Q10,26 13,23Z" fill="#a05020" stroke="#7a3800" stroke-width="1"/>
+  <!-- ハサミ（右） -->
+  <path d="M28,22 Q36,18 38,14 Q34,12 32,16 Q30,18 28,22Z" fill="#a05020" stroke="#7a3800" stroke-width="1"/>
+  <path d="M28,22 Q36,22 38,26 Q34,26 31,23Z" fill="#a05020" stroke="#7a3800" stroke-width="1"/>
+  <!-- 目 -->
+  <circle cx="18" cy="18" r="2.2" fill="#ff6600"/>
+  <circle cx="26" cy="18" r="2.2" fill="#ff6600"/>
+  <circle cx="18" cy="18" r="1" fill="black"/>
+  <circle cx="26" cy="18" r="1" fill="black"/>
+</svg>

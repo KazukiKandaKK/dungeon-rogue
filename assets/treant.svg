@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="14" ry="3.5" fill="rgba(0,0,0,0.25)"/>
+  <!-- 根っこ（足） -->
+  <path d="M16,38 Q14,42 11,46" stroke="#4a2800" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M20,38 Q19,43 18,46" stroke="#4a2800" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M28,38 Q29,43 30,46" stroke="#4a2800" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M32,38 Q34,42 37,46" stroke="#4a2800" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- 幹（胴体） -->
+  <rect x="14" y="18" width="20" height="22" rx="6" fill="#6a3800" stroke="#3a1800" stroke-width="1.6"/>
+  <!-- 樹皮テクスチャ -->
+  <path d="M16,22 Q24,20 32,22" stroke="#3a1800" stroke-width="1" fill="none" opacity="0.7"/>
+  <path d="M15,28 Q24,26 33,28" stroke="#3a1800" stroke-width="1" fill="none" opacity="0.7"/>
+  <path d="M16,34 Q24,32 32,34" stroke="#3a1800" stroke-width="1" fill="none" opacity="0.7"/>
+  <!-- 縦の亀裂 -->
+  <path d="M22,18 Q21,25 23,30 Q21,35 22,40" stroke="#3a1800" stroke-width="0.8" fill="none" opacity="0.6"/>
+  <!-- 枝（腕） -->
+  <path d="M14,22 Q6,16 3,10" stroke="#4a2800" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M3,10 Q0,6 2,4"    stroke="#4a2800" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M3,10 Q1,10 0,13"  stroke="#4a2800" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M34,22 Q42,16 45,10" stroke="#4a2800" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M45,10 Q48,6 46,4"   stroke="#4a2800" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M45,10 Q47,10 48,13" stroke="#4a2800" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 葉（緑） -->
+  <ellipse cx="3"  cy="5"  rx="4" ry="3"   fill="#2a6a10" opacity="0.9"/>
+  <ellipse cx="0"  cy="11" rx="3" ry="2.5" fill="#2a6a10" opacity="0.8"/>
+  <ellipse cx="46" cy="5"  rx="4" ry="3"   fill="#2a6a10" opacity="0.9"/>
+  <ellipse cx="48" cy="12" rx="3" ry="2.5" fill="#2a6a10" opacity="0.8"/>
+  <!-- 頭部（コブ状） -->
+  <ellipse cx="24" cy="14" rx="13" ry="10" fill="#7a4200" stroke="#3a1800" stroke-width="1.6"/>
+  <!-- 苔 -->
+  <ellipse cx="16" cy="8"  rx="4"   ry="2.5" fill="#3a7a10" opacity="0.7"/>
+  <ellipse cx="30" cy="7"  rx="3.5" ry="2"   fill="#3a7a10" opacity="0.6"/>
+  <ellipse cx="24" cy="6"  rx="3"   ry="2"   fill="#4a8a18" opacity="0.5"/>
+  <!-- 目（黄色く光る） -->
+  <ellipse cx="19" cy="14" rx="3.5" ry="2.5" fill="#1a0800"/>
+  <ellipse cx="29" cy="14" rx="3.5" ry="2.5" fill="#1a0800"/>
+  <ellipse cx="19" cy="14" rx="2"   ry="1.5" fill="#aacc00"/>
+  <ellipse cx="29" cy="14" rx="2"   ry="1.5" fill="#aacc00"/>
+  <!-- 口（樹皮の割れ目） -->
+  <path d="M18,19 Q24,22 30,19" stroke="#3a1800" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>

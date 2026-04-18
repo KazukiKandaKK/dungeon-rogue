@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Shadow -->
+  <ellipse cx="24" cy="44" rx="16" ry="3" fill="rgba(0,0,0,0.35)"/>
+
+  <!-- Body (bottom half) -->
+  <rect x="6" y="26" width="36" height="16" rx="3" fill="#7c4a1a"/>
+  <rect x="6" y="26" width="36" height="16" rx="3" fill="url(#woodGrain)"/>
+
+  <!-- Wood planks (bottom) -->
+  <line x1="6" y1="30" x2="42" y2="30" stroke="#5a3010" stroke-width="0.8" opacity="0.5"/>
+  <line x1="6" y1="34" x2="42" y2="34" stroke="#5a3010" stroke-width="0.8" opacity="0.5"/>
+  <line x1="6" y1="38" x2="42" y2="38" stroke="#5a3010" stroke-width="0.8" opacity="0.5"/>
+
+  <!-- Lid (top half) -->
+  <rect x="6" y="16" width="36" height="12" rx="3" fill="#a0602a"/>
+  <!-- Lid highlight -->
+  <rect x="6" y="16" width="36" height="5" rx="3" fill="rgba(255,200,120,0.18)"/>
+  <!-- Lid wood planks -->
+  <line x1="6" y1="20" x2="42" y2="20" stroke="#7a4810" stroke-width="0.8" opacity="0.5"/>
+  <line x1="6" y1="24" x2="42" y2="24" stroke="#7a4810" stroke-width="0.8" opacity="0.5"/>
+
+  <!-- Gold trim - bottom frame -->
+  <rect x="5" y="25" width="38" height="3" rx="1.5" fill="#d4a017"/>
+  <rect x="5" y="39" width="38" height="3" rx="1.5" fill="#d4a017"/>
+  <rect x="5" y="25" width="3" height="17" rx="1.5" fill="#d4a017"/>
+  <rect x="40" y="25" width="3" height="17" rx="1.5" fill="#d4a017"/>
+
+  <!-- Gold trim - lid frame -->
+  <rect x="5" y="15" width="38" height="3" rx="1.5" fill="#e8b820"/>
+  <rect x="5" y="25" width="38" height="3" rx="1.5" fill="#e8b820"/>
+  <rect x="5" y="15" width="3" height="13" rx="1.5" fill="#e8b820"/>
+  <rect x="40" y="15" width="3" height="13" rx="1.5" fill="#e8b820"/>
+
+  <!-- Gold trim shine -->
+  <rect x="5" y="15" width="38" height="1.2" rx="0.6" fill="rgba(255,240,140,0.7)"/>
+
+  <!-- Corner rivets -->
+  <circle cx="9"  cy="19" r="2" fill="#f0c030"/>
+  <circle cx="39" cy="19" r="2" fill="#f0c030"/>
+  <circle cx="9"  cy="37" r="2" fill="#f0c030"/>
+  <circle cx="39" cy="37" r="2" fill="#f0c030"/>
+  <circle cx="9"  cy="19" r="1" fill="#ffe070"/>
+  <circle cx="39" cy="19" r="1" fill="#ffe070"/>
+  <circle cx="9"  cy="37" r="1" fill="#ffe070"/>
+  <circle cx="39" cy="37" r="1" fill="#ffe070"/>
+
+  <!-- Lock plate -->
+  <rect x="19" y="24" width="10" height="8" rx="2" fill="#c8900a"/>
+  <rect x="19" y="24" width="10" height="8" rx="2" fill="none" stroke="#f0c030" stroke-width="0.8"/>
+
+  <!-- Keyhole -->
+  <circle cx="24" cy="27" r="2.2" fill="#1a0a00"/>
+  <rect x="22.5" y="27" width="3" height="3.5" rx="0.8" fill="#1a0a00"/>
+  <circle cx="24" cy="27" r="1.2" fill="#3a1800"/>
+
+  <!-- Lock shine -->
+  <circle cx="23" cy="26.5" r="0.7" fill="rgba(255,220,80,0.6)"/>
+
+  <!-- Sparkle glow effects (treasure aura) -->
+  <circle cx="12" cy="13" r="1.2" fill="#ffe060" opacity="0.9"/>
+  <circle cx="36" cy="11" r="0.9" fill="#fff0a0" opacity="0.8"/>
+  <circle cx="24" cy="10" r="1.5" fill="#ffd700" opacity="0.85"/>
+  <circle cx="40" cy="14" r="0.8" fill="#ffe060" opacity="0.7"/>
+  <circle cx="8"  cy="14" r="1.0" fill="#ffd700" opacity="0.75"/>
+
+  <!-- Cross sparkles -->
+  <line x1="24" y1="7"  x2="24" y2="13" stroke="#ffe060" stroke-width="1.2" opacity="0.8"/>
+  <line x1="21" y1="10" x2="27" y2="10" stroke="#ffe060" stroke-width="1.2" opacity="0.8"/>
+
+  <defs>
+    <pattern id="woodGrain" x="0" y="0" width="6" height="48" patternUnits="userSpaceOnUse">
+      <rect width="6" height="48" fill="none"/>
+      <line x1="1" y1="0" x2="1" y2="48" stroke="rgba(0,0,0,0.12)" stroke-width="0.8"/>
+      <line x1="4" y1="0" x2="4" y2="48" stroke="rgba(255,200,100,0.08)" stroke-width="0.6"/>
+    </pattern>
+  </defs>
+</svg>

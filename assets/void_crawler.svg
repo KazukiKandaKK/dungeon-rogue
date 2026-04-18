@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="12" ry="2.5" fill="rgba(40,0,60,0.4)"/>
+  <!-- 脚（左・多肢） -->
+  <line x1="16" y1="28" x2="4"  y2="20" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="15" y1="30" x2="3"  y2="28" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="15" y1="32" x2="4"  y2="36" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16" y1="34" x2="6"  y2="40" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <!-- 脚（右・多肢） -->
+  <line x1="32" y1="28" x2="44" y2="20" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="33" y1="30" x2="45" y2="28" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="33" y1="32" x2="44" y2="36" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <line x1="32" y1="34" x2="42" y2="40" stroke="#2a0040" stroke-width="2" stroke-linecap="round"/>
+  <!-- 体 -->
+  <ellipse cx="24" cy="30" rx="13" ry="10" fill="#180028" stroke="#3a0060" stroke-width="1.5"/>
+  <!-- 虚空の模様 -->
+  <ellipse cx="24" cy="30" rx="9"  ry="7"  fill="none" stroke="#5500aa" stroke-width="0.8" opacity="0.6"/>
+  <ellipse cx="24" cy="30" rx="5"  ry="4"  fill="none" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <!-- 触手 -->
+  <path d="M20,22 Q14,14 10,8"  stroke="#3a0060" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M24,20 Q24,12 22,6"  stroke="#3a0060" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M28,22 Q34,14 38,8"  stroke="#3a0060" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- 触手先端 -->
+  <circle cx="10" cy="8"  r="2" fill="#6600aa"/>
+  <circle cx="22" cy="6"  r="2" fill="#6600aa"/>
+  <circle cx="38" cy="8"  r="2" fill="#6600aa"/>
+  <!-- 目（複数） -->
+  <ellipse cx="18" cy="27" rx="3.5" ry="3" fill="#0a0018"/>
+  <ellipse cx="30" cy="27" rx="3.5" ry="3" fill="#0a0018"/>
+  <ellipse cx="24" cy="32" rx="2.5" ry="2.5" fill="#0a0018"/>
+  <ellipse cx="18" cy="27" rx="2"   ry="1.8" fill="#aa00ff"/>
+  <ellipse cx="30" cy="27" rx="2"   ry="1.8" fill="#aa00ff"/>
+  <ellipse cx="24" cy="32" rx="1.3" ry="1.3" fill="#aa00ff"/>
+  <!-- 輝き -->
+  <circle cx="18.8" cy="26.5" r="0.7" fill="white"/>
+  <circle cx="30.8" cy="26.5" r="0.7" fill="white"/>
+  <!-- 虚空の粒子 -->
+  <circle cx="6"  cy="22" r="1.2" fill="#6600aa" opacity="0.7"/>
+  <circle cx="42" cy="18" r="1"   fill="#8800cc" opacity="0.6"/>
+  <circle cx="8"  cy="40" r="0.8" fill="#5500aa" opacity="0.5"/>
+</svg>

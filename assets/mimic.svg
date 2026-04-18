@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="13" ry="3" fill="rgba(0,0,0,0.25)"/>
+  <!-- 足（箱から生えた触手脚） -->
+  <path d="M14,38 Q12,42 10,46" stroke="#5a3010" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M34,38 Q36,42 38,46" stroke="#5a3010" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- 触手腕（左） -->
+  <path d="M12,28 Q6,24 4,20" stroke="#5a3010" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M4,20 Q1,16 3,14"  stroke="#5a3010" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M4,20 Q0,20 2,24"  stroke="#5a3010" stroke-width="2"   stroke-linecap="round" fill="none"/>
+  <!-- 触手腕（右） -->
+  <path d="M36,28 Q42,24 44,20" stroke="#5a3010" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M44,20 Q47,16 45,14" stroke="#5a3010" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M44,20 Q48,20 46,24" stroke="#5a3010" stroke-width="2"   stroke-linecap="round" fill="none"/>
+  <!-- 箱（本体下部） -->
+  <rect x="10" y="28" width="28" height="16" rx="2" fill="#8a5a20" stroke="#4a2800" stroke-width="1.8"/>
+  <!-- 箱の金属金具 -->
+  <rect x="10" y="28" width="28" height="3"  rx="1" fill="#aa8840" stroke="#6a4800" stroke-width="1"/>
+  <rect x="10" y="41" width="28" height="3"  rx="1" fill="#aa8840" stroke="#6a4800" stroke-width="1"/>
+  <rect x="10" y="31" width="3"  height="10" fill="#aa8840" stroke="#6a4800" stroke-width="0.8"/>
+  <rect x="35" y="31" width="3"  height="10" fill="#aa8840" stroke="#6a4800" stroke-width="0.8"/>
+  <!-- 箱の木目 -->
+  <line x1="13" y1="31" x2="13" y2="41" stroke="#4a2800" stroke-width="0.8" opacity="0.5"/>
+  <line x1="24" y1="31" x2="24" y2="41" stroke="#4a2800" stroke-width="0.8" opacity="0.5"/>
+  <line x1="35" y1="31" x2="35" y2="41" stroke="#4a2800" stroke-width="0.8" opacity="0.5"/>
+  <!-- 錠前 -->
+  <rect x="21" y="35" width="6" height="5" rx="1" fill="#cc9900" stroke="#886600" stroke-width="1"/>
+  <path d="M22,35 Q22,32 24,32 Q26,32 26,35" fill="none" stroke="#886600" stroke-width="1.5"/>
+  <!-- 蓋（上部・開いた口） -->
+  <path d="M10,28 Q10,18 24,16 Q38,18 38,28" fill="#9a6a30" stroke="#4a2800" stroke-width="1.8"/>
+  <!-- 蓋の内側 -->
+  <path d="M12,28 Q12,20 24,18 Q36,20 36,28" fill="#cc3300" opacity="0.8"/>
+  <!-- 歯 -->
+  <path d="M12,28 L14,22 L17,28 L20,22 L23,28 L26,22 L29,28 L32,22 L35,28 L36,28" fill="#f0f0e0" stroke="#aaaaaa" stroke-width="0.8" stroke-linejoin="round"/>
+  <!-- 舌 -->
+  <ellipse cx="24" cy="28" rx="6" ry="3" fill="#cc2200" opacity="0.9"/>
+  <ellipse cx="24" cy="29" rx="4" ry="2" fill="#ee3300"/>
+  <!-- 目（蓋の表面） -->
+  <ellipse cx="18" cy="22" rx="3.5" ry="3" fill="#1a0a00"/>
+  <ellipse cx="30" cy="22" rx="3.5" ry="3" fill="#1a0a00"/>
+  <ellipse cx="18" cy="22" rx="2"   ry="2" fill="#ffaa00"/>
+  <ellipse cx="30" cy="22" rx="2"   ry="2" fill="#ffaa00"/>
+  <circle cx="18.8" cy="21.5" r="0.8" fill="white"/>
+  <circle cx="30.8" cy="21.5" r="0.8" fill="white"/>
+  <!-- 宝石（箱の装飾） -->
+  <circle cx="24" cy="37" r="2" fill="#0044cc" stroke="#002288" stroke-width="0.8"/>
+  <circle cx="24.6" cy="36.5" r="0.7" fill="#88aaff"/>
+</svg>

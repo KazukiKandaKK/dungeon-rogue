@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="10" ry="2.5" fill="rgba(0,0,0,0.3)"/>
+  <!-- マント（後ろ、広げた翼状） -->
+  <path d="M14,18 Q4,22 2,36 Q10,32 16,36 Q20,30 24,32 Q28,30 32,36 Q38,32 46,36 Q44,22 34,18Z" fill="#1a0020" stroke="#300040" stroke-width="1"/>
+  <!-- マントの内側（赤） -->
+  <path d="M16,22 Q8,26 8,36 Q14,32 18,36 Q21,30 24,32 Q27,30 30,36 Q34,32 40,36 Q40,26 32,22Z" fill="#440010" opacity="0.8"/>
+  <!-- 足 -->
+  <rect x="18" y="36" width="5" height="10" rx="2" fill="#1a0820" stroke="#100010" stroke-width="1"/>
+  <rect x="25" y="36" width="5" height="10" rx="2" fill="#1a0820" stroke="#100010" stroke-width="1"/>
+  <!-- 腕 -->
+  <path d="M16,22 Q10,24 8,30" stroke="#1a0820" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M32,22 Q38,24 40,30" stroke="#1a0820" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- 爪 -->
+  <line x1="8"  y1="30" x2="5"  y2="27" stroke="#444" stroke-width="1.3" stroke-linecap="round"/>
+  <line x1="8"  y1="30" x2="5"  y2="32" stroke="#444" stroke-width="1.3" stroke-linecap="round"/>
+  <line x1="40" y1="30" x2="43" y2="27" stroke="#444" stroke-width="1.3" stroke-linecap="round"/>
+  <line x1="40" y1="30" x2="43" y2="32" stroke="#444" stroke-width="1.3" stroke-linecap="round"/>
+  <!-- 胴体 -->
+  <rect x="15" y="20" width="18" height="18" rx="3" fill="#1a0820" stroke="#100010" stroke-width="1.2"/>
+  <!-- 胸の紋章 -->
+  <path d="M20,24 L24,21 L28,24 L26,30 L22,30Z" fill="#330008" stroke="#550010" stroke-width="0.8"/>
+  <!-- 首 -->
+  <rect x="20" y="15" width="8" height="6" rx="2" fill="#2a1030" stroke="#100010" stroke-width="1"/>
+  <!-- 頭 -->
+  <ellipse cx="24" cy="10" rx="10" ry="9" fill="#2a1030" stroke="#100010" stroke-width="1.4"/>
+  <!-- 髪 -->
+  <path d="M14,8 Q16,2 24,2 Q32,2 34,8" fill="#0a0010" stroke="#0a0010" stroke-width="0.5"/>
+  <path d="M14,8 Q12,5 14,3" fill="#0a0010"/>
+  <path d="M34,8 Q36,5 34,3" fill="#0a0010"/>
+  <!-- 目（赤く光る） -->
+  <ellipse cx="19" cy="9"  rx="3"   ry="2.5" fill="#110000"/>
+  <ellipse cx="29" cy="9"  rx="3"   ry="2.5" fill="#110000"/>
+  <ellipse cx="19" cy="9"  rx="1.8" ry="1.5" fill="#cc0000"/>
+  <ellipse cx="29" cy="9"  rx="1.8" ry="1.5" fill="#cc0000"/>
+  <circle cx="19.8" cy="8.5" r="0.6" fill="#ff4444"/>
+  <circle cx="29.8" cy="8.5" r="0.6" fill="#ff4444"/>
+  <!-- 口（牙） -->
+  <path d="M18,14 Q24,17 30,14" stroke="#100010" stroke-width="1.2" fill="none"/>
+  <line x1="21" y1="14" x2="20" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="27" y1="14" x2="28" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 血の雫 -->
+  <path d="M21,17 Q20.5,19 21,20" stroke="#cc0000" stroke-width="1" fill="none"/>
+</svg>

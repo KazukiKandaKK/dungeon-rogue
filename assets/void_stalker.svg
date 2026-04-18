@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <ellipse cx="24" cy="46" rx="9" ry="2.5" fill="rgba(0,0,30,0.4)"/>
+  <!-- 足 -->
+  <rect x="17" y="36" width="5" height="10" rx="2" fill="#0a0a1a" stroke="#000010" stroke-width="1"/>
+  <rect x="26" y="36" width="5" height="10" rx="2" fill="#0a0a1a" stroke="#000010" stroke-width="1"/>
+  <!-- 透明マント（ほぼ不可視） -->
+  <path d="M12,20 Q8,28 10,40 Q16,34 24,36 Q32,34 38,40 Q40,28 36,20Z" fill="#050510" stroke="#111122" stroke-width="0.8" opacity="0.7"/>
+  <!-- 腕（右・短剣） -->
+  <path d="M32,22 Q38,22 40,26" stroke="#0a0a1a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <line x1="38" y1="22" x2="46" y2="14" stroke="#8888aa" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M44,13 L48,12 L46,16Z" fill="#aaaacc" stroke="#666688" stroke-width="0.8"/>
+  <!-- 腕（左） -->
+  <path d="M16,22 Q10,22 8,26" stroke="#0a0a1a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- 胴体 -->
+  <rect x="14" y="20" width="20" height="18" rx="3" fill="#0a0a1a" stroke="#111122" stroke-width="1.2"/>
+  <!-- 体の紋様（虚空の目） -->
+  <ellipse cx="24" cy="29" rx="4" ry="4" fill="#000010"/>
+  <ellipse cx="24" cy="29" rx="2.5" ry="2.5" fill="#110033"/>
+  <ellipse cx="24" cy="29" rx="1.2" ry="1.2" fill="#4400aa"/>
+  <!-- 首 -->
+  <rect x="19" y="14" width="10" height="7" rx="2" fill="#0a0a1a" stroke="#111122" stroke-width="1"/>
+  <!-- 頭（フード） -->
+  <ellipse cx="24" cy="10" rx="10" ry="9" fill="#050510" stroke="#111122" stroke-width="1.4"/>
+  <!-- フードの深い影 -->
+  <ellipse cx="24" cy="11" rx="8" ry="7" fill="#020208" opacity="0.9"/>
+  <!-- 目（鋭く細い） -->
+  <ellipse cx="19" cy="10" rx="3.5" ry="1.5" fill="#000008"/>
+  <ellipse cx="29" cy="10" rx="3.5" ry="1.5" fill="#000008"/>
+  <ellipse cx="19" cy="10" rx="2"   ry="0.8" fill="#2200cc"/>
+  <ellipse cx="29" cy="10" rx="2"   ry="0.8" fill="#2200cc"/>
+  <!-- 目の光 -->
+  <ellipse cx="19" cy="10" rx="1"   ry="0.4" fill="#6644ff"/>
+  <ellipse cx="29" cy="10" rx="1"   ry="0.4" fill="#6644ff"/>
+  <!-- 虚空の粒子（歪み表現） -->
+  <circle cx="6"  cy="20" r="1.2" fill="#2200aa" opacity="0.5"/>
+  <circle cx="42" cy="16" r="1"   fill="#3300cc" opacity="0.5"/>
+  <circle cx="8"  cy="38" r="0.9" fill="#1100aa" opacity="0.4"/>
+  <circle cx="10" cy="10" r="1.2" fill="#2200bb" opacity="0.4"/>
+</svg>

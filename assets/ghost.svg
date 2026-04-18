@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- 半透明の光彩 -->
+  <ellipse cx="24" cy="26" rx="16" ry="18" fill="rgba(200,240,255,0.15)"/>
+  <!-- 尾部のひらひら -->
+  <path d="M10,36 Q12,42 14,38 Q16,44 18,38 Q20,44 22,38 Q24,44 26,38 Q28,44 30,38 Q32,44 34,38 Q36,42 38,36 L36,22 Q30,38 24,22 Q18,38 12,22Z"
+        fill="rgba(200,240,255,0.75)" stroke="rgba(150,210,240,0.6)" stroke-width="1"/>
+  <!-- 体 -->
+  <path d="M10,26 Q10,10 24,8 Q38,10 38,26 L38,36 Q34,30 28,34 Q24,38 20,34 Q14,30 10,36Z"
+        fill="rgba(220,245,255,0.85)" stroke="rgba(150,210,240,0.8)" stroke-width="1.2"/>
+  <!-- 内側の光 -->
+  <ellipse cx="24" cy="20" rx="10" ry="12" fill="rgba(255,255,255,0.3)"/>
+  <!-- 目（空洞） -->
+  <ellipse cx="18" cy="20" rx="4" ry="5" fill="rgba(50,80,120,0.9)"/>
+  <ellipse cx="30" cy="20" rx="4" ry="5" fill="rgba(50,80,120,0.9)"/>
+  <!-- 目の輝き -->
+  <ellipse cx="19.5" cy="18.5" rx="1.5" ry="2" fill="rgba(150,200,255,0.7)"/>
+  <ellipse cx="31.5" cy="18.5" rx="1.5" ry="2" fill="rgba(150,200,255,0.7)"/>
+  <!-- 口 -->
+  <path d="M19,28 Q24,32 29,28" stroke="rgba(50,80,120,0.8)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- 浮遊する光の粒 -->
+  <circle cx="10" cy="14" r="1.5" fill="rgba(200,240,255,0.8)"/>
+  <circle cx="38" cy="18" r="1" fill="rgba(200,240,255,0.8)"/>
+  <circle cx="14" cy="8"  r="1.2" fill="rgba(200,240,255,0.6)"/>
+  <circle cx="36" cy="10" r="1" fill="rgba(200,240,255,0.6)"/>
+</svg>

@@ -1,0 +1,467 @@
+// ─────────────────────────────────────────────
+// title.ts  タイトル／セーブスロット／職業選択／ビルド選択／ゲームオーバー描画
+//
+// main.js から段階的に移行した Canvas 描画関数群。
+// 依存する状態をすべてコンテキスト引数として明示する。
+// ─────────────────────────────────────────────
+
+import { roundRect }              from './hud.js';
+import { CLASSES, CLASS_IDS }     from '../data/classes.js';
+import { BUILDS, BUILD_IDS }      from '../core/game-constants.js';
+import { DUNGEONS }               from '../world/dungeon_defs.js';
+import { getSlotData, hasAnySave } from '../systems/saves.js';
+import type { SaveSlotMode }      from '../core/game-context.js';
+
+// ── TitleContext / drawTitle ──────────────────────────────
+
+export interface TitleContext {
+  titleCursor: number;
+}
+
+export function drawTitle(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: TitleContext,
+): void {
+  // Background
+  ctx.fillStyle = '#060118';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  const now = performance.now() / 1000;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 80; i++) {
+    const sx = (i * 137.5) % W;
+    const sy = (i * 97.3) % H;
+    const blink = 0.4 + 0.6 * Math.abs(Math.sin(now * 0.7 + i));
+    ctx.globalAlpha = blink * 0.5;
+    ctx.fillRect(sx, sy, 1.5, 1.5);
+  }
+  ctx.globalAlpha = 1;
+
+  // Title
+  ctx.save();
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = 'bold 52px monospace';
+  ctx.shadowColor  = '#a855f7';
+  ctx.shadowBlur   = 30;
+  ctx.fillStyle    = '#e9d5ff';
+  ctx.fillText('ダンジョン探索', W / 2, H / 2 - 100);
+  ctx.shadowBlur   = 0;
+  ctx.restore();
+
+  // Subtitle
+  ctx.save();
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = '14px monospace';
+  ctx.fillStyle    = 'rgba(167,139,250,0.7)';
+  ctx.fillText('Roguelike Dungeon Crawler', W / 2, H / 2 - 52);
+  ctx.restore();
+
+  // Menu
+  const hasAny = hasAnySave();
+  const menuItems = ['▶  はじめから'];
+  if (hasAny) menuItems.push('▶  続きから');
+
+  const itemH    = 52;
+  const menuTop  = H / 2 + 10;
+
+  menuItems.forEach((label, i) => {
+    const y   = menuTop + i * itemH;
+    const sel = c.titleCursor === i;
+
+    ctx.save();
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = `${sel ? 'bold ' : ''}22px monospace`;
+
+    if (sel) {
+      ctx.shadowColor = '#a855f7';
+      ctx.shadowBlur  = 18;
+      ctx.fillStyle   = '#f0abfc';
+    } else {
+      ctx.fillStyle = 'rgba(196,181,253,0.6)';
+    }
+    ctx.fillText(label, W / 2, y);
+    ctx.restore();
+  });
+
+  // Footer
+  ctx.font         = '10px monospace';
+  ctx.fillStyle    = 'rgba(100,80,160,0.5)';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('↑ ↓ で選択   Enter で決定', W / 2, H - 16);
+}
+
+// ── SaveSlotContext / drawSaveSlot ────────────────────────
+
+export interface SaveSlotContext {
+  saveSlotMode:   SaveSlotMode;  // 'load' | 'save'
+  saveSlotCursor: number;
+}
+
+export function drawSaveSlot(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: SaveSlotContext,
+): void {
+  // Dim overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.fillRect(0, 0, W, H);
+
+  const title = c.saveSlotMode === 'save'
+    ? '💾 スロットを選んでセーブ'
+    : '📂 スロットを選んでロード';
+  ctx.save();
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = 'bold 20px monospace';
+  ctx.fillStyle    = '#f0abfc';
+  ctx.fillText(title, W / 2, 80);
+  ctx.restore();
+
+  const slotW = 540, slotH = 72, gap = 16;
+  const startX = (W - slotW) / 2;
+  const startY = 130;
+
+  for (let i = 0; i < 3; i++) {
+    const sx  = startX;
+    const sy  = startY + i * (slotH + gap);
+    const sel = c.saveSlotCursor === i;
+    const s   = getSlotData(i as 0 | 1 | 2);
+
+    // Slot background
+    ctx.save();
+    roundRect(ctx, sx, sy, slotW, slotH, 8);
+    ctx.fillStyle   = sel ? 'rgba(88,28,135,0.7)' : 'rgba(20,10,40,0.8)';
+    ctx.fill();
+    ctx.strokeStyle = sel ? '#a855f7' : 'rgba(100,60,180,0.4)';
+    ctx.lineWidth   = sel ? 2 : 1;
+    ctx.stroke();
+    if (sel) {
+      ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 14;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+
+    // Slot number
+    ctx.save();
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font         = `bold 14px monospace`;
+    ctx.fillStyle    = sel ? '#e9d5ff' : 'rgba(167,139,250,0.7)';
+    ctx.fillText(`SLOT ${i + 1}`, sx + 16, sy + slotH / 2);
+    ctx.restore();
+
+    // Save data summary
+    ctx.save();
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    if (s) {
+      const dungeon = DUNGEONS.find(d => d.id === s.dungeonId);
+      const dateStr = s.savedAt
+        ? new Date(s.savedAt).toLocaleString('ja-JP', {
+            month: 'numeric', day: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          })
+        : '';
+      const loc = dungeon ? `${dungeon.emoji}${dungeon.name} ${s.floor}層` : '🏠 拠点';
+      ctx.font      = 'bold 15px monospace';
+      ctx.fillStyle = sel ? '#fff' : '#c4b5fd';
+      ctx.fillText(loc, sx + 90, sy + slotH / 2 - 10);
+      ctx.font      = '11px monospace';
+      ctx.fillStyle = sel ? '#e9d5ff' : 'rgba(200,180,240,0.7)';
+      ctx.fillText(`LV ${s.lv}  HP ${s.hp}  💰 ${s.gold}G   ${dateStr}`, sx + 90, sy + slotH / 2 + 12);
+    } else {
+      ctx.font      = '14px monospace';
+      ctx.fillStyle = 'rgba(120,100,160,0.5)';
+      ctx.fillText('--- 空 ---', sx + 90, sy + slotH / 2);
+    }
+    ctx.restore();
+
+    // Empty slot in load mode: show disabled
+    if (c.saveSlotMode === 'load' && !s) {
+      ctx.save();
+      roundRect(ctx, sx, sy, slotW, slotH, 8);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Footer
+  ctx.save();
+  ctx.font         = '11px monospace';
+  ctx.fillStyle    = 'rgba(148,130,220,0.6)';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  const hint = c.saveSlotMode === 'save'
+    ? '↑ ↓ で選択   Enter でセーブ   Esc で戻る'
+    : '↑ ↓ で選択   Enter でロード   Esc で戻る';
+  ctx.fillText(hint, W / 2, H - 16);
+  ctx.restore();
+}
+
+// ── ClassSelectContext / drawClassSelect ──────────────────
+
+export interface ClassSelectContext {
+  classCursor: number;
+}
+
+export function drawClassSelect(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: ClassSelectContext,
+): void {
+  // Dark background
+  ctx.fillStyle = '#060118';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.save();
+  ctx.font         = 'bold 28px sans-serif';
+  ctx.fillStyle    = '#fde68a';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor  = '#fbbf24';
+  ctx.shadowBlur   = 20;
+  ctx.fillText('WFC Dungeon Crawler', W / 2, 60);
+  ctx.shadowBlur   = 0;
+  ctx.font         = '14px monospace';
+  ctx.fillStyle    = '#a5b4fc';
+  ctx.fillText('職業を選んでください', W / 2, 96);
+  ctx.restore();
+
+  const cardW = 168, cardH = 250, gap = 16;
+  const totalW = CLASS_IDS.length * (cardW + gap) - gap;
+  const startX = (W - totalW) / 2;
+  const cardY  = (H - cardH) / 2 - 10;
+
+  CLASS_IDS.forEach((id, i) => {
+    const cls = CLASSES[id];
+    const cx  = startX + i * (cardW + gap);
+    const sel = i === c.classCursor;
+
+    ctx.save();
+    // Card background
+    roundRect(ctx, cx, cardY, cardW, cardH, 10);
+    ctx.fillStyle   = sel ? cls.bgColor.replace('0.15', '0.35') : cls.bgColor;
+    ctx.fill();
+    ctx.strokeStyle = sel ? cls.color : 'rgba(100,80,180,0.4)';
+    ctx.lineWidth   = sel ? 2.5 : 1;
+    ctx.stroke();
+
+    // Glow on selected
+    if (sel) {
+      ctx.shadowColor = cls.color;
+      ctx.shadowBlur  = 18;
+      roundRect(ctx, cx, cardY, cardW, cardH, 10);
+      ctx.stroke();
+      ctx.shadowBlur  = 0;
+    }
+
+    // Icon
+    ctx.font         = '36px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cls.icon, cx + cardW / 2, cardY + 44);
+
+    // Name
+    ctx.font      = `bold 16px monospace`;
+    ctx.fillStyle = sel ? cls.color : '#e2e8f0';
+    ctx.fillText(cls.name, cx + cardW / 2, cardY + 84);
+
+    // Stats
+    ctx.font         = '10px monospace';
+    ctx.fillStyle    = 'rgba(200,200,220,0.9)';
+    ctx.textBaseline = 'top';
+    const stats = [
+      `❤ HP  ${cls.baseHP}  (+${cls.hpPerLv}/Lv)`,
+      `✨ MP  ${cls.baseMpMax}  (+${cls.mpPerLv}/Lv)`,
+      `⚔ ATK ${cls.baseAtk}  (+${cls.atkPerLv}/Lv)`,
+      `🛡 DEF ${cls.baseDef}  (+${cls.defPerLv}/Lv)`,
+      `💨 SPD ${cls.baseSpd}   🍀 LUK ${cls.baseLuk}`,
+      `魔法: ${(cls.startSpells ?? []).join(' ') || 'なし'}`,
+    ];
+    stats.forEach((s, j) => {
+      ctx.fillText(s, cx + 12, cardY + 100 + j * 16);
+    });
+
+    // Description
+    ctx.font      = '9px monospace';
+    ctx.fillStyle = 'rgba(160,160,200,0.8)';
+    cls.desc.forEach((line, j) => {
+      ctx.fillText(line, cx + cardW / 2, cardY + 200 + j * 12);
+    });
+
+    // Selected indicator
+    if (sel) {
+      ctx.font         = 'bold 11px monospace';
+      ctx.fillStyle    = cls.color;
+      ctx.textBaseline = 'middle';
+      ctx.fillText('▼ Enter で決定', cx + cardW / 2, cardY + cardH - 16);
+    }
+
+    ctx.restore();
+  });
+
+  // Navigation hint
+  ctx.font         = '10px monospace';
+  ctx.fillStyle    = 'rgba(148,130,220,0.6)';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('← → で選択   Enter で決定', W / 2, H - 16);
+}
+
+// ── BuildSelectContext / drawBuildSelect ──────────────────
+
+export interface BuildSelectContext {
+  playerClass: string;
+  buildCursor: number;
+  mysteryMode: boolean;
+}
+
+export function drawBuildSelect(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: BuildSelectContext,
+): void {
+  ctx.fillStyle = '#060118';
+  ctx.fillRect(0, 0, W, H);
+
+  const cls = CLASSES[c.playerClass as keyof typeof CLASSES];
+
+  ctx.save();
+  ctx.font        = 'bold 24px sans-serif'; ctx.fillStyle = '#fde68a';
+  ctx.textAlign   = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 16;
+  ctx.fillText('パラメータ重視を選ぶ', W / 2, 52);
+  ctx.shadowBlur  = 0;
+  ctx.font        = '13px monospace'; ctx.fillStyle = '#a5b4fc';
+  ctx.fillText(`職業: ${cls.icon} ${cls.name}　　← → ↑ ↓ で選択　Backspace で戻る`, W / 2, 84);
+  ctx.restore();
+
+  // 6つのカードを 3×2 グリッド表示
+  const cardW = 220, cardH = 110, gap = 12;
+  const cols   = 3;
+  const gridW  = cols * cardW + (cols - 1) * gap;
+  const startX = (W - gridW) / 2;
+  const startY = 110;
+
+  BUILD_IDS.forEach((id, i) => {
+    const build = BUILDS[id];
+    const col   = i % cols;
+    const row   = Math.floor(i / cols);
+    const cx    = startX + col * (cardW + gap);
+    const cy    = startY + row * (cardH + gap);
+    const sel   = i === c.buildCursor;
+    const bb    = build.bonus;
+
+    ctx.save();
+    roundRect(ctx, cx, cy, cardW, cardH, 8);
+    // シンプルに色計算
+    if (sel) {
+      ctx.fillStyle = 'rgba(40,20,80,0.95)';
+    } else {
+      ctx.fillStyle = 'rgba(12,4,28,0.88)';
+    }
+    ctx.fill();
+    ctx.strokeStyle = sel ? build.color : 'rgba(80,60,140,0.5)';
+    ctx.lineWidth   = sel ? 2.5 : 1;
+    ctx.stroke();
+    if (sel) {
+      ctx.shadowColor = build.color; ctx.shadowBlur = 14;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+
+    // タイトル
+    ctx.font      = 'bold 14px monospace';
+    ctx.fillStyle = sel ? '#fff' : '#c4b5fd';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(`${build.icon} ${build.name}`, cx + 10, cy + 10);
+
+    // ボーナス表示
+    ctx.font      = '9px monospace'; ctx.fillStyle = '#86efac';
+    const bonusParts: string[] = [];
+    if (bb.atkPerLv > 0) bonusParts.push(`ATK+${bb.atkPerLv}/Lv`);
+    if (bb.defPerLv > 0) bonusParts.push(`DEF+${bb.defPerLv}/Lv`);
+    if (bb.hpPerLv  > 0) bonusParts.push(`HP+${bb.hpPerLv}/Lv`);
+    if (bb.mpPerLv  > 0) bonusParts.push(`MP+${bb.mpPerLv}/Lv`);
+    if (bb.spdEvery > 0) bonusParts.push(`SPD+1/${bb.spdEvery}Lv`);
+    if (bb.lukEvery > 0) bonusParts.push(`LUK+1/${bb.lukEvery}Lv`);
+    ctx.fillText(bonusParts.slice(0, 3).join('  '), cx + 10, cy + 30);
+    if (bonusParts.length > 3)
+      ctx.fillText(bonusParts.slice(3).join('  '), cx + 10, cy + 42);
+
+    // 説明
+    ctx.font      = '9px monospace'; ctx.fillStyle = 'rgba(180,180,210,0.75)';
+    let line = '', lineY = cy + 58;
+    for (const ch of build.desc) {
+      line += ch;
+      if (line.length >= 24) { ctx.fillText(line, cx + 10, lineY); line = ''; lineY += 13; }
+    }
+    if (line) ctx.fillText(line, cx + 10, lineY);
+
+    if (sel) {
+      ctx.font      = 'bold 10px monospace'; ctx.fillStyle = build.color;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('▼ Enter で決定', cx + cardW / 2, cy + cardH - 4);
+    }
+    ctx.restore();
+  });
+
+  ctx.font      = '10px monospace'; ctx.fillStyle = 'rgba(148,130,220,0.5)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('← → ↑ ↓ で選択   Enter で決定   Backspace で戻る', W / 2, H - 16);
+
+  // 不思議ダンジョン切り替え
+  const mystLabel = c.mysteryMode
+    ? '✅ 不思議ダンジョン [M]でOFF'
+    : '⬜ 不思議ダンジョン [M]でON';
+  ctx.font      = '11px monospace';
+  ctx.fillStyle = c.mysteryMode ? '#34d399' : 'rgba(156,163,175,0.6)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(mystLabel, W / 2, H - 32);
+}
+
+// ── GameOverContext / drawGameOver ────────────────────────
+
+export interface GameOverContext {
+  gameOverTimer: number;
+}
+
+export function drawGameOver(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: GameOverContext,
+): void {
+  ctx.save();
+  ctx.fillStyle    = 'rgba(5,0,20,0.78)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor  = '#f87171';
+  ctx.shadowBlur   = 24;
+  ctx.font         = 'bold 52px sans-serif';
+  ctx.fillStyle    = '#fca5a5';
+  ctx.fillText('GAME  OVER', W / 2, H / 2 - 24);
+  ctx.shadowBlur   = 0;
+  if (c.gameOverTimer <= 0) {
+    ctx.font      = '14px monospace';
+    ctx.fillStyle = 'rgba(196,181,253,0.85)';
+    ctx.fillText('Enter で拠点に戻る', W / 2, H / 2 + 24);
+    ctx.font      = '11px monospace';
+    ctx.fillStyle = 'rgba(156,163,175,0.6)';
+    ctx.fillText('（所持品は失われる。装備は保持される）', W / 2, H / 2 + 46);
+  }
+  ctx.restore();
+}

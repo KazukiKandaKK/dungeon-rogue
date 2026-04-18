@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon Crawler — WFC Roguelike</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(ellipse at 50% 30%, #1a0535 0%, #080112 70%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Noto Sans JP', 'Courier New', monospace;
+      color: #ccc;
+      gap: 0;
+    }
+
+    /* ─ タイトルバー ─ */
+    header {
+      width: 1024px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 6px 8px;
+    }
+    header h1 {
+      font-size: 14px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #c4b5fd, #f0abfc, #fde68a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.08em;
+    }
+
+    /* ─ キャンバス ─ */
+    canvas {
+      display: block;
+      border: 2px solid rgba(91,33,182,0.6);
+      border-radius: 4px;
+      box-shadow: 0 0 30px rgba(91,33,182,0.35), 0 0 60px rgba(30,10,70,0.6);
+      image-rendering: pixelated;
+    }
+
+    /* ─ メッセージログ ─ */
+    #logPanel {
+      width: 1024px;
+      background: rgba(4,1,15,0.94);
+      border: 1px solid rgba(91,33,182,0.35);
+      border-top: 1px solid rgba(91,33,182,0.12);
+      border-radius: 0 0 8px 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #logHeader {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 3px;
+      border-bottom: 1px solid rgba(91,33,182,0.2);
+      background: rgba(91,33,182,0.08);
+      flex-shrink: 0;
+    }
+    #logHeader span {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: rgba(196,181,253,0.5);
+      text-transform: uppercase;
+    }
+    #logHeader .log-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #7c3aed;
+      box-shadow: 0 0 6px #7c3aed;
+      animation: logpulse 2s ease-in-out infinite;
+    }
+    @keyframes logpulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+    #battleLog {
+      height: 100px;
+      overflow-y: auto;
+      padding: 4px 0 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(91,33,182,0.35) transparent;
+    }
+    #battleLog::-webkit-scrollbar { width: 3px; }
+    #battleLog::-webkit-scrollbar-track { background: transparent; }
+    #battleLog::-webkit-scrollbar-thumb { background: rgba(91,33,182,0.4); border-radius: 2px; }
+    .log-row {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      padding: 1px 14px 1px 0;
+      border-left: 3px solid transparent;
+      font-family: 'Noto Sans JP', 'Courier New', monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      transition: opacity 0.3s;
+    }
+    .log-row.type-normal { border-left-color: rgba(196,181,253,0.25); color: #c4b5fd; }
+    .log-row.type-damage { border-left-color: #f87171; color: #fca5a5; }
+    .log-row.type-heal   { border-left-color: #4ade80; color: #86efac; }
+    .log-row.type-warn   { border-left-color: #f59e0b; color: #fde68a; }
+    .log-icon {
+      flex-shrink: 0;
+      width: 22px;
+      text-align: center;
+      font-size: 10px;
+      opacity: 0.85;
+    }
+    .log-text { flex: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚔ WFC Dungeon Crawler — ターン制ローグライク</h1>
+  </header>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="logPanel">
+    <div id="logHeader">
+      <div class="log-dot"></div>
+      <span>Message Log</span>
+    </div>
+    <div id="battleLog"></div>
+  </div>
+
+  <script type="module" src="dist/core/main.js?v=102"></script>
+</body>
+</html>
