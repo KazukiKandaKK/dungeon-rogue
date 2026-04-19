@@ -7,7 +7,7 @@ import type { Player }  from '../entities/player.js';
 import type { Enemy }   from '../entities/enemy.js';
 import type { ItemDef } from '../data/equipment.js';
 import { SPELLS, resolveSpell } from '../data/magic.js';
-import { TILE }                 from '../world/tiles.js';
+import { TILE, TILE_SIZE }      from '../world/tiles.js';
 import { LOAN_QUEST_FLOORS }    from '../core/game-constants.js';
 
 // ── 共通型 ────────────────────────────────────
@@ -69,6 +69,17 @@ export interface PlayerActionMap {
   revealedTraps: Set<string>;
   trapTypes:     Map<string, string>;
   stairs:        { tx: number; ty: number } | null;
+  // ── 壁の採掘・設置（マイクラ風） ─────────────────
+  canBreakWall?: (tx: number, ty: number) => boolean;
+  breakWall?:    (tx: number, ty: number) => boolean;
+  canPlaceWall?: (
+    tx: number, ty: number,
+    actors?: { alive: boolean; tx: number; ty: number }[],
+    extras?: { tx: number; ty: number }[],
+  ) => boolean;
+  placeWall?:       (tx: number, ty: number, material?: 'stone' | 'wood') => boolean;
+  wallMaterialAt?:  (tx: number, ty: number) => 'stone' | 'wood';
+  getExitDir?:      (tx: number, ty: number) => string | null;
 }
 
 // ── コンテキスト型 ─────────────────────────────
@@ -104,6 +115,9 @@ export interface PlayerActionContext {
 
   // コールバック（副作用）
   onFlash:              (color: string) => void;
+  onSpellVfx?:          (type: string, params: Record<string, unknown>, life?: number) => void;
+  onShake?:             (intensity: number, duration: number) => void;
+  onHitStop?:           (seconds: number) => void;
   onGameOver:           () => void;
   onTransition:         () => void;
   onUpdateExplored:     () => void;
@@ -132,7 +146,7 @@ export interface PlayerActionContext {
 // ── ターン処理 ─────────────────────────────────
 
 export function processTurn(
-  action: { type: string; dx?: number; dy?: number },
+  action: { type: string; dx?: number; dy?: number; material?: 'stone' | 'wood' },
   ctx:    PlayerActionContext,
 ): void {
   const acted = doPlayerAction(action, ctx);
@@ -305,7 +319,7 @@ export function spawnPlayerArrow(
 // ── プレイヤーアクション実行 ──────────────────
 
 export function doPlayerAction(
-  action: { type: string; dx?: number; dy?: number },
+  action: { type: string; dx?: number; dy?: number; material?: 'stone' | 'wood' },
   ctx:    PlayerActionContext,
 ): boolean {
   if (action.type === 'TURN') {
@@ -316,6 +330,90 @@ export function doPlayerAction(
 
   if (action.type === 'WAIT') {
     ctx.logger.add('その場で待機した。');
+    return true;
+  }
+
+  if (action.type === 'BREAK_WALL') {
+    const dx  = ctx.player.dirX ?? 0;
+    const dy  = ctx.player.dirY ?? 1;
+    if (dx === 0 && dy === 0) {
+      ctx.logger.add('向きを決めてから壁を掘る。');
+      return false;
+    }
+    const ntx = ctx.player.tx + dx;
+    const nty = ctx.player.ty + dy;
+    if (!ctx.map.canBreakWall || !ctx.map.canBreakWall(ntx, nty)) {
+      ctx.logger.add('そこは掘れない。', 'warn');
+      return false;
+    }
+    // 素材を判定してから破壊（破壊後は素材情報が消える）
+    const material = ctx.map.wallMaterialAt
+      ? ctx.map.wallMaterialAt(ntx, nty)
+      : 'stone';
+    if (!ctx.map.breakWall || !ctx.map.breakWall(ntx, nty)) {
+      ctx.logger.add('そこは掘れない。', 'warn');
+      return false;
+    }
+    const matLabel = material === 'wood' ? '木材' : '石';
+    const matIcon  = material === 'wood' ? '🪵'   : '⛏';
+    const matColor = material === 'wood' ? '#b45309' : '#cbd5e1';
+    if (material === 'wood') {
+      ctx.player.wood = (ctx.player.wood ?? 0) + 1;
+    } else {
+      ctx.player.stones = (ctx.player.stones ?? 0) + 1;
+    }
+    ctx.player.attackBump(dx, dy);
+    const { sx, sy } = ctx.player.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.floatingTexts.push({
+      text: `${matIcon} +1 ${matLabel}`, x: sx + dx * 18, y: sy + dy * 18 - 12,
+      alpha: 1, scale: 1, color: matColor, life: 0.9, maxLife: 0.9,
+    });
+    ctx.particles.spawn(sx + dx * 28, sy + dy * 28, material === 'wood' ? '#92400e' : '#a8a29e', 8);
+    const total = material === 'wood' ? (ctx.player.wood ?? 0) : (ctx.player.stones ?? 0);
+    ctx.logger.add(`${matIcon} 壁を壊して${matLabel}を1個手に入れた（所持: ${total}）`, 'info');
+    return true;
+  }
+
+  if (action.type === 'PLACE_WALL') {
+    const dx  = ctx.player.dirX ?? 0;
+    const dy  = ctx.player.dirY ?? 1;
+    if (dx === 0 && dy === 0) {
+      ctx.logger.add('向きを決めてから壁を置く。');
+      return false;
+    }
+    const material: 'stone' | 'wood' = action.material ?? 'stone';
+    const have = material === 'wood' ? (ctx.player.wood ?? 0) : (ctx.player.stones ?? 0);
+    const matLabel = material === 'wood' ? '木材' : '石';
+    if (have <= 0) {
+      ctx.logger.add(`${matLabel}が無い。壁を壊して集めよう。`, 'warn');
+      return false;
+    }
+    const ntx = ctx.player.tx + dx;
+    const nty = ctx.player.ty + dy;
+    const extras = [
+      ...ctx.floorItems.map(fi => ({ tx: fi.tx, ty: fi.ty })),
+      ...ctx.floorChests.filter(c => !c.opened).map(c => ({ tx: c.tx, ty: c.ty })),
+    ];
+    if (!ctx.map.canPlaceWall || !ctx.map.canPlaceWall(ntx, nty, ctx.enemies, extras)) {
+      ctx.logger.add('そこには置けない。', 'warn');
+      return false;
+    }
+    if (!ctx.map.placeWall || !ctx.map.placeWall(ntx, nty, material)) {
+      ctx.logger.add('そこには置けない。', 'warn');
+      return false;
+    }
+    if (material === 'wood') ctx.player.wood   -= 1;
+    else                     ctx.player.stones -= 1;
+    const matIcon = material === 'wood' ? '🪵' : '🧱';
+    const matColor = material === 'wood' ? '#b45309' : '#fcd34d';
+    const remain = material === 'wood' ? (ctx.player.wood ?? 0) : (ctx.player.stones ?? 0);
+    const { sx, sy } = ctx.player.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.floatingTexts.push({
+      text: `${matIcon} 設置`, x: sx + dx * 18, y: sy + dy * 18 - 12,
+      alpha: 1, scale: 1, color: matColor, life: 0.8, maxLife: 0.8,
+    });
+    ctx.particles.spawn(sx + dx * 28, sy + dy * 28, material === 'wood' ? '#92400e' : '#a8a29e', 6);
+    ctx.logger.add(`${matIcon} ${matLabel}の壁を設置した（残り${matLabel}: ${remain}）`, 'info');
     return true;
   }
 
@@ -541,6 +639,11 @@ export function castPlayerSpell(spellId: string, ctx: PlayerActionContext): void
     }
   }
 
+  // ── 豪華魔法VFX ディスパッチ ─────────────────────
+  if (result.ok && ctx.onSpellVfx) {
+    _dispatchSpellVfx(spellId, ctx, result.affectedTiles);
+  }
+
   const justDied = ctx.enemies.filter(e => !e.alive);
   if (justDied.length > 0) {
     ctx.onProcessDeathTraits(justDied);
@@ -721,4 +824,204 @@ function _findDropTile(
     }
   }
   return { tx: startTx, ty: startTy };
+}
+
+// ═══════════════════════════════════════════════
+// 魔法 VFX ディスパッチャ
+// ═══════════════════════════════════════════════
+
+function _dispatchSpellVfx(
+  spellId:        string,
+  ctx:            PlayerActionContext,
+  affectedTiles:  Array<{ tx: number; ty: number }>,
+): void {
+  const onVfx = ctx.onSpellVfx;
+  if (!onVfx) return;
+  const spell = SPELLS[spellId];
+  if (!spell) return;
+
+  const ps = ctx.player.screenPos(ctx.camOffX, ctx.camOffY);
+  const sx0 = ps.sx;
+  const sy0 = ps.sy;
+  const dirX = ctx.player.dirX ?? 0;
+  const dirY = ctx.player.dirY ?? 1;
+
+  switch (spellId) {
+    case 'meteor': {
+      // 生存中の敵を中心に、さらに周囲床タイルを追加
+      const targets: Array<{ tx: number; ty: number }> = [];
+      for (const e of ctx.enemies) {
+        if (e.alive) targets.push({ tx: e.tx, ty: e.ty });
+      }
+      // 最低 3 発・最大 4 発に抑制（描画負荷）
+      const MAX_METEORS = 4;
+      if (targets.length > MAX_METEORS) targets.length = MAX_METEORS;
+      const need = Math.max(3, targets.length);
+      for (let tries = 0; targets.length < need && tries < 40; tries++) {
+        const tx = Math.floor(Math.random() * ctx.map.cols);
+        const ty = Math.floor(Math.random() * ctx.map.rows);
+        if (ctx.map.isWalkable(tx, ty)) targets.push({ tx, ty });
+      }
+      const delays = targets.map((_, i) => i * 0.1 + Math.random() * 0.06);
+      onVfx('meteor', { impacts: targets, delays }, 1.5);
+      ctx.onShake?.(12, 0.35);
+      ctx.onFlash('rgba(255,180,80,0.25)');
+      break;
+    }
+
+    case 'fireball': {
+      const cx = ctx.player.tx + dirX * 2;
+      const cy = ctx.player.ty + dirY * 2;
+      onVfx('fireball', { sx: sx0, sy: sy0, tx: cx, ty: cy }, 0.6);
+      ctx.onShake?.(6, 0.16);
+      break;
+    }
+
+    case 'thunder':
+    case 'chain_bolt': {
+      if (affectedTiles.length > 0) {
+        // 多すぎると重いので最大 4 体に
+        const tiles = affectedTiles.slice(0, 4);
+        for (const t of tiles) {
+          const sx1 = (t.tx + 0.5) * TILE_SIZE + ctx.camOffX;
+          const sy1 = (t.ty + 0.5) * TILE_SIZE + ctx.camOffY;
+          onVfx('thunder', { sx0, sy0, tx: t.tx, ty: t.ty, seed: Math.random() * 1000 }, 0.22);
+        }
+        ctx.onShake?.(4, 0.12);
+      }
+      break;
+    }
+
+    case 'blizzard':
+    case 'wind_cross': {
+      onVfx('blizzard', { sx0, sy0 }, 0.45);
+      break;
+    }
+
+    case 'frost_nova': {
+      onVfx('frost_nova', { sx0, sy0, range: spell.rangeVal }, 0.4);
+      break;
+    }
+
+    case 'holy_nova':
+    case 'sanctuary':
+    case 'mana_burst':
+    case 'war_stomp':
+    case 'whirlwind':
+    case 'drain':
+    case 'smoke_bomb':
+    case 'caltrops':
+    case 'quake': {
+      // 各呪文に合った色のリング
+      if (spellId === 'holy_nova' || spellId === 'sanctuary') {
+        onVfx('holy_nova', { sx0, sy0, range: spell.rangeVal }, 0.45);
+      } else if (spellId === 'mana_burst') {
+        onVfx('mana_burst', { sx0, sy0, range: spell.rangeVal }, 0.6);
+        ctx.onShake?.(6, 0.16);
+      } else if (spellId === 'quake') {
+        // 画面に地割れを数本（8→5）
+        const cracks: number[] = [];
+        for (let i = 0; i < 5; i++) {
+          const x0 = Math.random() * ctx.canvasW;
+          const y0 = Math.random() * ctx.canvasH;
+          const x1 = x0 + (Math.random() - 0.5) * 160;
+          const y1 = y0 + (Math.random() - 0.5) * 160;
+          cracks.push(x0, y0, x1, y1);
+        }
+        onVfx('quake', { cracks }, 0.55);
+        ctx.onShake?.(10, 0.4);
+      } else {
+        onVfx('generic_ring', { sx0, sy0, color: spell.color, range: spell.rangeVal }, 0.35);
+      }
+      break;
+    }
+
+    case 'holy_strike': {
+      onVfx('holy_strike', { tiles: affectedTiles }, 0.55);
+      ctx.onFlash('rgba(255,250,180,0.25)');
+      break;
+    }
+
+    case 'arcane_ray': {
+      // 直線末端の画面座標を出す
+      const last = affectedTiles[affectedTiles.length - 1] ?? { tx: ctx.player.tx + dirX, ty: ctx.player.ty + dirY };
+      const sx1 = (last.tx + 0.5) * TILE_SIZE + ctx.camOffX;
+      const sy1 = (last.ty + 0.5) * TILE_SIZE + ctx.camOffY;
+      onVfx('arcane_ray', { sx0, sy0, sx1, sy1 }, 0.5);
+      ctx.onFlash('rgba(232,121,249,0.22)');
+      break;
+    }
+
+    case 'dark_bolt':
+    case 'assassinate': {
+      const last = affectedTiles[affectedTiles.length - 1] ?? { tx: ctx.player.tx + dirX, ty: ctx.player.ty + dirY };
+      const sx1 = (last.tx + 0.5) * TILE_SIZE + ctx.camOffX;
+      const sy1 = (last.ty + 0.5) * TILE_SIZE + ctx.camOffY;
+      onVfx('dark_bolt', { sx0, sy0, sx1, sy1 }, 0.4);
+      break;
+    }
+
+    case 'venom_blade':
+    case 'shield_bash': {
+      const last = affectedTiles[affectedTiles.length - 1] ?? { tx: ctx.player.tx + dirX, ty: ctx.player.ty + dirY };
+      const sx1 = (last.tx + 0.5) * TILE_SIZE + ctx.camOffX;
+      const sy1 = (last.ty + 0.5) * TILE_SIZE + ctx.camOffY;
+      onVfx('arcane_ray', { sx0, sy0, sx1, sy1 }, 0.3);
+      break;
+    }
+
+    case 'gravity':
+    case 'void_rift': {
+      if (spellId === 'void_rift') {
+        // 画面全体にランダムな裂け目を 4 本
+        const rifts: number[] = [];
+        for (let i = 0; i < 4; i++) {
+          const x0 = Math.random() * ctx.canvasW;
+          const y0 = Math.random() * ctx.canvasH;
+          const ang = Math.random() * Math.PI * 2;
+          const len = 80 + Math.random() * 160;
+          rifts.push(x0, y0, x0 + Math.cos(ang) * len, y0 + Math.sin(ang) * len);
+        }
+        onVfx('void_rift', { rifts }, 0.6);
+        ctx.onShake?.(9, 0.3);
+      } else {
+        onVfx('gravity', {}, 0.6);
+        ctx.onShake?.(5, 0.25);
+      }
+      break;
+    }
+
+    // 自己対象系 → 光のリング
+    case 'heal':
+    case 'regen':
+    case 'haste':
+    case 'barrier':
+    case 'war_cry':
+    case 'berserk':
+    case 'iron_skin':
+    case 'cure':
+    case 'taunt':
+    case 'teleport':
+    case 'shadow_step':
+    case 'time_stop': {
+      onVfx('generic_ring', { sx0, sy0, color: spell.color, range: 2 }, 0.6);
+      break;
+    }
+
+    case 'poison_mist':
+    case 'sleep_gas': {
+      // 広がる霧のリング
+      const cx = ctx.player.tx + dirX * 2;
+      const cy = ctx.player.ty + dirY * 2;
+      const csx = (cx + 0.5) * TILE_SIZE + ctx.camOffX;
+      const csy = (cy + 0.5) * TILE_SIZE + ctx.camOffY;
+      onVfx('generic_ring', { sx0: csx, sy0: csy, color: spell.color, range: spell.rangeVal }, 0.8);
+      break;
+    }
+
+    default: {
+      // 未定義の呪文はリング
+      onVfx('generic_ring', { sx0, sy0, color: spell.color, range: Math.max(1, spell.rangeVal) }, 0.5);
+    }
+  }
 }

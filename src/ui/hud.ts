@@ -184,6 +184,14 @@ export function drawHUD(
   ctx.fillText(`🎒 ${player.inventory.length}/${player.maxInventory}  [I]装備 [O]魔法`, px + 8, py + 136);
   ctx.font = 'bold 11px monospace'; ctx.fillStyle = '#fbbf24';
   ctx.fillText(`💰 ${player.gold} G`, px + 8, py + 150);
+  // 素材（石・木）— 右詰めで同じ行に表示
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = '#cbd5e1';
+  ctx.fillText(`⛏ ${(player.stones ?? 0)}`, px + pw - 50, py + 150);
+  ctx.fillStyle = '#d97706';
+  ctx.fillText(`🪵 ${(player.wood ?? 0)}`, px + pw - 8, py + 150);
+  ctx.textAlign = 'left';
 
   // ─── 右上: フロア情報 ─────────────────────
   const rpw = 110, rph = 62, rpx = W - rpw - 10, rpy = 10;
@@ -206,7 +214,7 @@ export function drawHUD(
   ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(196,181,253,0.4)';
   ctx.textBaseline = 'bottom';
   ctx.fillText(
-    'WASD/矢印:移動  Shift+方向:ダッシュ  Q/Y/E/Z/C:斜め  Space:攻撃  F/.：待機  [I]装備  [O]魔法  [P]セーブ',
+    'WASD/矢印:移動  Shift+方向:ダッシュ  Space:攻撃  G:⛏掘る  T:🧱石壁  V:🪵木壁  F/.：待機  [I]装備 [O]魔法',
     W / 2, H - 6);
 
   ctx.restore();
@@ -243,7 +251,15 @@ export function drawBossHPBar(
   roundRect(ctx, bx, by + 13, bw, bh, 5);
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fill();
 
-  const ratio = Math.max(0, boss.hp / boss.maxHP);
+  const ratio      = Math.max(0, boss.hp / boss.maxHP);
+  const ghostRatio = Math.max(ratio, Math.min(1, boss.displayHp / boss.maxHP));
+
+  // 残像（白っぽく、本体 HP に遅れて追いつく）
+  if (ghostRatio > ratio + 0.001) {
+    roundRect(ctx, bx + bw * ratio, by + 13, bw * (ghostRatio - ratio), bh, 5);
+    ctx.fillStyle = 'rgba(255,240,240,0.55)'; ctx.fill();
+  }
+
   if (ratio > 0) {
     const grad = ctx.createLinearGradient(bx, 0, bx + bw * ratio, 0);
     grad.addColorStop(0, '#7c1fa0'); grad.addColorStop(0.5, '#cc2266'); grad.addColorStop(1, '#ff4444');
@@ -252,6 +268,15 @@ export function drawBossHPBar(
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     roundRect(ctx, bx, by + 13, bw * ratio, bh / 2, 5);
     ctx.fill();
+  }
+
+  // ── 段階区切り線（25/50/75%） ────────────────
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1;
+  for (const q of [0.25, 0.5, 0.75]) {
+    ctx.beginPath();
+    ctx.moveTo(bx + bw * q, by + 13);
+    ctx.lineTo(bx + bw * q, by + 13 + bh);
+    ctx.stroke();
   }
 
   ctx.font = 'bold 10px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -347,33 +372,29 @@ export function drawFloatingTexts(
   ctx:   CanvasRenderingContext2D,
   texts: FloatingText[],
 ): void {
+  if (texts.length === 0) return;
   ctx.save();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // shadowBlur は重いため使わず、影は 1 ドロー追加で表現する
   for (const ft of texts) {
-    ctx.save();
     ctx.globalAlpha = ft.alpha;
-    ctx.translate(ft.x, ft.y);
-    ctx.scale(ft.scale, ft.scale);
     if (ft.big) {
-      ctx.font = 'bold 26px monospace';
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillText(ft.text, 2, 2);
+      ctx.font = 'bold 22px monospace';
+      // 黒影
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillText(ft.text, ft.x + 2, ft.y + 2);
+      // 本体
       ctx.fillStyle = ft.color;
-      ctx.fillText(ft.text, 0, 0);
-      ctx.font = 'bold 26px monospace';
-      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 18;
-      ctx.fillStyle = '#fff7d6';
-      ctx.fillText(ft.text, 0, 0);
-      ctx.shadowBlur = 0;
+      ctx.fillText(ft.text, ft.x, ft.y);
     } else {
-      ctx.font = 'bold 13px monospace';
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillText(ft.text, 1, 1);
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillText(ft.text, ft.x + 1, ft.y + 2);
       ctx.fillStyle = ft.color;
-      ctx.fillText(ft.text, 0, 0);
+      ctx.fillText(ft.text, ft.x, ft.y);
     }
-    ctx.restore();
   }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 

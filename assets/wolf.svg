@@ -1,35 +1,100 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <ellipse cx="24" cy="46" rx="11" ry="2.5" fill="rgba(0,0,0,0.18)"/>
-  <!-- 尻尾 -->
-  <path d="M36,30 Q44,24 46,18 Q46,14 42,14" fill="none" stroke="#7a7878" stroke-width="3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="wf_fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#b0b4bc"/>
+      <stop offset="55%" stop-color="#5a5e68"/>
+      <stop offset="100%" stop-color="#1e2028"/>
+    </linearGradient>
+    <linearGradient id="wf_belly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#d8d8d8"/>
+      <stop offset="100%" stop-color="#707078"/>
+    </linearGradient>
+    <radialGradient id="wf_eye" cx="50%" cy="50%" r="55%">
+      <stop offset="0%"  stop-color="#fff6a0"/>
+      <stop offset="55%" stop-color="#ffc040"/>
+      <stop offset="100%" stop-color="#8a5000"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 影 -->
+  <ellipse cx="24" cy="46" rx="13" ry="2.6" fill="rgba(0,0,0,0.33)"/>
+
+  <!-- 尻尾（ふさふさ） -->
+  <path d="M36,30 Q44,24 46,16 Q46,12 42,13" fill="none" stroke="url(#wf_fur)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M40,20 L38,18 M43,16 L41,15 M46,14 L44,13.5" stroke="#1e2028" stroke-width="0.5" fill="none"/>
+  <path d="M42,13 L43,10 L44,13" fill="#d8d8d8" stroke="#1e2028" stroke-width="0.4"/>
+
   <!-- 後ろ足 -->
-  <path d="M18,38 Q16,44 14,46" stroke="#6a6868" stroke-width="3" stroke-linecap="round" fill="none"/>
-  <path d="M28,38 Q30,44 32,46" stroke="#6a6868" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M18,38 Q16,44 14,46" stroke="url(#wf_fur)" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+  <path d="M28,38 Q30,44 32,46" stroke="url(#wf_fur)" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+  <!-- 爪 -->
+  <path d="M13,46 L14.5,47 M15,46 L15,47" stroke="#0a0c10" stroke-width="0.5" stroke-linecap="round"/>
+  <path d="M31.5,46 L30,47 M33,46 L33,47" stroke="#0a0c10" stroke-width="0.5" stroke-linecap="round"/>
+
   <!-- 前足 -->
-  <path d="M14,32 Q11,38 10,44" stroke="#6a6868" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-  <path d="M22,34 Q22,40 21,44" stroke="#6a6868" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M14,32 Q11,38 10,44" stroke="url(#wf_fur)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M22,34 Q22,40 21,44" stroke="url(#wf_fur)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M9,44 L10.5,45 M11,44 L11,45" stroke="#0a0c10" stroke-width="0.5" stroke-linecap="round"/>
+  <path d="M20,44 L21.5,45 M22,44 L22,45" stroke="#0a0c10" stroke-width="0.5" stroke-linecap="round"/>
+
   <!-- 体 -->
-  <ellipse cx="24" cy="30" rx="14" ry="9" fill="#808080" stroke="#505050" stroke-width="1.3"/>
-  <!-- 背の毛 -->
-  <path d="M12,24 Q18,20 24,22 Q30,20 36,24" stroke="#505050" stroke-width="1.5" fill="none"/>
-  <!-- 首 -->
-  <path d="M16,24 Q14,18 16,14 Q20,10 24,10 L26,22Z" fill="#808080" stroke="#505050" stroke-width="1.2"/>
-  <!-- 頭 -->
-  <ellipse cx="20" cy="14" rx="10" ry="8" fill="#888888" stroke="#505050" stroke-width="1.3"/>
-  <!-- 耳 -->
-  <polygon points="14,10 12,3 18,9" fill="#808080" stroke="#505050" stroke-width="1"/>
-  <polygon points="22,9 24,3 26,9" fill="#808080" stroke="#505050" stroke-width="1"/>
-  <polygon points="14.5,9.5 13,5 17.5,9" fill="#cc9999" opacity="0.7"/>
-  <polygon points="22.5,8.5 24,4.5 25.5,8.5" fill="#cc9999" opacity="0.7"/>
+  <ellipse cx="24" cy="30" rx="14" ry="9" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="1"/>
+  <!-- お腹 -->
+  <ellipse cx="24" cy="35" rx="10" ry="4" fill="url(#wf_belly)" opacity="0.75"/>
+  <!-- 背の毛（逆立ち） -->
+  <path d="M12,23 L11,20 L13,22 M16,22 L14,19 L17,22 M20,22 L19,18 L22,22 M24,22 L23,17 L26,22 M28,22 L28,18 L30,22 M32,22 L33,19 L34,22 M36,23 L37,20 L35,22" stroke="#0a0c10" stroke-width="0.5" fill="url(#wf_fur)"/>
+
+  <!-- 首の太い毛皮 -->
+  <path d="M16,24 Q14,18 16,13 Q20,9 24,9 L28,23 Z" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="1"/>
+  <!-- 首のハイライト -->
+  <path d="M15,18 Q14,22 15,26" stroke="rgba(220,220,235,0.4)" stroke-width="0.7" fill="none"/>
+
+  <!-- 頭（精悍） -->
+  <path d="M10,14 Q9,7 16,5 Q24,4 29,9 L30,17 Q24,21 16,20 Q10,19 10,14 Z" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="1"/>
+
+  <!-- 耳（ピンと立った） -->
+  <path d="M12,10 L11,2 L16,9 Z" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="0.7"/>
+  <path d="M22,9 L24,2 L27,9 Z" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="0.7"/>
+  <path d="M12.5,9.5 L12,4 L15.5,8.5" fill="#c48888" opacity="0.7"/>
+  <path d="M23,9 L24,4 L26,8.5" fill="#c48888" opacity="0.7"/>
+
+  <!-- 顔の白いマーキング -->
+  <path d="M14,14 Q18,18 14,20 Z" fill="#d8d8d8" opacity="0.6"/>
+
+  <!-- 口先（長いマズル） -->
+  <path d="M2,17 Q1,21 5,22 L11,21 L11,14 L6,14 Q2,14 2,17 Z" fill="url(#wf_fur)" stroke="#0a0c10" stroke-width="0.8"/>
+  <!-- マズルの白 -->
+  <path d="M3,18 L10,18 L10,22 L4,22 Z" fill="#c8c8d0" opacity="0.6"/>
   <!-- 鼻 -->
-  <ellipse cx="12" cy="16" rx="3.5" ry="2.5" fill="#333" stroke="#222" stroke-width="0.8"/>
-  <!-- 目 -->
-  <ellipse cx="16" cy="11" rx="3" ry="2.5" fill="#ffd700"/>
-  <ellipse cx="24" cy="11" rx="3" ry="2.5" fill="#ffd700"/>
-  <ellipse cx="16" cy="11" rx="1.5" ry="2" fill="#1a1a00"/>
-  <ellipse cx="24" cy="11" rx="1.5" ry="2" fill="#1a1a00"/>
-  <circle cx="16.8" cy="10.2" r="0.7" fill="white"/>
-  <circle cx="24.8" cy="10.2" r="0.7" fill="white"/>
-  <!-- 口 -->
-  <path d="M11,18 Q14,21 17,18" stroke="#333" stroke-width="1" fill="none"/>
+  <ellipse cx="3" cy="17" rx="2.5" ry="2" fill="#0a0c10" stroke="#000" stroke-width="0.3"/>
+  <ellipse cx="3.3" cy="16.3" rx="0.7" ry="0.5" fill="#484c58"/>
+
+  <!-- 口（ニヤリ・牙） -->
+  <path d="M4,21 Q8,24 13,21" stroke="#0a0c10" stroke-width="1" fill="none"/>
+  <path d="M5,21 L4.5,24 L6,22.5 Z" fill="#ffffff" stroke="#808080" stroke-width="0.3"/>
+  <path d="M9,21 L9.5,24 L8,22.5 Z" fill="#ffffff" stroke="#808080" stroke-width="0.3"/>
+  <path d="M11,21 L11.5,23.5 L10.5,22.5 Z" fill="#ffffff" stroke="#808080" stroke-width="0.3"/>
+
+  <!-- 眉（威嚇） -->
+  <path d="M11,10 Q14,11 15,13" stroke="#0a0c10" stroke-width="1" fill="none"/>
+  <path d="M20,12 Q23,11 25,12" stroke="#0a0c10" stroke-width="1" fill="none"/>
+
+  <!-- 目（黄・鋭い） -->
+  <ellipse cx="16" cy="12.5" rx="2.8" ry="2.4" fill="#1a1400"/>
+  <ellipse cx="16" cy="12.5" rx="3.1" ry="2.7" fill="url(#wf_eye)" opacity="0.5"/>
+  <ellipse cx="16" cy="12.5" rx="2" ry="1.7" fill="#ffc040"/>
+  <ellipse cx="16" cy="12.5" rx="0.7" ry="1.3" fill="#1a0800"/>
+  <ellipse cx="16.5" cy="11.9" rx="0.45" ry="0.5" fill="#ffffff"/>
+
+  <ellipse cx="24" cy="12.5" rx="2.8" ry="2.4" fill="#1a1400"/>
+  <ellipse cx="24" cy="12.5" rx="3.1" ry="2.7" fill="url(#wf_eye)" opacity="0.5"/>
+  <ellipse cx="24" cy="12.5" rx="2" ry="1.7" fill="#ffc040"/>
+  <ellipse cx="24" cy="12.5" rx="0.7" ry="1.3" fill="#1a0800"/>
+  <ellipse cx="24.5" cy="11.9" rx="0.45" ry="0.5" fill="#ffffff"/>
+
+  <!-- 涎（攻撃態勢） -->
+  <path d="M7,23 L6.5,26" stroke="#c8d8e8" stroke-width="0.6" opacity="0.6"/>
+
+  <!-- リムライト -->
+  <path d="M36,26 Q38,32 37,40" stroke="rgba(220,220,240,0.4)" stroke-width="0.7" fill="none"/>
 </svg>

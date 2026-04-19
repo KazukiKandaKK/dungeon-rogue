@@ -47,6 +47,7 @@ import { getFloorTheme, spawnEnemies, placeFloorItems, placeChests, placeShop, a
 import { bjNewDeck as _bjNewDeck, bjHandValue as _bjHandValue, bjFinish, bjDeal, bjDealerPlay, rlFinish, ccFinish, ccRoll as _ccRoll, ccEval as _ccEval, ccCompare as _ccCompare, ccRankLabel as _ccRankLabel } from '../systems/casino-logic.js';
 import { doEnemyTurn, processEnemyDeathTraits } from '../systems/enemy-ai.js';
 import { processTurn as _processTurnFn, castPlayerSpell as _castPlayerSpellFn, processTurnAfterCast as _processTurnAfterCastFn } from '../systems/player-actions.js';
+import { updateMagicEffects, drawMagicEffects } from './magic-vfx.js';
 
 // ── ゲーム状態 ─────────────────────────────────
 let map, player, enemies, input, particles, sprites, logger;
@@ -84,6 +85,35 @@ let arrows = []; // {wx,wy,twx,twy,progress,color}
 
 // AOEフラッシュ（範囲攻撃視覚）
 let aoeFlash = []; // [{tx,ty,alpha,color}]
+
+// 魔法エフェクト（メテオ/ファイアボール等の派手VFX）
+let magicEffects = []; // MagicEffect[]
+const MAX_MAGIC_EFFECTS = 6;
+function spawnMagicVfx(type, params, life = 0.7) {
+  // 上限を超えたら古いものから捨てる（描画負荷の上限を保証）
+  if (magicEffects.length >= MAX_MAGIC_EFFECTS) {
+    magicEffects.splice(0, magicEffects.length - MAX_MAGIC_EFFECTS + 1);
+  }
+  magicEffects.push({ type, age: 0, life, params });
+}
+
+// ── ビネット用キャッシュ（サイズ変わるまで再生成しない）────────
+let _vignetteCache = null;
+function drawVignette(ctx, W, H) {
+  if (!_vignetteCache || _vignetteCache.w !== W || _vignetteCache.h !== H) {
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const oc = off.getContext('2d');
+    const g = oc.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
+    g.addColorStop(0,   'rgba(0,0,0,0)');
+    g.addColorStop(0.7, 'rgba(0,0,0,0.25)');
+    g.addColorStop(1,   'rgba(0,0,0,0.6)');
+    oc.fillStyle = g;
+    oc.fillRect(0, 0, W, H);
+    _vignetteCache = { w: W, h: H, canvas: off };
+  }
+  ctx.drawImage(_vignetteCache.canvas, 0, 0);
+}
 
 // フロアアイテム（地面に落ちているアイテム）
 let floorItems  = []; // [{tx, ty, item}]
@@ -169,8 +199,72 @@ let exploredTiles = new Set(); // "tx,ty" 形式
 let flashAlpha = 0;
 let flashColor = '#ffffff';
 
+// スクリーンシェイク
+let shakeIntensity = 0;
+let shakeDuration  = 0;
+let shakeX = 0, shakeY = 0;
+function triggerShake(intensity = 8, duration = 0.25) {
+  shakeIntensity = Math.max(shakeIntensity, intensity);
+  shakeDuration  = Math.max(shakeDuration, duration);
+}
+
+// ヒットストップ
+let hitStopRemaining = 0;
+function triggerHitStop(seconds = 0.06) {
+  hitStopRemaining = Math.max(hitStopRemaining, seconds);
+}
+
 // フローティングテキスト（レベルアップ通知など）
 let floatingTexts = []; // [{text, x, y, alpha, scale, color, life, maxLife}]
+
+// ── 埃（ダスト）モート：プレイヤー周辺に浮遊 ─────────────
+// { x, y, vx, vy, life, maxLife, size }
+let dustMotes = [];
+const MAX_DUST = 24;
+let _dustAccum = 0;
+function _updateDust(dt) {
+  _dustAccum += dt;
+  // 0.25 秒毎に 1 粒追加（最大 MAX_DUST）
+  while (_dustAccum > 0.25) {
+    _dustAccum -= 0.25;
+    if (dustMotes.length < MAX_DUST && player) {
+      const r = Math.random() * Math.PI * 2;
+      const d = Math.random() * TILE_SIZE * 3.5 + TILE_SIZE * 0.5;
+      const x = player.renderX + Math.cos(r) * d;
+      const y = player.renderY + Math.sin(r) * d * 0.6;
+      const life = 3 + Math.random() * 3;
+      dustMotes.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: -4 - Math.random() * 6,
+        life, maxLife: life,
+        size: 0.8 + Math.random() * 1.2,
+      });
+    }
+  }
+  for (const m of dustMotes) {
+    m.x += m.vx * dt;
+    m.y += m.vy * dt;
+    m.life -= dt;
+  }
+  dustMotes = dustMotes.filter(m => m.life > 0);
+}
+function _drawDust(ctx) {
+  if (dustMotes.length === 0) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(220,200,160,1)';
+  for (const m of dustMotes) {
+    const t = m.life / m.maxLife;
+    ctx.globalAlpha = 0.28 * t;
+    const sx = m.x + camOffX;
+    const sy = m.y + camOffY;
+    ctx.beginPath();
+    ctx.arc(sx, sy, m.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 
 // 画面遷移
 let transAlpha = 0;
@@ -279,6 +373,7 @@ function _buildBase() {
   turnCount      = 0;
   map = new GameMap(BASE_COLS, BASE_ROWS, 'base', false);
   particles.clear();
+  dustMotes     = [];
   floorItems    = [];
   enemies       = [];
   shopOpen      = false;
@@ -317,6 +412,7 @@ function _buildFloor(entryDir) {
   particles.clear();
   floorItems    = [];
   floorChests   = [];
+  dustMotes     = [];
   exploredTiles = new Set();
 
   // スポーン：常にマップ内の歩行可能タイルにランダム配置
@@ -439,6 +535,8 @@ function _onLevelUps(levels) {
     logger.add(`⭐ レベルアップ！ LV ${lv} になった！`, 'warn');
     flashColor = 'rgba(250,204,21,0.3)';
     flashAlpha = 1;
+    triggerShake(6, 0.35);
+    particles.spawn(player.renderX, player.renderY, '#fde68a', 24);
     floatingTexts.push({
       text: `LEVEL UP!  LV ${lv}`, x: CANVAS_W / 2, y: CANVAS_H / 2 - 60,
       alpha: 1, scale: 1, color: '#fde68a', life: 2.5, maxLife: 2.5, big: true,
@@ -520,6 +618,9 @@ function _makePACtx() {
     floatingTexts, aoeFlash, arrows,
     logger,
     onFlash:          color => { flashColor = color; flashAlpha = 1; },
+    onSpellVfx:       (type, params, life) => spawnMagicVfx(type, params, life),
+    onShake:          (intensity, duration) => triggerShake(intensity, duration),
+    onHitStop:        seconds => triggerHitStop(seconds),
     onGameOver:       () => { gameState = 'GAME_OVER'; gameOverTimer = 2.0; ctx.gameState = 'GAME_OVER'; },
     onTransition:     () => { _startTransition(); ctx.gameState = gameState; },
     onUpdateExplored: () => _updateExplored(),
@@ -597,6 +698,8 @@ function _triggerTrap(type) {
       particles.burst(player.renderX, player.renderY, '#ef4444', 8);
       floatingTexts.push({ text: `罠！-${dmg}`, x: sx, y: sy-20, alpha:1, scale:1, color:'#ef4444', life:1.8, maxLife:1.8 });
       flashColor = 'rgba(220,30,30,0.35)'; flashAlpha = 0.7;
+      triggerShake(12, 0.3);
+      triggerHitStop(0.08);
       break;
     }
     case 'poison': {
@@ -690,6 +793,7 @@ function _triggerTrap(type) {
       logger.add(`👹 召喚罠！フロア全体に${spawnCount}体の敵が現れた！`, 'warn');
       floatingTexts.push({ text: `👹 召喚罠！${spawnCount}体！`, x: sx, y: sy-30, alpha:1, scale:1, color:'#f87171', life:2.5, maxLife:2.5, big: true });
       flashColor = 'rgba(220,30,30,0.4)'; flashAlpha = 1;
+      triggerShake(16, 0.4);
       break;
     }
   }
@@ -706,24 +810,63 @@ function startLoop(canvas) {
   function loop(ts) {
     try {
     if (lastTime === null) lastTime = ts;
-    const dt = Math.min((ts - lastTime) / 1000, 0.05);
+    const rawDt = Math.min((ts - lastTime) / 1000, 0.05);
     lastTime  = ts;
-    elapsed  += dt;
+    elapsed  += rawDt;
+
+    // ── ヒットストップ（dt を 0 に縮めて全体を一時停止）──
+    let dt = rawDt;
+    if (hitStopRemaining > 0) {
+      hitStopRemaining -= rawDt;
+      dt = 0;
+    }
+
+    // ── スクリーンシェイク更新 ──────────────────────
+    if (shakeDuration > 0) {
+      shakeDuration -= rawDt;
+      const strength = Math.max(0, shakeDuration) * shakeIntensity;
+      shakeX = (Math.random() - 0.5) * 2 * strength;
+      shakeY = (Math.random() - 0.5) * 2 * strength;
+    } else {
+      shakeX = 0; shakeY = 0; shakeIntensity = 0;
+    }
 
     if (player) {
       player.updateRender(dt);
       for (const e of enemies) e.updateRender(dt);
     }
     particles.update(dt);
+    _updateDust(dt);
     flashAlpha = Math.max(0, flashAlpha - dt * 6);
 
     // 矢アニメ更新
     for (const a of arrows) { a.progress += dt * 5; }
+    // ── 着弾：progress が 1 に到達したものは衝撃バーストを発生 ──
+    const landed = arrows.filter(a => a.progress >= 1);
+    for (const a of landed) {
+      const isxRaw = a.twx + camOffX;
+      const isyRaw = a.twy + camOffY;
+      if (a.isMagic) {
+        // 魔法着弾：多段バーストと中央のフラッシュ
+        particles.spawn(isxRaw, isyRaw, a.color,   24);
+        particles.spawn(isxRaw, isyRaw, '#ffffff', 12);
+        triggerShake(8, 0.22);
+        triggerHitStop(0.05);
+      } else {
+        // 矢着弾：小さな火花
+        particles.spawn(isxRaw, isyRaw, '#fcd34d', 10);
+        particles.spawn(isxRaw, isyRaw, '#ffffff', 4);
+        triggerShake(3, 0.10);
+      }
+    }
     arrows = arrows.filter(a => a.progress < 1);
 
     // AOEフラッシュフェードアウト
     for (const f of aoeFlash) { f.alpha = Math.max(0, f.alpha - dt * 4); }
     aoeFlash = aoeFlash.filter(f => f.alpha > 0);
+
+    // 魔法エフェクト更新
+    magicEffects = updateMagicEffects(magicEffects, dt);
 
     // ルーレット スピン演出
     if (casinoOpen && casinoMode === 'roulette' && rlPhase === 'spin') {
@@ -740,11 +883,17 @@ function startLoop(canvas) {
     // フローティングテキスト更新
     for (const ft of floatingTexts) {
       ft.life -= dt;
-      ft.y    -= dt * 28;
-      ft.alpha = Math.max(0, ft.life / ft.maxLife);
-      ft.scale = ft.life > ft.maxLife * 0.7
-        ? 0.5 + 0.5 * (1 - (ft.life - ft.maxLife * 0.7) / (ft.maxLife * 0.3))
-        : 1;
+      ft.y    -= dt * 36;
+      ft.alpha = Math.max(0, Math.min(1, (ft.life / ft.maxLife) * 1.4));
+      // ── オーバーシュート: 0 → 1.25 → 1.0 に落ち着く ─
+      const age = 1 - ft.life / ft.maxLife;
+      if (age < 0.15) {
+        ft.scale = (age / 0.15) * 1.25;
+      } else if (age < 0.3) {
+        ft.scale = 1.25 - ((age - 0.15) / 0.15) * 0.25;
+      } else {
+        ft.scale = 1.0;
+      }
     }
     floatingTexts = floatingTexts.filter(ft => ft.life > 0);
 
@@ -944,6 +1093,8 @@ function _handleShopInput() {
     shopOpen = false;
     logger.add(`😈 ${entry.item.icon}${entry.item.name} を盗んだ！番人の死神が現れた！`, 'warn');
     flashColor = 'rgba(139,0,139,0.4)'; flashAlpha = 1;
+    triggerShake(18, 0.45);
+    triggerHitStop(0.15);
     const { sx, sy } = player.screenPos(camOffX, camOffY);
     floatingTexts.push({ text: '😈盗んだ！', x: sx, y: sy-28, alpha:1, scale:1, color:'#aa44ff', life:1.5, maxLife:1.5 });
     _spawnShopShinigami();
@@ -1759,7 +1910,8 @@ function _saveToSlot(slot) {
     const save = {
       v: 3, floor: floorNumber, cls: player.classType,
       build: playerBuild, mystery: mysteryMode,
-      gold: player.gold, lv: player.lv, exp: player.exp,
+      gold: player.gold, stones: player.stones ?? 0, wood: player.wood ?? 0,
+      lv: player.lv, exp: player.exp,
       expNext: player.expNext, hp: player.hp, mp: player.mp,
       baseAtk: player.baseAtk, baseDef: player.baseDef,
       baseMaxHP: player.baseMaxHP, baseSpd: player.baseSpd,
@@ -1803,6 +1955,8 @@ function _loadFromSlot(slot) {
     _buildBase();
 
     player.gold      = s.gold ?? 0;
+    player.stones    = s.stones ?? 0;
+    player.wood      = s.wood ?? 0;
     player.lv        = s.lv ?? 1;
     player.exp       = s.exp ?? 0;
     player.expNext   = s.expNext ?? 10;
@@ -1889,6 +2043,13 @@ function _readAction() {
   // .（ピリオド）or F＝待機
   if (input.justPressed('Period') || input.justPressed('KeyF')) return { type:'WAIT' };
 
+  // ⛏ KeyG＝向いている方向の壁を掘る（テーマ別に石/木を入手）
+  if (input.justPressed('KeyG')) return { type:'BREAK_WALL' };
+  // 🧱 KeyT＝向いている方向に石壁を置く（石を1つ消費）
+  if (input.justPressed('KeyT')) return { type:'PLACE_WALL', material: 'stone' };
+  // 🪵 KeyV＝向いている方向に木壁を置く（木を1つ消費）
+  if (input.justPressed('KeyV')) return { type:'PLACE_WALL', material: 'wood' };
+
   return null;
 }
 
@@ -1963,7 +2124,10 @@ function _processTurnAfterCast() {
 function _attack(attacker, defender, rawAtk) {
   return _attackFn(attacker, defender, rawAtk, {
     player, logger, particles, camOffX, camOffY,
-    onFlash: (color) => { flashColor = color; flashAlpha = 1; },
+    onFlash:    color => { flashColor = color; flashAlpha = 1; },
+    onShake:    (intensity, duration) => triggerShake(intensity, duration),
+    onHitStop:  seconds => triggerHitStop(seconds),
+    onFloatingText: t => floatingTexts.push(t),
   });
 }
 
@@ -1990,13 +2154,16 @@ function _draw(ctx, W, H, now) {
 
   if (!player) return;
 
-  camOffX = W / 2 - player.renderX;
-  camOffY = H / 2 - player.renderY;
+  camOffX = W / 2 - player.renderX + shakeX;
+  camOffY = H / 2 - player.renderY + shakeY;
 
   ctx.fillStyle = map ? (THEMES[map.theme]?.bg ?? '#0a0812') : '#0a0812';
   ctx.fillRect(0, 0, W, H);
 
   map.draw(ctx, camOffX, camOffY, now);
+
+  // ── ビネット（画面周辺を暗く・奥行き演出）─────────
+  drawVignette(ctx, W, H);
 
   // 拠点オブジェクト描画
   if (gamePhase === 'BASE') {
@@ -2061,6 +2228,15 @@ function _draw(ctx, W, H, now) {
 
   particles.draw(ctx);
 
+  // ── 埃・ちり（アクター上に漂う空気感）────────
+  if (gamePhase === 'DUNGEON') _drawDust(ctx);
+
+  // 魔法VFX 描画
+  drawMagicEffects(magicEffects, {
+    ctx, camOffX, camOffY, TILE_SIZE, W, H, particles,
+    onShake: triggerShake,
+  });
+
   // AOEフラッシュ描画
   for (const f of aoeFlash) {
     if (f.alpha <= 0) continue;
@@ -2080,24 +2256,44 @@ function _draw(ctx, W, H, now) {
     const angle = Math.atan2(a.twy - a.wy, a.twx - a.wx);
     ctx.save();
     if (a.isMagic) {
-      // 魔法弾：輝く円
-      ctx.shadowColor = a.color;
-      ctx.shadowBlur  = 14;
-      ctx.fillStyle   = a.color;
+      // ── 魔法弾：長いトレイル ─────────────────
+      ctx.globalCompositeOperation = 'lighter';
+      const segments = 9;
+      for (let i = segments - 1; i >= 0; i--) {
+        const back = i * 5;
+        const alpha = (1 - i / segments) * 0.9;
+        const r = 5 * (1 - i / segments * 0.7);
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor = a.color;
+        ctx.shadowBlur  = 14;
+        ctx.fillStyle   = a.color;
+        ctx.beginPath();
+        ctx.arc(sx - Math.cos(angle) * back, sy - Math.sin(angle) * back, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // コア（白く光る芯）
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur  = 18;
+      ctx.fillStyle   = '#ffffff';
       ctx.beginPath();
-      ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-      ctx.fill();
-      // 軌跡
-      ctx.globalAlpha  = 0.4;
-      ctx.beginPath();
-      ctx.arc(sx - Math.cos(angle) * 8, sy - Math.sin(angle) * 8, 3, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else {
+      // ── 矢：軌跡線 ─────────────────────────
+      ctx.globalAlpha = 0.45;
+      ctx.strokeStyle = 'rgba(252,211,77,0.6)';
+      ctx.lineWidth   = 2;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx - Math.cos(angle) * 28, sy - Math.sin(angle) * 28);
+      ctx.lineTo(sx - Math.cos(angle) * 10, sy - Math.sin(angle) * 10);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
       ctx.shadowColor = '#fcd34d';
-      ctx.shadowBlur  = 8;
+      ctx.shadowBlur  = 10;
       ctx.strokeStyle = '#c08030';
       ctx.lineWidth   = 2.5;
-      ctx.lineCap     = 'round';
       ctx.beginPath();
       ctx.moveTo(sx - Math.cos(angle) * 10, sy - Math.sin(angle) * 10);
       ctx.lineTo(sx + Math.cos(angle) * 4, sy + Math.sin(angle) * 4);
@@ -2108,6 +2304,30 @@ function _draw(ctx, W, H, now) {
       ctx.arc(sx, sy, 3, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  // ── ヴィネット（ダンジョンのみ・プレイヤー中心 FOV） ──────
+  if (gamePhase === 'DUNGEON' && player) {
+    const { sx: psx, sy: psy } = player.screenPos(camOffX, camOffY);
+    const outer = Math.max(W, H) * 0.78;
+    // 外側の暗化（視界外）— 奥に行くほど青みがかった闇
+    const grad  = ctx.createRadialGradient(psx, psy, TILE_SIZE * 2.0, psx, psy, outer);
+    grad.addColorStop(0,    'rgba(0,0,0,0)');
+    grad.addColorStop(0.5,  'rgba(4,6,14,0.48)');
+    grad.addColorStop(1,    'rgba(2,4,10,0.92)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    // 中心の暖色光（プレイヤー周辺の松明的な明かり）
+    const warm = ctx.createRadialGradient(psx, psy, 0, psx, psy, TILE_SIZE * 3.0);
+    warm.addColorStop(0,   'rgba(255,170,80,0.34)');
+    warm.addColorStop(0.5, 'rgba(255,130,50,0.14)');
+    warm.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 

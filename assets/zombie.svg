@@ -1,37 +1,116 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <ellipse cx="24" cy="46" rx="10" ry="3" fill="rgba(0,0,0,0.2)"/>
-  <!-- 足 -->
-  <rect x="18" y="38" width="5" height="8" rx="2" fill="#4a6a20" stroke="#2a4a10" stroke-width="1"/>
-  <rect x="25" y="38" width="5" height="8" rx="2" fill="#4a6a20" stroke="#2a4a10" stroke-width="1"/>
-  <!-- 腕（前に伸ばす） -->
-  <path d="M16,24 Q8,26 5,22" stroke="#4a6a20" stroke-width="4" stroke-linecap="round" fill="none"/>
-  <path d="M32,24 Q40,22 43,18" stroke="#4a6a20" stroke-width="4" stroke-linecap="round" fill="none"/>
-  <!-- 指（左） -->
-  <line x1="5" y1="22" x2="2" y2="18" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="5" y1="22" x2="2" y2="22" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="5" y1="22" x2="3" y2="26" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <!-- 指（右） -->
-  <line x1="43" y1="18" x2="46" y2="14" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="43" y1="18" x2="46" y2="18" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="43" y1="18" x2="45" y2="22" stroke="#3a5a10" stroke-width="1.5" stroke-linecap="round"/>
-  <!-- 胴体 -->
-  <rect x="16" y="22" width="16" height="18" rx="3" fill="#5a7a28" stroke="#2a4a10" stroke-width="1.2"/>
-  <!-- 傷跡 -->
-  <path d="M20,26 Q22,28 20,32" stroke="#3a5a10" stroke-width="1.2" fill="none"/>
-  <path d="M26,28 L28,34" stroke="#3a5a10" stroke-width="1.2"/>
-  <!-- 首 -->
-  <rect x="21" y="17" width="6" height="6" rx="1" fill="#5a7a28" stroke="#2a4a10" stroke-width="1"/>
-  <!-- 頭 -->
-  <ellipse cx="24" cy="12" rx="9" ry="8" fill="#607a2e" stroke="#2a4a10" stroke-width="1.4"/>
-  <!-- 腐った肌の質感 -->
-  <ellipse cx="18" cy="10" rx="3" ry="2" fill="#4a6a20" opacity="0.5"/>
-  <ellipse cx="30" cy="13" rx="2.5" ry="2" fill="#4a6a20" opacity="0.5"/>
-  <!-- 目（黄濁した） -->
-  <ellipse cx="19" cy="12" rx="3.5" ry="3" fill="#c8c060"/>
-  <ellipse cx="29" cy="12" rx="3.5" ry="3" fill="#c8c060"/>
-  <ellipse cx="19" cy="12" rx="2" ry="1.8" fill="#8a7a00"/>
-  <ellipse cx="29" cy="12" rx="2" ry="1.8" fill="#8a7a00"/>
-  <line x1="16" y1="10" x2="22" y2="14" stroke="#2a4a10" stroke-width="1.2"/>
-  <!-- 口（うめき） -->
-  <path d="M19,17 Q24,21 29,17" stroke="#2a4a10" stroke-width="1.5" fill="#2a1a08"/>
+  <defs>
+    <linearGradient id="zb_skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#8aa858"/>
+      <stop offset="50%" stop-color="#556a30"/>
+      <stop offset="100%" stop-color="#1e2d10"/>
+    </linearGradient>
+    <linearGradient id="zb_rag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#3a2e1c"/>
+      <stop offset="100%" stop-color="#120a04"/>
+    </linearGradient>
+    <linearGradient id="zb_pant" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#2e2210"/>
+      <stop offset="100%" stop-color="#0a0602"/>
+    </linearGradient>
+    <radialGradient id="zb_eye" cx="50%" cy="50%" r="55%">
+      <stop offset="0%"  stop-color="#f8f0c0"/>
+      <stop offset="70%" stop-color="#8a7a20"/>
+      <stop offset="100%" stop-color="#3a2a00"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 影 -->
+  <ellipse cx="24" cy="46" rx="11" ry="2.8" fill="rgba(0,0,0,0.32)"/>
+
+  <!-- 脚（ズボンの裾） -->
+  <path d="M17,37 L22,37 L21,46 L16,46 Z" fill="url(#zb_pant)" stroke="#0a0400" stroke-width="0.5"/>
+  <path d="M26,37 L31,37 L32,46 L27,46 Z" fill="url(#zb_pant)" stroke="#0a0400" stroke-width="0.5"/>
+  <!-- 裾の破れ -->
+  <path d="M16,44 L17,46 L18,44 L19,46 L20,44" stroke="#0a0400" stroke-width="0.5" fill="none"/>
+  <path d="M27,44 L28,46 L29,44 L30,46 L31,44" stroke="#0a0400" stroke-width="0.5" fill="none"/>
+  <!-- 膝穴から皮膚 -->
+  <ellipse cx="19" cy="41" rx="1.2" ry="0.8" fill="url(#zb_skin)"/>
+  <ellipse cx="29" cy="41" rx="1.2" ry="0.8" fill="url(#zb_skin)"/>
+
+  <!-- 腕（だらんと前に伸ばす） -->
+  <path d="M15,24 Q8,28 4,22" stroke="url(#zb_skin)" stroke-width="4.2" stroke-linecap="round" fill="none"/>
+  <path d="M33,24 Q40,22 44,16" stroke="url(#zb_skin)" stroke-width="4.2" stroke-linecap="round" fill="none"/>
+  <!-- 腕の腐食 -->
+  <ellipse cx="7" cy="24" rx="1.2" ry="0.7" fill="#2a3a0a" opacity="0.7"/>
+  <ellipse cx="40" cy="20" rx="1.2" ry="0.7" fill="#2a3a0a" opacity="0.7"/>
+  <!-- 左手 -->
+  <ellipse cx="4" cy="22" rx="1.7" ry="1.4" fill="url(#zb_skin)" stroke="#1e2d10" stroke-width="0.5"/>
+  <path d="M4,22 L1.5,18" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M4,22 L1.5,22" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M4,22 L2,25.5" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- 右手 -->
+  <ellipse cx="44" cy="16" rx="1.7" ry="1.4" fill="url(#zb_skin)" stroke="#1e2d10" stroke-width="0.5"/>
+  <path d="M44,16 L46.5,12.5" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M44,16 L47,16" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M44,16 L46.5,19.5" stroke="#556a30" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- 破れシャツ -->
+  <path d="M15,22 Q15,20 17,19 L31,19 Q33,20 33,22 L33,38 Q24,40 15,38 Z" fill="url(#zb_rag)" stroke="#0a0400" stroke-width="0.6"/>
+  <!-- シャツの破れ（胸から腹） -->
+  <path d="M22,21 L20,28 L24,26 L22,34 L26,32 L24,38" stroke="#0a0400" stroke-width="0.7" fill="none"/>
+  <path d="M23,27 Q24,29 25,27" fill="url(#zb_skin)"/>
+  <path d="M22,33 Q24,35 26,33" fill="url(#zb_skin)"/>
+  <!-- 血しぶき -->
+  <path d="M19,24 L18,27 L20,26 Z" fill="#6a0a0a" opacity="0.7"/>
+  <path d="M27,32 L28,35 L29,33 Z" fill="#6a0a0a" opacity="0.7"/>
+  <path d="M24,20 L23,22 L25,21 Z" fill="#6a0a0a" opacity="0.6"/>
+
+  <!-- 首（前傾） -->
+  <rect x="21" y="16" width="6" height="5" fill="url(#zb_skin)" stroke="#1e2d10" stroke-width="0.5"/>
+  <!-- 首の傷（縫い跡） -->
+  <line x1="21" y1="18" x2="27" y2="18" stroke="#2a0a0a" stroke-width="0.6"/>
+  <line x1="22" y1="17.5" x2="22" y2="18.5" stroke="#2a0a0a" stroke-width="0.4"/>
+  <line x1="24" y1="17.5" x2="24" y2="18.5" stroke="#2a0a0a" stroke-width="0.4"/>
+  <line x1="26" y1="17.5" x2="26" y2="18.5" stroke="#2a0a0a" stroke-width="0.4"/>
+
+  <!-- 頭（腐った） -->
+  <ellipse cx="24" cy="11" rx="9.5" ry="8.5" fill="url(#zb_skin)" stroke="#1e2d10" stroke-width="0.9"/>
+  <!-- 頭の光（上） -->
+  <path d="M17,5 Q22,3 27,4" stroke="rgba(200,220,140,0.5)" stroke-width="0.7" fill="none"/>
+  <!-- 腐食のパッチ -->
+  <ellipse cx="18" cy="9" rx="2.5" ry="2" fill="#2a3a0a" opacity="0.6"/>
+  <ellipse cx="30" cy="13" rx="2" ry="1.8" fill="#2a3a0a" opacity="0.6"/>
+  <ellipse cx="24" cy="5.5" rx="1.8" ry="0.8" fill="#2a3a0a" opacity="0.5"/>
+
+  <!-- 髪（まばらな毛） -->
+  <path d="M16,6 L14,2 L17,5 M19,4 L19,1 L21,4 M24,3 L25,0 L27,3 M29,4 L31,1 L31,5" stroke="#2a1a08" stroke-width="0.9" fill="none"/>
+
+  <!-- 縫い傷（顔） -->
+  <path d="M12,11 L22,15" stroke="#2a0a0a" stroke-width="0.9" fill="none"/>
+  <line x1="14" y1="11.5" x2="14" y2="12.5" stroke="#2a0a0a" stroke-width="0.4"/>
+  <line x1="16" y1="12.3" x2="16" y2="13.3" stroke="#2a0a0a" stroke-width="0.4"/>
+  <line x1="18" y1="13.1" x2="18" y2="14.1" stroke="#2a0a0a" stroke-width="0.4"/>
+  <line x1="20" y1="13.9" x2="20" y2="14.9" stroke="#2a0a0a" stroke-width="0.4"/>
+
+  <!-- 目（黄濁・血走り） -->
+  <ellipse cx="19" cy="11" rx="3.4" ry="2.8" fill="#1a1408"/>
+  <ellipse cx="29" cy="11" rx="3.4" ry="2.8" fill="#1a1408"/>
+  <ellipse cx="19" cy="11" rx="2.6" ry="2.2" fill="url(#zb_eye)"/>
+  <ellipse cx="29" cy="11" rx="2.6" ry="2.2" fill="url(#zb_eye)"/>
+  <ellipse cx="19" cy="11" rx="0.8" ry="1.6" fill="#0a0800"/>
+  <ellipse cx="29" cy="11" rx="0.8" ry="1.6" fill="#0a0800"/>
+  <!-- 血走り -->
+  <path d="M16.5,10 L17.5,11" stroke="#8a1010" stroke-width="0.3"/>
+  <path d="M16.5,11.5 L17.5,11.2" stroke="#8a1010" stroke-width="0.3"/>
+  <path d="M31.5,10 L30.5,11" stroke="#8a1010" stroke-width="0.3"/>
+  <path d="M31.5,11.5 L30.5,11.2" stroke="#8a1010" stroke-width="0.3"/>
+
+  <!-- 口（だらしなく開く） -->
+  <path d="M18,15.5 Q24,19.5 30,15.5 L30,16.5 Q24,20.5 18,16.5 Z" fill="#1a0a04" stroke="#0a0400" stroke-width="0.5"/>
+  <!-- 垂れる涎 -->
+  <path d="M21,18.5 L20.5,21" stroke="#8a3010" stroke-width="0.5" opacity="0.7"/>
+  <!-- 抜けた歯 -->
+  <rect x="21" y="16" width="1.3" height="2" fill="#d8d0b4" stroke="#5a4a20" stroke-width="0.3"/>
+  <rect x="25.7" y="16" width="1.3" height="2" fill="#d8d0b4" stroke="#5a4a20" stroke-width="0.3"/>
+  <!-- 牙 -->
+  <path d="M24,16.5 L24.5,19 L25,16.5 Z" fill="#f0ead6" stroke="#5a4a20" stroke-width="0.3"/>
+
+  <!-- リムライト -->
+  <path d="M14,8 Q14,14 15,20" stroke="rgba(160,200,100,0.4)" stroke-width="0.6" fill="none"/>
 </svg>

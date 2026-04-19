@@ -717,10 +717,98 @@ export class Enemy extends Actor {
     ctx.restore();
 
     if (!this.isBoss && !this.isShinigami) {
-      _drawHPBar(ctx, sx, sy - sz / 2 - 8,  sz, this.hp, this.maxHP, this.hpBarColor);
+      _drawHPBar(ctx, sx, sy - sz / 2 - 8,  sz, this.hp, this.maxHP, this.hpBarColor, this.displayHp);
     }
     if (this.isBoss) {
-      _drawHPBar(ctx, sx, sy - sz / 2 - 10, sz, this.hp, this.maxHP, this.hpBarColor);
+      _drawHPBar(ctx, sx, sy - sz / 2 - 10, sz, this.hp, this.maxHP, this.hpBarColor, this.displayHp);
+    }
+
+    // ── ステータス効果アイコン（HPバー上に小さく並べる） ──────
+    if (this.statusEffects && this.statusEffects.length > 0) {
+      const iconY = sy - sz / 2 - (this.isBoss ? 22 : 20);
+      _drawStatusIcons(ctx, sx, iconY, this.statusEffects, now);
+    }
+
+    // ── 詠唱中の警告（castCharge > 0） ─────────────────────────
+    if (this._castCharge > 0 && this.castTime > 0) {
+      _drawCastIndicator(ctx, sx, sy - sz / 2 - 26, this._castCharge, this.castTime);
     }
   }
+}
+
+// ── ステータスアイコン定義（type → 絵文字 + 色） ─────────────
+const STATUS_ICON: Record<string, { icon: string; color: string }> = {
+  poison:    { icon: '☠', color: '#9b30ff' },
+  stun:      { icon: '★', color: '#fbbf24' },
+  burn:      { icon: '🔥', color: '#ff5a1e' },
+  freeze:    { icon: '❄', color: '#7ddfff' },
+  sleep:     { icon: 'z', color: '#80a0ff' },
+  slow:      { icon: '⌛', color: '#94a3b8' },
+  haste:     { icon: '💨', color: '#22d3ee' },
+  barrier:   { icon: '🛡', color: '#60a5fa' },
+  iron_skin: { icon: '⚒', color: '#a8a8a8' },
+  war_cry:   { icon: '⚔', color: '#ef4444' },
+  berserk:   { icon: '🗲', color: '#dc2626' },
+};
+
+function _drawStatusIcons(
+  ctx: CanvasRenderingContext2D,
+  cx:  number,
+  y:   number,
+  effects: StatusEffectEntry[],
+  now: number,
+): void {
+  const ic = effects.slice(0, 4); // 最大4個
+  const w  = 12;
+  const total = ic.length * w;
+  const start = cx - total / 2 + w / 2;
+  ctx.save();
+  ctx.font         = '11px sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < ic.length; i++) {
+    const ef  = ic[i] as { type: string };
+    const def = STATUS_ICON[ef.type];
+    if (!def) continue;
+    const ix  = start + i * w;
+    const pul = 0.85 + 0.15 * Math.sin(now * 6 + i);
+    // 背景円
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle   = 'rgba(0,0,0,0.65)';
+    ctx.beginPath();
+    ctx.arc(ix, y, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    // 縁
+    ctx.globalAlpha = pul;
+    ctx.strokeStyle = def.color;
+    ctx.lineWidth   = 1.2;
+    ctx.beginPath();
+    ctx.arc(ix, y, 6.5, 0, Math.PI * 2);
+    ctx.stroke();
+    // アイコン文字
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = def.color;
+    ctx.fillText(def.icon, ix, y + 0.5);
+  }
+  ctx.restore();
+}
+
+/** 詠唱ゲージ */
+function _drawCastIndicator(
+  ctx: CanvasRenderingContext2D,
+  cx:  number,
+  y:   number,
+  charge: number,
+  total:  number,
+): void {
+  const ratio = 1 - charge / total;
+  const w = 26, h = 4;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(cx - w / 2 - 1, y - h / 2 - 1, w + 2, h + 2);
+  ctx.fillStyle = 'rgba(140,40,40,0.9)';
+  ctx.fillRect(cx - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = '#ff5a1e';
+  ctx.fillRect(cx - w / 2, y - h / 2, w * ratio, h);
+  ctx.restore();
 }

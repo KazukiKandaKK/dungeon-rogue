@@ -1,49 +1,80 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <!-- ── スライム（DQ/ディスガイア風 かわいい） ── -->
+  <defs>
+    <radialGradient id="sl_body" cx="45%" cy="35%" r="70%">
+      <stop offset="0%"  stop-color="#a8e8ff"/>
+      <stop offset="45%" stop-color="#3a9edc"/>
+      <stop offset="100%" stop-color="#0b3060"/>
+    </radialGradient>
+    <radialGradient id="sl_core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#e6faff" stop-opacity="1"/>
+      <stop offset="70%" stop-color="#7ac8f0" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#3a9edc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sl_crown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#ffe58a"/>
+      <stop offset="100%" stop-color="#a46b14"/>
+    </linearGradient>
+    <filter id="sl_blur"><feGaussianBlur stdDeviation="0.6"/></filter>
+  </defs>
 
   <!-- 影 -->
-  <ellipse cx="24" cy="45" rx="12" ry="3.5" fill="rgba(0,0,0,0.18)"/>
+  <ellipse cx="24" cy="45.5" rx="14" ry="3" fill="rgba(0,0,0,0.30)"/>
 
-  <!-- 本体（大きな水滴型） -->
-  <path d="M8,30 Q6,18 14,10 Q18,5 24,4 Q30,5 34,10 Q42,18 40,30 Q38,40 24,42 Q10,40 8,30Z"
-        fill="#38c8f8" stroke="#0090d0" stroke-width="1.5"/>
-  <!-- ゼリー光沢（上） -->
-  <path d="M14,12 Q18,7 24,6 Q30,7 34,12 Q30,10 24,9 Q18,10 14,12Z"
-        fill="rgba(255,255,255,0.55)"/>
-  <!-- ゼリー光沢（左上） -->
-  <ellipse cx="16" cy="14" rx="5" ry="3.5" fill="rgba(255,255,255,0.35)" transform="rotate(-20,16,14)"/>
+  <!-- しずくボディ（外側の光） -->
+  <path d="M6,32 Q4,16 16,8 Q24,4 32,8 Q44,16 42,32 Q40,42 24,44 Q8,42 6,32 Z"
+        fill="url(#sl_body)" stroke="#0b3060" stroke-width="1.2" filter="url(#sl_blur)" opacity="0.7"/>
+  <!-- 本体 -->
+  <path d="M8,30 Q6,17 16,9 Q24,5 32,9 Q42,17 40,30 Q38,41 24,43 Q10,41 8,30 Z"
+        fill="url(#sl_body)" stroke="#0a2c58" stroke-width="1.2"/>
+
+  <!-- ゼリー光沢（大） -->
+  <path d="M13,13 Q18,8 24,7 Q27,8 26,11 Q20,12 14,16 Z" fill="rgba(255,255,255,0.55)"/>
+  <!-- ハイライト（小） -->
+  <ellipse cx="15.5" cy="19" rx="2.5" ry="1.4" fill="rgba(255,255,255,0.35)"/>
+  <ellipse cx="36"   cy="22" rx="1.5" ry="0.8" fill="rgba(255,255,255,0.25)"/>
+
+  <!-- 内部の光る核 -->
+  <ellipse cx="24" cy="30" rx="9" ry="5" fill="url(#sl_core)" opacity="0.9"/>
+  <circle cx="24" cy="30" r="2" fill="#ffffff" opacity="0.7"/>
+
+  <!-- 水泡（内側に浮かぶ） -->
+  <circle cx="14" cy="28" r="1.3" fill="rgba(200,240,255,0.55)" stroke="rgba(180,220,245,0.4)" stroke-width="0.4"/>
+  <circle cx="34" cy="30" r="1.1" fill="rgba(200,240,255,0.55)" stroke="rgba(180,220,245,0.4)" stroke-width="0.4"/>
+  <circle cx="18" cy="38" r="0.9" fill="rgba(200,240,255,0.55)"/>
+  <circle cx="30" cy="36" r="1.0" fill="rgba(200,240,255,0.55)"/>
 
   <!-- 王冠 -->
-  <path d="M14,14 L14,8 L18,12 L24,7 L30,12 L34,8 L34,14 Z"
-        fill="#ffd060" stroke="#b08000" stroke-width="1"/>
-  <!-- 王冠の宝石 -->
-  <circle cx="24" cy="8.5" r="2.5" fill="#ff6688" stroke="#cc2244" stroke-width="0.8"/>
-  <circle cx="16" cy="9.5" r="1.8" fill="#88ddff" stroke="#2288cc" stroke-width="0.6"/>
-  <circle cx="32" cy="9.5" r="1.8" fill="#88ffaa" stroke="#22cc66" stroke-width="0.6"/>
+  <path d="M14,14 L13,6 L18,11 L24,5 L30,11 L35,6 L34,14 Z"
+        fill="url(#sl_crown)" stroke="#6a4a00" stroke-width="0.8"/>
+  <path d="M14,14 L34,14 L34,15.5 L14,15.5 Z" fill="#a46b14" stroke="#6a4a00" stroke-width="0.5"/>
+  <!-- 宝石 -->
+  <circle cx="24" cy="7.5" r="2.2" fill="#ff4560" stroke="#801028" stroke-width="0.6"/>
+  <circle cx="24.6" cy="6.6" r="0.6" fill="#ffc0d0"/>
+  <circle cx="18" cy="11" r="1.5" fill="#60d0ff" stroke="#1070a0" stroke-width="0.5"/>
+  <circle cx="30" cy="11" r="1.5" fill="#80ffa0" stroke="#20a060" stroke-width="0.5"/>
 
-  <!-- 目（大きくキュート） -->
-  <!-- 白目 -->
-  <ellipse cx="18" cy="26" rx="6"  ry="7"   fill="white" stroke="#2080b0" stroke-width="1.2"/>
-  <ellipse cx="30" cy="26" rx="6"  ry="7"   fill="white" stroke="#2080b0" stroke-width="1.2"/>
-  <!-- 虹彩（水色） -->
-  <ellipse cx="18" cy="27" rx="4"  ry="5.5" fill="#00a0e8"/>
-  <ellipse cx="30" cy="27" rx="4"  ry="5.5" fill="#00a0e8"/>
+  <!-- 目（不気味に光る） -->
+  <ellipse cx="18" cy="26" rx="5" ry="6" fill="#0a1830"/>
+  <ellipse cx="30" cy="26" rx="5" ry="6" fill="#0a1830"/>
+  <!-- 目のハロー -->
+  <ellipse cx="18" cy="26" rx="6" ry="7" fill="#7ec8ff" opacity="0.25"/>
+  <ellipse cx="30" cy="26" rx="6" ry="7" fill="#7ec8ff" opacity="0.25"/>
+  <!-- 虹彩 -->
+  <ellipse cx="18" cy="26.5" rx="3.2" ry="4.5" fill="#00a6f0"/>
+  <ellipse cx="30" cy="26.5" rx="3.2" ry="4.5" fill="#00a6f0"/>
   <!-- 瞳 -->
-  <ellipse cx="18" cy="27.5" rx="2.4" ry="3.5" fill="#003860"/>
-  <ellipse cx="30" cy="27.5" rx="2.4" ry="3.5" fill="#003860"/>
-  <!-- ハイライト（大） -->
-  <ellipse cx="20"   cy="24.5" rx="2"   ry="2.5" fill="white"/>
-  <ellipse cx="32"   cy="24.5" rx="2"   ry="2.5" fill="white"/>
-  <!-- ハイライト（小） -->
-  <ellipse cx="17"   cy="29"   rx="1"   ry="1.2" fill="rgba(255,255,255,0.6)"/>
-  <ellipse cx="29"   cy="29"   rx="1"   ry="1.2" fill="rgba(255,255,255,0.6)"/>
-  <!-- まつ毛 -->
-  <path d="M12.5,23 Q18,20.5 23.5,23" stroke="#0070a8" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  <path d="M24.5,23 Q30,20.5 35.5,23" stroke="#0070a8" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <ellipse cx="18" cy="27" rx="1.5" ry="3" fill="#001a30"/>
+  <ellipse cx="30" cy="27" rx="1.5" ry="3" fill="#001a30"/>
+  <!-- ハイライト -->
+  <ellipse cx="19.5" cy="24" rx="1.4" ry="1.8" fill="#ffffff"/>
+  <ellipse cx="31.5" cy="24" rx="1.4" ry="1.8" fill="#ffffff"/>
+  <ellipse cx="17"   cy="28.5" rx="0.7" ry="0.8" fill="rgba(255,255,255,0.6)"/>
+  <ellipse cx="29"   cy="28.5" rx="0.7" ry="0.8" fill="rgba(255,255,255,0.6)"/>
 
-  <!-- 口（ニコニコ） -->
-  <path d="M19,36 Q24,40 29,36" stroke="#0070a8" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-  <!-- ほっぺ -->
-  <ellipse cx="12" cy="31" rx="4" ry="2.5" fill="#aae8ff" opacity="0.5"/>
-  <ellipse cx="36" cy="31" rx="4" ry="2.5" fill="#aae8ff" opacity="0.5"/>
+  <!-- 口（小さくニコ） -->
+  <path d="M20,35 Q24,38 28,35" stroke="#082850" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+  <!-- 頬（透明感） -->
+  <ellipse cx="12" cy="32" rx="3" ry="1.8" fill="#e0f6ff" opacity="0.35"/>
+  <ellipse cx="36" cy="32" rx="3" ry="1.8" fill="#e0f6ff" opacity="0.35"/>
 </svg>

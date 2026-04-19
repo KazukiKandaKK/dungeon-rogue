@@ -59,14 +59,18 @@ export class ParticleSystem {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    if (this._list.length === 0) return;
+    ctx.save();
+    // shadowBlur / lighter ブレンドは負荷が高いため、単純な半透明円で表現
     for (const p of this._list) {
-      ctx.globalAlpha = p.life / p.maxLife;
+      const t = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = t;
       ctx.fillStyle   = p.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife) + 0.5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, p.size * t + 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   clear(): void { this._list = []; }

@@ -41,34 +41,35 @@ export interface Theme {
 export type ThemeId = 'dungeon' | 'forest' | 'town' | 'base';
 
 // テーマ別カラーパレット（描画は map.ts が使用）
+// 写実寄りの色調に調整：彩度控えめ、石・土・草の自然なトーン
 export const THEMES: Record<ThemeId, Theme> = {
   dungeon: {
-    bg:       '#000000',
+    bg:       '#030406',
     label:    'ダンジョン',
-    wall:     { base: '#0c0a18', lo: '#040309', hi: 'rgba(80,60,130,0.18)', sh: 'rgba(0,0,0,0.85)', moss: '#0a1008' },
-    floor:    { base: '#e8d4a8', grid: 'rgba(180,140,70,0.3)', hi: 'rgba(255,255,255,0.06)' },
-    corridor: { base: '#c0a070', grid: 'rgba(140,100,50,0.3)', hi: 'rgba(255,255,255,0.04)' },
+    wall:     { base: '#221d18', lo: '#0c0a07', hi: 'rgba(180,165,140,0.10)', sh: 'rgba(0,0,0,0.82)', moss: '#2e3820' },
+    floor:    { base: '#584c3a', grid: 'rgba(40,30,18,0.42)', hi: 'rgba(255,240,200,0.04)' },
+    corridor: { base: '#463c2c', grid: 'rgba(30,22,12,0.45)', hi: 'rgba(255,240,200,0.03)' },
   },
   forest: {
-    bg:       '#0d1f06',
+    bg:       '#0a1606',
     label:    '森',
-    wall:     { base: '#223a10', lo: '#0c1808', hi: 'rgba(80,200,50,0.45)', sh: 'rgba(0,0,0,0.55)', moss: '#1a3010' },
-    floor:    { base: '#3d6e22', grid: 'rgba(50,100,20,0.25)', hi: 'rgba(150,255,80,0.07)' },
-    corridor: { base: '#7a5a2a', grid: 'rgba(100,70,20,0.3)',  hi: 'rgba(200,160,80,0.06)' },
+    wall:     { base: '#1e2e12', lo: '#0a1208', hi: 'rgba(120,180,80,0.18)', sh: 'rgba(0,0,0,0.55)', moss: '#2a4018' },
+    floor:    { base: '#3e5a24', grid: 'rgba(40,80,16,0.28)', hi: 'rgba(180,230,120,0.06)' },
+    corridor: { base: '#6a4e24', grid: 'rgba(80,56,16,0.38)', hi: 'rgba(200,160,80,0.05)' },
   },
   town: {
-    bg:       '#1e1a14',
+    bg:       '#12100c',
     label:    '街',
-    wall:     { base: '#504030', lo: '#201808', hi: 'rgba(220,200,160,0.45)', sh: 'rgba(0,0,0,0.55)', moss: '#1e2010' },
-    floor:    { base: '#d4c4a0', grid: 'rgba(160,140,90,0.4)', hi: 'rgba(255,255,255,0.05)' },
-    corridor: { base: '#a09070', grid: 'rgba(120,100,60,0.35)',hi: 'rgba(255,255,255,0.04)' },
+    wall:     { base: '#4a3a2c', lo: '#1e140a', hi: 'rgba(200,180,140,0.28)', sh: 'rgba(0,0,0,0.55)', moss: '#283020' },
+    floor:    { base: '#a8987a', grid: 'rgba(120,100,68,0.38)', hi: 'rgba(255,248,220,0.05)' },
+    corridor: { base: '#86785e', grid: 'rgba(96,80,50,0.40)', hi: 'rgba(255,248,220,0.04)' },
   },
   base: {
-    bg:       '#000000',
+    bg:       '#0a0805',
     label:    '拠点',
-    wall:     { base: '#1c0e06', lo: '#0a0604', hi: 'rgba(200,120,60,0.18)', sh: 'rgba(0,0,0,0.85)', moss: '#0a1008' },
-    floor:    { base: '#c8a87a', grid: 'rgba(160,110,50,0.3)', hi: 'rgba(255,255,255,0.06)' },
-    corridor: { base: '#b89860', grid: 'rgba(140,100,50,0.3)', hi: 'rgba(255,255,255,0.04)' },
+    wall:     { base: '#2a1c10', lo: '#100804', hi: 'rgba(200,140,80,0.15)', sh: 'rgba(0,0,0,0.80)', moss: '#202818' },
+    floor:    { base: '#a8886a', grid: 'rgba(120,80,36,0.30)', hi: 'rgba(255,240,200,0.05)' },
+    corridor: { base: '#8e7050', grid: 'rgba(100,70,30,0.32)', hi: 'rgba(255,240,200,0.04)' },
   },
 };
 

@@ -63,6 +63,10 @@ export class Player extends Actor {
   statusEffects: StatusEffectEntry[];
 
   gold: number;
+  /** 採掘で得た石（マイクラ風素材）。石の壁を1つ建てるのに1個使用 */
+  stones: number;
+  /** 伐採で得た木材。木の壁を1つ建てるのに1個使用 */
+  wood: number;
 
   equip:        Equipment;
   inventory:    ItemDef[];
@@ -97,7 +101,9 @@ export class Player extends Actor {
     this.spells        = [...(cls.startSpells ?? [])];
     this.statusEffects = [];
 
-    this.gold = 0;
+    this.gold   = 0;
+    this.stones = 0;
+    this.wood   = 0;
 
     this.equip        = { weapon: null, armor: null, accessory: null };
     this.inventory    = [];
@@ -321,6 +327,38 @@ export class Player extends Actor {
     ctx.shadowBlur = 0;
     ctx.restore();
 
+    // ── 武器振り抜きアーク（攻撃時のみ） ───────────
+    if (this.swipeTime > 0 && this.swipeMax > 0) {
+      const t = 1 - this.swipeTime / this.swipeMax; // 0 → 1
+      const baseAngle = Math.atan2(this.swipeDirY, this.swipeDirX);
+      const arcSpan   = Math.PI * 0.9;
+      const start     = baseAngle - arcSpan / 2 + arcSpan * t;
+      const end       = start + arcSpan * 0.35;
+      const radius    = SZ * 0.55;
+      const alpha     = Math.sin(t * Math.PI); // 0 → 1 → 0
+      const color     = this.equip?.weapon?.color ?? '#e0e7ff';
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 5;
+      ctx.lineCap     = 'round';
+      ctx.shadowColor = color;
+      ctx.shadowBlur  = 14;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, start, end);
+      ctx.stroke();
+      // 白い芯
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth   = 2;
+      ctx.shadowBlur  = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, start, end);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // ── 装備アイコン ───────────────────────────────
     {
       const slots    = ['weapon', 'armor', 'accessory'] as EquipSlotName[];
@@ -379,7 +417,7 @@ export class Player extends Actor {
 
     ctx.restore();
 
-    _drawHPBar(ctx, sx, sy - SZ / 2 - 8,  SZ, this.hp, this.maxHP,      '#34d399');
+    _drawHPBar(ctx, sx, sy - SZ / 2 - 8,  SZ, this.hp, this.maxHP,      '#34d399', this.displayHp);
     _drawHPBar(ctx, sx, sy - SZ / 2 - 15, SZ, this.mp, this.totalMaxMp, '#818cf8');
   }
 }
@@ -387,13 +425,14 @@ export class Player extends Actor {
 // ── 共通 HP バー ────────────────────────────────
 
 export function _drawHPBar(
-  ctx:   CanvasRenderingContext2D,
-  cx:    number,
-  barY:  number,
-  width: number,
-  hp:    number,
-  maxHP: number,
-  color: string,
+  ctx:       CanvasRenderingContext2D,
+  cx:        number,
+  barY:      number,
+  width:     number,
+  hp:        number,
+  maxHP:     number,
+  color:     string,
+  displayHp: number = hp,
 ): void {
   const bw = width;
   const bh = 5;
@@ -403,8 +442,18 @@ export function _drawHPBar(
   ctx.fillRect(bx - 1, barY - 1, bw + 2, bh + 2);
   ctx.fillStyle = '#1e1e1e';
   ctx.fillRect(bx, barY, bw, bh);
+
+  // 残像（白っぽく、現在値より遅れて追従）
+  const ghostW = bw * Math.max(0, displayHp / maxHP);
+  const hpW    = bw * Math.max(0, hp / maxHP);
+  if (ghostW > hpW + 0.5) {
+    ctx.fillStyle = 'rgba(250,250,250,0.65)';
+    ctx.fillRect(bx + hpW, barY, ghostW - hpW, bh);
+  }
+
+  // 現在値
   ctx.fillStyle = color;
-  ctx.fillRect(bx, barY, bw * Math.max(0, hp / maxHP), bh);
+  ctx.fillRect(bx, barY, hpW, bh);
   ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.fillRect(bx, barY, bw * Math.max(0, hp / maxHP), bh / 2);
+  ctx.fillRect(bx, barY, hpW, bh / 2);
 }

@@ -282,6 +282,7 @@ export function drawEnemyRanges(
         Math.abs(e.tx - player.tx) <= 2 && Math.abs(e.ty - player.ty) <= 2;
       if (!isAdjacent) continue;
       ctx.save();
+      // 1マス隣接タイル（次ターンで届く範囲）
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue;
@@ -290,8 +291,18 @@ export function drawEnemyRanges(
           if (tx < 0 || ty < 0 || tx >= map.cols || ty >= map.rows) continue;
           const sx = tx * ts + camOffX;
           const sy = ty * ts + camOffY;
-          ctx.fillStyle = 'rgba(248,113,113,0.10)';
-          ctx.fillRect(sx, sy, ts, ts);
+          // プレイヤーがいるタイルは強く脈打つ赤
+          if (tx === player.tx && ty === player.ty) {
+            const pulse = 0.32 + 0.20 * Math.sin(t * 9);
+            ctx.fillStyle = `rgba(255,60,60,${pulse.toFixed(3)})`;
+            ctx.fillRect(sx, sy, ts, ts);
+            ctx.strokeStyle = `rgba(255,80,80,${(0.6 + 0.3 * Math.sin(t * 9)).toFixed(3)})`;
+            ctx.lineWidth   = 2;
+            ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
+          } else {
+            ctx.fillStyle = 'rgba(248,113,113,0.14)';
+            ctx.fillRect(sx, sy, ts, ts);
+          }
         }
       }
       ctx.restore();

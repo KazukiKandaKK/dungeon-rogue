@@ -11,6 +11,7 @@ import type { Actor }           from '../entities/actor.js';
 import type { Logger }          from '../core/logger.js';
 import type { ParticleSystem }  from '../core/particle.js';
 import type { StatusEffectEntry } from '../types.js';
+import type { FloatingText }    from '../core/game-context.js';
 
 // ── 戦闘に参加できるアクターの最小インターフェース ────────
 
@@ -45,6 +46,12 @@ export interface CombatContext {
    * @param color   CSS color 文字列（例: 'rgba(250,204,21,0.18)'）
    */
   onFlash:   (color: string) => void;
+  /** スクリーンシェイク（強度 px / 継続秒） */
+  onShake?:       (intensity: number, duration: number) => void;
+  /** ヒットストップ（継続秒） */
+  onHitStop?:     (seconds: number) => void;
+  /** ダメージ数値などのフローティングテキスト */
+  onFloatingText?: (ft: FloatingText) => void;
 }
 
 // ── 攻撃結果 ─────────────────────────────────────
@@ -72,7 +79,7 @@ export function attack(
   rawAtk:   number,
   ctx:      CombatContext,
 ): number {
-  const { player, logger, particles, camOffX, camOffY, onFlash } = ctx;
+  const { player, logger, particles, camOffX, camOffY, onFlash, onShake, onHitStop, onFloatingText } = ctx;
   const isPlayerAttacking = (attacker === (player as unknown as CombatActor));
   const isPlayerDefending = (defender === (player as unknown as CombatActor));
 
@@ -154,15 +161,54 @@ export function attack(
     }
   }
 
-  // ── 視覚エフェクト ────────────────────────────────
+  // ── 視覚エフェクト（軽量化）────────────────────────
   const { sx, sy } = defender.screenPos(camOffX, camOffY);
   const hitColor   = isPlayerAttacking ? '#fde68a' : '#fca5a5';
-  particles.spawn(sx, sy, hitColor, 12);
+  particles.spawn(sx, sy, hitColor, isCrit ? 10 : 5);
+  // 撃破時の追加バースト
+  if (!defender.alive) {
+    particles.spawn(sx, sy, hitColor, 7);
+  }
 
   if (isPlayerAttacking) {
-    onFlash('rgba(250,204,21,0.18)');
+    onFlash(isCrit ? 'rgba(255,210,80,0.20)' : 'rgba(250,204,21,0.08)');
   } else if (isPlayerDefending) {
-    onFlash('rgba(239,68,68,0.22)');
+    onFlash(isCrit ? 'rgba(255,80,80,0.22)' : 'rgba(239,68,68,0.12)');
+  }
+  // クリティカル：被弾位置に小バースト（フラッシュは上で既に強化済）
+  if (isCrit) {
+    particles.spawn(sx, sy, '#ffd24a', 6);
+  }
+
+  // ── シェイク / ヒットストップ（控えめに） ─────────
+  const killed = !defender.alive;
+  if (onShake) {
+    if (killed)                 onShake(7, 0.18);
+    else if (isCrit)            onShake(5, 0.14);
+    else if (isPlayerDefending) onShake(3, 0.10);
+    else                        onShake(2, 0.07);
+  }
+  if (onHitStop) {
+    if (killed)      onHitStop(0.07);
+    else if (isCrit) onHitStop(0.04);
+  }
+
+  // ── ダメージ数値（寿命短め・揺れ無し）──────────────
+  if (onFloatingText) {
+    const dmgColor = isCrit
+      ? '#fca5a5'
+      : isPlayerDefending ? '#f87171' : '#fef3c7';
+    const life = isCrit ? 0.7 : 0.5;
+    onFloatingText({
+      text:   isCrit ? `${damage}!` : `${damage}`,
+      x:      sx,
+      y:      sy - 18,
+      alpha:  1,
+      scale:  1,
+      color:  dmgColor,
+      life, maxLife: life,
+      big:    isCrit,
+    });
   }
 
   // ── ログ ─────────────────────────────────────────
