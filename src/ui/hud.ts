@@ -9,7 +9,8 @@ import type { Player }      from '../entities/player.js';
 import type { Enemy }       from '../entities/enemy.js';
 import type { DungeonDef }  from '../world/dungeon_defs.js';
 import { SPELLS }           from '../data/magic.js';
-import { drawItemSvg }      from './item-renderer.js';
+import { drawItemSvg, drawItemIcon } from './item-renderer.js';
+import type { SpriteLoader } from '../core/sprites.js';
 import type { FloatingText, GamePhase } from '../core/game-context.js';
 import { TILE }             from '../world/tiles.js';
 
@@ -49,6 +50,7 @@ export interface HotbarContext {
   player:    Player;
   hotbar:    (string | null)[];
   gamePhase: GamePhase;
+  sprites?:  SpriteLoader;
 }
 
 // ── Canvas ユーティリティ ────────────────────────
@@ -314,6 +316,8 @@ export function drawMinimap(
       const mmTile = map.grid[ty][tx2];
       if      (mmTile === TILE.PILLAR)           ctx.fillStyle = '#888';
       else if (mmTile === TILE.WATER)            ctx.fillStyle = '#3b82f6';
+      else if (mmTile === TILE.ICE)              ctx.fillStyle = '#a5e8ff';
+      else if (mmTile === TILE.MAGMA)            ctx.fillStyle = '#dc2626';
       else if (mmTile === TILE.TRAP)             ctx.fillStyle = map.revealedTraps.has(`${tx2},${ty}`) ? '#ef4444' : '#c4a87a';
       else if (map.isWalkable(tx2, ty))         ctx.fillStyle = '#c4a87a';
       else                                       ctx.fillStyle = '#3b1f82';
@@ -409,7 +413,7 @@ export function drawHotbar(
   H:   number,
   c:   HotbarContext,
 ): void {
-  const { player, hotbar, gamePhase } = c;
+  const { player, hotbar, gamePhase, sprites } = c;
   if (gamePhase === 'BASE') return;
   ctx.save();
 
@@ -495,14 +499,24 @@ export function drawHotbar(
       const item = player.inventory[i];
       drawMCSlot(ctx, sx, sy, INV_S, false);
       if (item) {
-        ctx.font = '20px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.fillText(item.icon, sx + INV_S / 2, sy + INV_S / 2 - 1);
+        drawItemIcon(ctx, item, sx + INV_S / 2, sy + INV_S / 2 - 1, INV_S - 6, sprites);
         const badge = ({ weapon: '武', armor: '鎧', accessory: '飾', consumable: '薬' } as Record<string, string>)[item.slot] ?? '';
         ctx.font = 'bold 7px monospace';
         ctx.fillStyle = item.slot === 'consumable' ? '#86efac' : '#a5b4fc';
         ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
         ctx.fillText(badge, sx + INV_S - 2, sy + INV_S - 2);
+        // スタック数
+        const cnt = item.count ?? 1;
+        if (cnt > 1) {
+          ctx.font = 'bold 8px monospace';
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+          ctx.fillText(`×${cnt}`, sx + INV_S - 1, sy + 2);
+          ctx.fillStyle = '#fde68a';
+          ctx.fillText(`×${cnt}`, sx + INV_S - 2, sy + 1);
+        }
       }
     }
   }

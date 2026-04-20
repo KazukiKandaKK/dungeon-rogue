@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♌ Leo — 百獣の王ライオン全身 -->
+  <defs>
+    <radialGradient id="le_mane" cx="50%" cy="50%" r="65%">
+      <stop offset="0%"  stop-color="#fef3c7"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </radialGradient>
+    <linearGradient id="le_body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 炎オーラ -->
+  <path d="M32,3 Q12,8 8,26 Q4,48 14,58 Q32,63 50,58 Q60,48 56,26 Q52,8 32,3Z"
+        fill="rgba(251,146,60,0.22)" stroke="rgba(254,215,170,0.4)" stroke-width="0.6"/>
+
+  <!-- 尾 -->
+  <path d="M48,40 Q58,42 58,54 Q56,56 54,56" fill="none" stroke="#b45309" stroke-width="1.4"/>
+  <path d="M54,54 L56,58 L60,56 L56,54 Z" fill="#f59e0b" stroke="#7c2d12" stroke-width="0.5"/>
+
+  <!-- 胴体 -->
+  <ellipse cx="32" cy="42" rx="13" ry="9" fill="url(#le_body)" stroke="#7c2d12" stroke-width="0.8"/>
+  <!-- 筋肉の陰影 -->
+  <path d="M22,42 Q32,44 42,42" stroke="#b45309" stroke-width="0.6" fill="none" opacity="0.7"/>
+
+  <!-- 前脚 -->
+  <rect x="22" y="46" width="6" height="12" rx="2" fill="#d97706" stroke="#7c2d12" stroke-width="0.6"/>
+  <rect x="36" y="46" width="6" height="12" rx="2" fill="#d97706" stroke="#7c2d12" stroke-width="0.6"/>
+  <!-- 爪 -->
+  <path d="M22,58 L23,62 M25,58 L25,62 M28,58 L27,62" stroke="#fff" stroke-width="0.8"/>
+  <path d="M36,58 L37,62 M39,58 L39,62 M42,58 L41,62" stroke="#fff" stroke-width="0.8"/>
+  <ellipse cx="25" cy="60" rx="3.5" ry="2" fill="#7c2d12"/>
+  <ellipse cx="39" cy="60" rx="3.5" ry="2" fill="#7c2d12"/>
+
+  <!-- 後脚（見えている部分） -->
+  <ellipse cx="46" cy="48" rx="4" ry="7" fill="#d97706" stroke="#7c2d12" stroke-width="0.6"/>
+  <ellipse cx="18" cy="48" rx="4" ry="7" fill="#d97706" stroke="#7c2d12" stroke-width="0.6"/>
+
+  <!-- 巨大な鬣（多層ギザギザ） -->
+  <g stroke="#92400e" stroke-width="0.8">
+    <circle cx="32" cy="24" r="18" fill="url(#le_mane)"/>
+    <!-- 鬣の突起（外周） -->
+    <path d="M32,5 L28,14 L36,14 Z" fill="#f59e0b"/>
+    <path d="M14,12 L18,20 L22,14 Z" fill="#f59e0b"/>
+    <path d="M50,12 L46,20 L42,14 Z" fill="#f59e0b"/>
+    <path d="M8,24 L16,26 L14,32 Z" fill="#d97706"/>
+    <path d="M56,24 L48,26 L50,32 Z" fill="#d97706"/>
+    <path d="M12,36 L20,34 L18,40 Z" fill="#d97706"/>
+    <path d="M52,36 L44,34 L46,40 Z" fill="#d97706"/>
+    <path d="M20,42 L26,38 L24,44 Z" fill="#b45309"/>
+    <path d="M44,42 L38,38 L40,44 Z" fill="#b45309"/>
+  </g>
+
+  <!-- 顔 -->
+  <ellipse cx="32" cy="24" rx="10" ry="9" fill="#fde68a" stroke="#92400e" stroke-width="0.9"/>
+
+  <!-- 目 -->
+  <ellipse cx="27" cy="22" rx="2" ry="1.6" fill="#fef3c7"/>
+  <ellipse cx="37" cy="22" rx="2" ry="1.6" fill="#fef3c7"/>
+  <circle cx="27" cy="22" r="1" fill="#0c0a09"/>
+  <circle cx="37" cy="22" r="1" fill="#0c0a09"/>
+  <circle cx="27.4" cy="21.7" r="0.4" fill="#fde047"/>
+  <circle cx="37.4" cy="21.7" r="0.4" fill="#fde047"/>
+
+  <!-- 鼻 -->
+  <path d="M30,26 L34,26 L32,29 Z" fill="#7c2d12"/>
+  <!-- 口 -->
+  <path d="M32,29 L28,32 M32,29 L36,32" stroke="#7c2d12" stroke-width="0.9" fill="none"/>
+  <!-- 牙 -->
+  <path d="M28,31 L27,34 L29,32 Z" fill="#fff"/>
+  <path d="M36,31 L37,34 L35,32 Z" fill="#fff"/>
+  <!-- ひげ -->
+  <g stroke="#78350f" stroke-width="0.4" fill="none">
+    <line x1="24" y1="28" x2="18" y2="27"/>
+    <line x1="24" y1="29" x2="18" y2="30"/>
+    <line x1="40" y1="28" x2="46" y2="27"/>
+    <line x1="40" y1="29" x2="46" y2="30"/>
+  </g>
+
+  <!-- 王冠 -->
+  <path d="M26,8 L28,13 L31,9 L33,13 L36,9 L38,13 L41,9 L41,15 L26,15 Z"
+        fill="#fde047" stroke="#78350f" stroke-width="0.7"/>
+  <circle cx="33.5" cy="12" r="1" fill="#dc2626"/>
+</svg>

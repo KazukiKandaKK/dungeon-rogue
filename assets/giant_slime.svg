@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 巨大スライム — 初心者の洞窟ボス -->
+  <defs>
+    <radialGradient id="gs_body" cx="50%" cy="35%" r="65%">
+      <stop offset="0%"  stop-color="#bae6fd"/>
+      <stop offset="55%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </radialGradient>
+    <radialGradient id="gs_core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#f0abfc"/>
+      <stop offset="70%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#4c1d95"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 影 -->
+  <ellipse cx="32" cy="58" rx="24" ry="3" fill="rgba(0,0,0,0.35)"/>
+
+  <!-- 本体（大きく膨らんだゼリー） -->
+  <path d="M10,50 Q6,38 10,28 Q14,18 22,12 Q32,6 42,12 Q50,18 54,28 Q58,38 54,50 Q48,56 32,56 Q16,56 10,50 Z"
+        fill="url(#gs_body)" stroke="#0c4a6e" stroke-width="1.2"/>
+
+  <!-- ハイライト（大きな泡） -->
+  <ellipse cx="24" cy="22" rx="6" ry="4" fill="rgba(255,255,255,0.5)"/>
+  <ellipse cx="20" cy="18" rx="2" ry="1.4" fill="rgba(255,255,255,0.7)"/>
+
+  <!-- 内側の気泡 -->
+  <g fill="rgba(186,230,253,0.5)" stroke="rgba(14,165,233,0.5)" stroke-width="0.4">
+    <circle cx="42" cy="20" r="2.2"/>
+    <circle cx="46" cy="34" r="1.6"/>
+    <circle cx="16" cy="38" r="1.8"/>
+    <circle cx="28" cy="44" r="1.4"/>
+  </g>
+
+  <!-- コア（魔力の結晶） -->
+  <g>
+    <circle cx="32" cy="34" r="7" fill="url(#gs_core)" stroke="#4c1d95" stroke-width="0.8"/>
+    <path d="M32,27 L34,33 L40,34 L34,35 L32,41 L30,35 L24,34 L30,33 Z" fill="#fef3c7" opacity="0.85"/>
+    <circle cx="32" cy="34" r="2.4" fill="#fde047"/>
+    <circle cx="31.3" cy="33.3" r="0.9" fill="#fff"/>
+  </g>
+
+  <!-- 目（怒り） -->
+  <g>
+    <ellipse cx="22" cy="30" rx="2.2" ry="1.8" fill="#fff"/>
+    <ellipse cx="42" cy="30" rx="2.2" ry="1.8" fill="#fff"/>
+    <circle cx="22" cy="30.5" r="1.1" fill="#0c0a09"/>
+    <circle cx="42" cy="30.5" r="1.1" fill="#0c0a09"/>
+    <circle cx="22.3" cy="30.1" r="0.4" fill="#fff"/>
+    <circle cx="42.3" cy="30.1" r="0.4" fill="#fff"/>
+    <!-- 眉 -->
+    <path d="M19,26 L25,28" stroke="#0c4a6e" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M45,26 L39,28" stroke="#0c4a6e" stroke-width="1.1" stroke-linecap="round"/>
+  </g>
+
+  <!-- 口 -->
+  <path d="M24,42 Q32,48 40,42 Q36,44 32,44 Q28,44 24,42 Z" fill="#0c4a6e"/>
+  <!-- 牙 -->
+  <path d="M28,42 L29,46 L30,42 Z" fill="#fef3c7"/>
+  <path d="M34,42 L35,46 L36,42 Z" fill="#fef3c7"/>
+
+  <!-- 滴（ゼリーが垂れている） -->
+  <g fill="#38bdf8" stroke="#0c4a6e" stroke-width="0.5">
+    <path d="M14,52 Q12,58 14,62 Q16,58 14,52 Z"/>
+    <path d="M50,52 Q48,58 50,62 Q52,58 50,52 Z"/>
+    <path d="M32,56 Q30,62 32,64 Q34,62 32,56 Z"/>
+  </g>
+</svg>

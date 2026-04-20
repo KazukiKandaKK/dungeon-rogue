@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♐ Sagittarius — ケンタウロス射手全身 -->
+  <defs>
+    <linearGradient id="sa_horse" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#92400e"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </linearGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="34" rx="30" ry="28" fill="rgba(217,119,6,0.15)" stroke="rgba(251,191,36,0.4)" stroke-width="0.6"/>
+
+  <!-- 馬の下半身（後ろに伸びる） -->
+  <ellipse cx="22" cy="46" rx="16" ry="9" fill="url(#sa_horse)" stroke="#451a03" stroke-width="0.9"/>
+  <!-- 尾 -->
+  <path d="M6,44 Q2,48 4,58 Q6,52 10,50" fill="none" stroke="#451a03" stroke-width="2" stroke-linecap="round"/>
+  <path d="M6,46 L4,52 M8,48 L6,54" stroke="#78350f" stroke-width="1"/>
+
+  <!-- 後脚 -->
+  <rect x="10" y="50" width="4" height="12" rx="1" fill="#78350f" stroke="#451a03" stroke-width="0.5"/>
+  <rect x="16" y="52" width="4" height="10" rx="1" fill="#92400e" stroke="#451a03" stroke-width="0.5"/>
+  <!-- 前脚 -->
+  <rect x="26" y="52" width="4" height="10" rx="1" fill="#92400e" stroke="#451a03" stroke-width="0.5"/>
+  <rect x="32" y="50" width="4" height="12" rx="1" fill="#78350f" stroke="#451a03" stroke-width="0.5"/>
+  <!-- 蹄 -->
+  <ellipse cx="12" cy="62" rx="2.5" ry="1" fill="#1a0a00"/>
+  <ellipse cx="18" cy="62" rx="2.5" ry="1" fill="#1a0a00"/>
+  <ellipse cx="28" cy="62" rx="2.5" ry="1" fill="#1a0a00"/>
+  <ellipse cx="34" cy="62" rx="2.5" ry="1" fill="#1a0a00"/>
+
+  <!-- 馬の毛（後ろ首の鬣、立ち上がる連結） -->
+  <path d="M32,38 Q34,32 38,30" fill="none" stroke="#451a03" stroke-width="2"/>
+
+  <!-- 人の胴（人馬連結） -->
+  <path d="M32,40 L34,30 Q38,24 42,26 Q44,34 40,40 Z" fill="#b45309" stroke="#451a03" stroke-width="0.8"/>
+  <!-- ベルト -->
+  <path d="M34,30 Q38,28 42,30" stroke="#78350f" stroke-width="1.2"/>
+  <circle cx="38" cy="30" r="0.9" fill="#fbbf24"/>
+
+  <!-- 人の頭 -->
+  <ellipse cx="42" cy="18" rx="5" ry="5.5" fill="#fde68a" stroke="#451a03" stroke-width="0.7"/>
+  <!-- 髪（長） -->
+  <path d="M37,16 Q37,8 42,7 Q48,8 48,18 Q46,20 46,14 Q42,13 39,15 Z" fill="#78350f"/>
+  <!-- ひげ -->
+  <path d="M39,22 Q42,25 45,22 Q44,25 42,25 Q40,25 39,22 Z" fill="#78350f"/>
+  <!-- 目 -->
+  <circle cx="40" cy="18" r="0.8" fill="#0c0a09"/>
+  <circle cx="44" cy="18" r="0.8" fill="#0c0a09"/>
+  <circle cx="40.3" cy="17.7" r="0.3" fill="#fff"/>
+  <circle cx="44.3" cy="17.7" r="0.3" fill="#fff"/>
+  <!-- 冠 -->
+  <path d="M37,12 L40,8 L42,11 L44,8 L47,12 Z" fill="#fbbf24" stroke="#78350f" stroke-width="0.5"/>
+
+  <!-- 弓（構えている） -->
+  <path d="M56,6 Q62,22 56,38" fill="none" stroke="#78350f" stroke-width="2.2"/>
+  <path d="M56,6 Q62,22 56,38" fill="none" stroke="#fbbf24" stroke-width="0.8"/>
+  <line x1="56" y1="6"  x2="56" y2="38" stroke="#fef3c7" stroke-width="0.7"/>
+
+  <!-- 弦を引く左手 -->
+  <circle cx="36" cy="22" r="1.8" fill="#fde68a" stroke="#451a03" stroke-width="0.4"/>
+  <!-- 弓を構える右手 -->
+  <circle cx="54" cy="22" r="1.8" fill="#fde68a" stroke="#451a03" stroke-width="0.4"/>
+
+  <!-- 矢（水平に構える） -->
+  <line x1="36" y1="22" x2="60" y2="22" stroke="#fbbf24" stroke-width="1.2"/>
+  <!-- 鏃 -->
+  <path d="M60,22 L56,19 L56,25 Z" fill="#f59e0b" stroke="#78350f" stroke-width="0.4"/>
+  <!-- 矢羽根 -->
+  <path d="M36,22 L32,20 L34,22 L32,24 Z" fill="#fef3c7" stroke="#78350f" stroke-width="0.4"/>
+
+  <!-- 輝き -->
+  <circle cx="59" cy="22" r="1.2" fill="#fef3c7" opacity="0.8"/>
+  <circle cx="59" cy="22" r="3" fill="none" stroke="rgba(253,230,138,0.6)" stroke-width="0.4"/>
+</svg>

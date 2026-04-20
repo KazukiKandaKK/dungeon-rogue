@@ -6,7 +6,7 @@ import { Actor }      from './actor.js';
 import { TILE_SIZE }  from '../world/tiles.js';
 import { _drawHPBar } from './player.js';
 import { findPath }   from '../world/astar.js';
-import { randomDrop } from '../data/equipment.js';
+import { randomDrop, rareDrop } from '../data/equipment.js';
 import type { ItemDef }         from '../data/equipment.js';
 import type { GameMap, SpriteManager, StatusEffectEntry } from '../types.js';
 
@@ -38,12 +38,19 @@ interface EnemyTypeDef {
   deathExplode?:   boolean;
   splitOnDeath?:   boolean;
   fastMove?:       boolean;
+  /** 石像フラグ。true の場合、毎ターン countdown が減り、0 になると起爆。 */
+  isStatue?:       boolean;
+  statueCountdown?: number;
+  /** 封印石像フラグ。true の場合、自律行動せず破壊のみ可能（ボス封印解除の鍵）。 */
+  isSealStatue?:   boolean;
 }
 
 /** takeTurn() の返値型 */
 export type TurnAction =
   | 'wait' | 'move' | 'attack' | 'rangedAttack' | 'casting'
-  | 'areaAttack' | 'magicFire' | 'magicIce' | 'magicLightning';
+  | 'areaAttack' | 'magicFire' | 'magicIce' | 'magicLightning'
+  | 'summon' | 'summonStatue' | 'chargeAttack'
+  | 'heal' | 'teleport' | 'statueTick' | 'statueDetonate';
 
 const ENEMY_TYPES: Record<string, EnemyTypeDef> = {
   // ══ スライム系 ═══════════════════════════════════════
@@ -401,11 +408,28 @@ const ENEMY_TYPES: Record<string, EnemyTypeDef> = {
   },
 
   // ══ ボスタイプ ════════════════════════════════════════
+  // HP は非常に高いが、後述の _bossTick ロジックで 3 ターンに 1 回しか行動しない
   boss: {
     name: '暗黒騎士', sprite: 'boss',
-    maxHP: 60, atk: 10, def: 5, expValue: 100,
+    maxHP: 1000, atk: 10, def: 5, expValue: 500,
     detectRadius: 20, isBoss: true,
     color: '#7c3aed', hpBarColor: '#a855f7', glowColor: 'rgba(138,0,255,0.9)',
+  },
+
+  // ══ 封印石像（ボスの結界を守る。破壊するとボス封印が解ける） ══
+  seal_statue: {
+    name: '封印の石像', sprite: null,
+    maxHP: 30, atk: 0, def: 4, expValue: 20,
+    detectRadius: 0, isSealStatue: true,
+    color: '#fbbf24', hpBarColor: '#fde68a', glowColor: 'rgba(251,191,36,0.95)',
+  },
+
+  // ══ 宇宙石像（ボスが召喚。10 ターンで起爆＝大ダメージ） ══
+  cosmic_statue: {
+    name: '宇宙石像', sprite: 'gargoyle',
+    maxHP: 40, atk: 0, def: 2, expValue: 15,
+    detectRadius: 0, isStatue: true, statueCountdown: 10,
+    color: '#a78bfa', hpBarColor: '#c4b5fd', glowColor: 'rgba(167,139,250,0.9)',
   },
 
   // ══ 死神（不死・即死攻撃） ════════════════════════════
@@ -449,7 +473,7 @@ export function getBossName(floorNum: number): string {
 // ── 描画ヘルパー ──────────────────────────────
 
 const SZ      = TILE_SIZE + 8;
-const SZ_BOSS = TILE_SIZE * 2 + 8;
+const SZ_BOSS = TILE_SIZE * 4 + 8;   // 通常敵の約 3.5 倍サイズ（威圧感）
 
 function _drawShinigamiSprite(
   ctx: CanvasRenderingContext2D,
@@ -526,6 +550,8 @@ export class Enemy extends Actor {
   projectileColor: string | null;
   castTime:        number;
   _castCharge:     number;
+  /** ボス専用: 行動ごとに +1。3 の倍数の時だけ行動する（3 ターンに 1 回）。 */
+  _bossTick:       number;
 
   poisonAttack: boolean;
   lifeSteal:    boolean;
@@ -534,7 +560,38 @@ export class Enemy extends Actor {
   splitOnDeath: boolean;
   fastMove:     boolean;
 
+  /** 12 星座ボスの種別（aries, taurus, ... pisces）。通常敵は null。 */
+  bossVariant: string | null;
+  /** ボス専用: 次に召喚を撃てるまでの残りアクション回数 */
+  _summonCooldown: number;
+  /** ボス専用: 次に石像を置けるまでの残りアクション回数 */
+  _statueCooldown: number;
+  /** 石像フラグ */
+  isStatue:        boolean;
+  /** 石像の残りターン。0 で起爆。 */
+  statueCountdown: number;
+  /** 謎データのキー（dungeon.id or bossVariant）。null なら謎なし。 */
+  riddleKey:       string | null;
+  /** 結界が有効か（true の間、プレイヤーの攻撃は無効化される）。 */
+  riddleActive:    boolean;
+  /** 謎に正解済みか。 */
+  riddleAnswered:  boolean;
+
+  /** 封印石像フラグ（isSealStatue と同値。draw/takeTurn 用）。 */
+  isSealStatue:    boolean;
+  /** 封印石像・護衛モブを共通で示すフラグ（ボス封印解除の対象）。 */
+  isSealMinion:    boolean;
+  /** ボス封印の種別。'guards'|'statues'|'key'|null。ボス本体にのみ設定される。 */
+  sealType:        'guards' | 'statues' | 'key' | null;
+  /** ボス封印の表示名（例: '封魔の結晶'）。ボス本体にのみ設定される。 */
+  sealLabel:       string | null;
+
   statusEffects: StatusEffectEntry[];
+
+  /** 行動間隔（N ターンに 1 回だけ takeTurn が能動アクションを返す）。1 で毎ターン。 */
+  actionPeriod: number;
+  /** takeTurn のたびに +1 して actionPeriod でモジュロを取る。 */
+  _actionTick:  number;
 
   constructor(tx: number, ty: number, type = 'slime') {
     const cfg = ENEMY_TYPES[type] ?? ENEMY_TYPES['slime'];
@@ -559,6 +616,7 @@ export class Enemy extends Actor {
     this.projectileColor = cfg.projectileColor ?? null;
     this.castTime        = cfg.castTime        ?? 0;
     this._castCharge     = 0;
+    this._bossTick       = 0;
 
     this.poisonAttack = cfg.poisonAttack ?? false;
     this.lifeSteal    = cfg.lifeSteal    ?? false;
@@ -567,7 +625,37 @@ export class Enemy extends Actor {
     this.splitOnDeath = cfg.splitOnDeath ?? false;
     this.fastMove     = cfg.fastMove     ?? false;
 
+    this.bossVariant     = null;
+    this._summonCooldown = 0;
+    this._statueCooldown = 0;
+    this.isStatue        = cfg.isStatue        ?? false;
+    this.statueCountdown = cfg.statueCountdown ?? 0;
+    this.riddleKey       = null;
+    this.riddleActive    = false;
+    this.riddleAnswered  = false;
+
+    this.isSealStatue    = cfg.isSealStatue ?? false;
+    this.isSealMinion    = this.isSealStatue; // 封印石像はデフォで minion
+    this.sealType        = null;
+    this.sealLabel       = null;
+
     this.statusEffects = [];
+
+    // ── グローバル耐久・行動間隔の調整 ──────────────────
+    //   通常敵: HP 1.8 倍 / DEF +2、2 ターンに 1 回だけ能動行動
+    //   ボス・死神・石像系・封印石像: ここでは触らない（既存のギミックを尊重）
+    const isSpecial = this.isBoss || this.isShinigami || this.isStatue ||
+                      this.isSealStatue || this.isShopShinigami;
+    if (!isSpecial) {
+      this.maxHP = Math.floor(cfg.maxHP * 1.8);
+      this.hp    = this.maxHP;
+      this.def   = cfg.def + 2;
+      // fastMove（コウモリなど素早い系）は毎ターン、それ以外は 2 ターンに 1 回
+      this.actionPeriod = this.fastMove ? 1 : 2;
+    } else {
+      this.actionPeriod = 1;
+    }
+    this._actionTick = 0;
   }
 
   takeTurn(
@@ -575,12 +663,29 @@ export class Enemy extends Actor {
     player:  { tx: number; ty: number },
     enemies: Enemy[],
   ): TurnAction {
+    // ── 封印石像: 自律行動なし（破壊のみ可能） ──
+    if (this.isSealStatue) return 'wait';
+
+    // ── 石像: カウントダウンが 0 で起爆、それ以外は自律行動なし ──
+    if (this.isStatue) {
+      this.statueCountdown = Math.max(0, this.statueCountdown - 1);
+      if (this.statueCountdown <= 0) return 'statueDetonate';
+      return 'statueTick';
+    }
+
     const dist = Math.max(
       Math.abs(this.tx - player.tx),
       Math.abs(this.ty - player.ty)
     );
     if (!this.alerted && dist <= this.detectRadius) this.alerted = true;
     if (!this.alerted) return 'wait';
+
+    // ── 行動間隔ゲート（actionPeriod ターンに 1 回だけ能動行動） ──
+    //   隣接時は毎ターン殴れるようにして、手応えのあるテンポを保つ。
+    if (this.actionPeriod > 1 && dist > 1) {
+      this._actionTick++;
+      if (this._actionTick % this.actionPeriod !== 0) return 'wait';
+    }
 
     if (this.isRanged) {
       const dx = player.tx - this.tx;
@@ -608,17 +713,102 @@ export class Enemy extends Actor {
     }
 
     if (this.isBoss) {
-      const rand = Math.random();
-      if (dist <= 2 && rand < 0.25) return 'areaAttack';
-      if (dist <= 6 && this._hasLOSClear(player.tx, player.ty, map, enemies)) {
-        if (rand < 0.45) {
-          const magic = ['magicFire', 'magicIce', 'magicLightning'] as TurnAction[];
-          return magic[Math.floor(Math.random() * 3)];
-        }
-      }
+      // 3 ターンに 1 回しか行動しない（超鈍足・超耐久ギミック）
+      this._bossTick++;
+      if (this._bossTick % 3 !== 0) return 'wait';
+
+      if (this._summonCooldown > 0) this._summonCooldown--;
+      if (this._statueCooldown > 0) this._statueCooldown--;
+
+      const action = this._pickBossAction(dist, map, player, enemies);
+      if (action) return action;
     }
     if (this.isAdjacentTo(player)) return 'attack';
     return this._moveToward(player.tx, player.ty, map, enemies) ? 'move' : 'wait';
+  }
+
+  /**
+   * ボスの次アクションを、bossVariant ごとの技プールから選ぶ。
+   * 召喚・石像はクールダウン管理され、同じ技が連発しないようにする。
+   */
+  private _pickBossAction(
+    dist:    number,
+    map:     GameMap,
+    player:  { tx: number; ty: number },
+    enemies: Enemy[],
+  ): TurnAction | null {
+    const hasLOS = this._hasLOSClear(player.tx, player.ty, map, enemies);
+    const lowHP  = this.hp / Math.max(1, this.maxHP) < 0.5;
+    const v      = this.bossVariant;
+    const r      = Math.random();
+
+    // ── 召喚系（クールダウン 6 アクション＝実時間 18 ターン） ──
+    const canSummon = this._summonCooldown <= 0;
+    const canStatue = this._statueCooldown <= 0;
+
+    // 各星座ごとの優先度: 固有技を 35% で狙い、失敗時は共通技へフォールバック
+    if (v && r < 0.35) {
+      switch (v) {
+        case 'aries':       // 突進
+          if (dist >= 2 && dist <= 6 && hasLOS) return 'chargeAttack';
+          break;
+        case 'taurus':      // 突進＋仲間召喚
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 2)    return 'areaAttack';
+          break;
+        case 'gemini':      // 双子召喚→二連魔法
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 8 && hasLOS) return 'magicLightning';
+          break;
+        case 'cancer':      // 小蟹を召喚して囲む
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 2)    return 'areaAttack';
+          break;
+        case 'leo':         // 獅子吼（広域）＋狼召喚
+          if (canSummon && lowHP) { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 3)          return 'areaAttack';
+          break;
+        case 'virgo':       // 自己回復＋妖精召喚
+          if (lowHP)        return 'heal';
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 8 && hasLOS) return 'magicIce';
+          break;
+        case 'libra':       // 裁きの石像（10 ターン後に大ダメージ）
+          if (canStatue)    { this._statueCooldown = 8; return 'summonStatue'; }
+          if (dist <= 8 && hasLOS) return 'magicLightning';
+          break;
+        case 'scorpio':     // 毒石像＋毒域
+          if (canStatue)    { this._statueCooldown = 8; return 'summonStatue'; }
+          if (dist <= 2)    return 'areaAttack';
+          break;
+        case 'sagittarius': // 矢の雨＋射手召喚
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist >= 3 && dist <= 10 && hasLOS) return 'chargeAttack';
+          break;
+        case 'capricorn':   // 氷石像＋冷気
+          if (canStatue)    { this._statueCooldown = 8; return 'summonStatue'; }
+          if (dist <= 8 && hasLOS) return 'magicIce';
+          break;
+        case 'aquarius':    // 回復＋水の精霊召喚
+          if (lowHP)        return 'heal';
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 8 && hasLOS) return 'magicIce';
+          break;
+        case 'pisces':      // 瞬間移動＋闇スライム召喚
+          if (dist >= 4)    return 'teleport';
+          if (canSummon)    { this._summonCooldown = 6; return 'summon'; }
+          if (dist <= 8 && hasLOS) return 'magicFire';
+          break;
+      }
+    }
+
+    // ── 共通フォールバック ────────────────────────────
+    if (dist <= 2 && r < 0.30)       return 'areaAttack';
+    if (dist <= 6 && hasLOS && r < 0.50) {
+      const magic = ['magicFire', 'magicIce', 'magicLightning'] as TurnAction[];
+      return magic[Math.floor(Math.random() * 3)]!;
+    }
+    return null;
   }
 
   private _hasLOS(tx: number, ty: number, map: GameMap): boolean {
@@ -667,8 +857,12 @@ export class Enemy extends Actor {
     return true;
   }
 
-  dropItem(floorNum: number): ItemDef | null {
-    return randomDrop(floorNum);
+  dropItem(floorNum: number, lukBonus: number = 0): ItemDef | null {
+    // ── レアドロップ優先（特定の敵／ボスのみが落とすチート級装備） ──
+    const rare = rareDrop(this.type, this.bossVariant, lukBonus);
+    if (rare) return rare;
+    // ── 通常ドロップ（tier0〜2） ──
+    return randomDrop(floorNum, lukBonus);
   }
 
   draw(
@@ -698,11 +892,79 @@ export class Enemy extends Actor {
         ctx.stroke();
         ctx.restore();
       }
+
+      // ── 結界バリア（riddleActive の間、金色六角形シールドが覆う） ──
+      if (this.riddleActive) {
+        const rr = sz * 0.65;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(now * 0.35);
+        const pulse = 0.65 + 0.2 * Math.sin(now * 3);
+        ctx.strokeStyle = `rgba(251,191,36,${pulse.toFixed(2)})`;
+        ctx.shadowColor = 'rgba(253,224,71,0.9)';
+        ctx.shadowBlur  = 16;
+        ctx.lineWidth   = 2.5;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = (k / 6) * Math.PI * 2;
+          const px = Math.cos(a) * rr;
+          const py = Math.sin(a) * rr;
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        // 内側の光のルーン
+        ctx.rotate(-now * 0.7);
+        ctx.strokeStyle = `rgba(253,224,71,${(pulse * 0.8).toFixed(2)})`;
+        ctx.lineWidth   = 1.4;
+        ctx.beginPath();
+        ctx.arc(0, 0, rr * 0.85, 0, Math.PI * 2);
+        ctx.stroke();
+        // 封印マーク
+        ctx.font         = `${Math.floor(sz * 0.3)}px serif`;
+        ctx.fillStyle    = `rgba(253,224,71,${pulse.toFixed(2)})`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🔒', 0, 0);
+        ctx.restore();
+      }
+    }
+
+    // ── 封印ミニオンの金色オーラ（ボス結界と視覚的にリンク） ──
+    if (this.isSealMinion && !this.isBoss) {
+      const pulse = 0.55 + 0.25 * Math.sin(now * 2.4);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sx, sy, sz * 0.55 + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(251,191,36,${(0.55 * pulse).toFixed(2)})`;
+      ctx.lineWidth   = 2;
+      ctx.shadowColor = 'rgba(253,224,71,0.85)';
+      ctx.shadowBlur  = 12;
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.save();
     if (this.isShinigami) {
       _drawShinigamiSprite(ctx, sx, sy, sz, now);
+    } else if (this.isSealStatue) {
+      // 封印石像: 輝く結晶（ひし形）
+      const pulse = 0.7 + 0.3 * Math.sin(now * 2.8);
+      const r     = sz * 0.4;
+      ctx.shadowColor = 'rgba(253,224,71,0.95)';
+      ctx.shadowBlur  = 18;
+      ctx.fillStyle   = `rgba(251,191,36,${pulse.toFixed(2)})`;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - r);
+      ctx.lineTo(sx + r * 0.7, sy);
+      ctx.lineTo(sx, sy + r);
+      ctx.lineTo(sx - r * 0.7, sy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+      ctx.strokeStyle = '#fef3c7';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
     } else if (sprites.get(this.spriteName)) {
       ctx.shadowColor = this.glowColor;
       ctx.shadowBlur  = this.isBoss ? 28 : 10;

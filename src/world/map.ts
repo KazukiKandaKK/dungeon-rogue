@@ -399,8 +399,140 @@ export class GameMap {
       this._drawForestTile(ctx, sx, sy, tileId, tx, ty, th, ts);
     } else if (this.theme === 'town') {
       this._drawTownTile(ctx, sx, sy, tileId, tx, ty, th, ts);
+    } else if (this.theme === 'cosmic') {
+      this._drawCosmicTile(ctx, sx, sy, tileId, th, ts, tx, ty);
     } else {
       this._drawDungeonTile(ctx, sx, sy, tileId, th, ts, tx, ty);
+    }
+  }
+
+  // ─── 宇宙テーマのタイル描画（星空＋星雲） ──────────────────────────
+  private _drawCosmicTile(
+    ctx:    CanvasRenderingContext2D,
+    sx:     number,
+    sy:     number,
+    tileId: TileType,
+    th:     typeof THEMES[ThemeId],
+    ts:     number,
+    tx:     number,
+    ty:     number,
+  ): void {
+    // 障害物タイルはベースを床として描画
+    if (tileId === TILE.PILLAR || tileId === TILE.TRAP || tileId === TILE.WATER) {
+      tileId = TILE.FLOOR;
+    }
+
+    const seed = (tx * 29 + ty * 53);
+
+    if (tileId === TILE.WALL) {
+      const southTile    = this.grid[ty + 1]?.[tx];
+      const southIsFloor = southTile === TILE.FLOOR || southTile === TILE.CORRIDOR;
+
+      // 壁 = 星雲（紫／ピンクのグラデ）
+      const grad = ctx.createLinearGradient(sx, sy, sx, sy + ts);
+      grad.addColorStop(0,   '#3a0a6a');
+      grad.addColorStop(0.6, '#1a0530');
+      grad.addColorStop(1,   '#05000f');
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx, sy, ts, ts);
+
+      // ピンクのにじみ
+      ctx.save();
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle   = '#ff6bd6';
+      const nx = sx + ((seed * 11) % (ts - 16)) + 8;
+      const ny = sy + ((seed * 17) % (ts - 16)) + 8;
+      ctx.beginPath();
+      ctx.ellipse(nx, ny, ts * 0.35, ts * 0.22, (seed % 7) * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 前面の縁を暗く（壁の立体感）
+      if (southIsFloor) {
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = '#05000f';
+        ctx.fillRect(sx, sy + ts - Math.round(ts * 0.38), ts, Math.round(ts * 0.38));
+        ctx.restore();
+      }
+
+      // 壁の中の遠星
+      for (let k = 0; k < 3; k++) {
+        const rx = ((seed * (k + 1) * 7)  % (ts - 8)) + 4;
+        const ry = ((seed * (k + 1) * 13) % (ts - 8)) + 4;
+        ctx.save();
+        ctx.globalAlpha = 0.55 + ((seed * (k + 3)) % 3) * 0.1;
+        ctx.fillStyle   = '#f5e8ff';
+        ctx.fillRect(sx + rx, sy + ry, 1, 1);
+        ctx.restore();
+      }
+    } else {
+      // 床 / 通路 = 深い宇宙空間
+      const isCorr = tileId === TILE.CORRIDOR;
+      ctx.fillStyle = isCorr ? th.corridor.base : th.floor.base;
+      ctx.fillRect(sx, sy, ts, ts);
+
+      // 青紫の淡いグロー
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      const grad2 = ctx.createRadialGradient(
+        sx + ts / 2, sy + ts / 2, ts * 0.1,
+        sx + ts / 2, sy + ts / 2, ts * 0.7,
+      );
+      grad2.addColorStop(0, '#6a28c8');
+      grad2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad2;
+      ctx.fillRect(sx, sy, ts, ts);
+      ctx.restore();
+
+      // 星ドット（タイル内 6 点、決定的シード）
+      const starCount = 6;
+      for (let k = 0; k < starCount; k++) {
+        const s2 = seed * (k + 3);
+        const rx = (Math.abs(s2 * 7)  % (ts - 6)) + 3;
+        const ry = (Math.abs(s2 * 11) % (ts - 6)) + 3;
+        const rr = (Math.abs(s2) % 3 === 0) ? 1.5 : 1;
+        const alpha = 0.45 + ((Math.abs(s2) % 5) * 0.1);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, alpha);
+        // 大きい星は金色、小さい星は白
+        if (rr > 1) {
+          ctx.fillStyle = '#fde68a';
+        } else {
+          ctx.fillStyle = '#f5f5ff';
+        }
+        ctx.beginPath();
+        ctx.arc(sx + rx, sy + ry, rr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // たまに輝く大きな星（4 光線）
+      if (seed % 23 === 0) {
+        const cx = sx + ts / 2;
+        const cy = sy + ts / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        ctx.strokeStyle = 'rgba(253,230,138,0.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 6, cy); ctx.lineTo(cx + 6, cy);
+        ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 6);
+        ctx.stroke();
+        ctx.fillStyle = '#fef3c7';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 外周ライン（控えめな紫グリッド）
+      ctx.save();
+      ctx.globalAlpha = 0.10;
+      ctx.strokeStyle = th.floor.grid;
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
+      ctx.restore();
     }
   }
 
@@ -1059,6 +1191,7 @@ export class GameMap {
       for (let tx = 0; tx < this.cols; tx++) {
         const tileId = this.grid[ty][tx];
         if (tileId !== TILE.PILLAR && tileId !== TILE.WATER &&
+            tileId !== TILE.ICE && tileId !== TILE.MAGMA &&
             !(tileId === TILE.TRAP && this.revealedTraps.has(`${tx},${ty}`))) continue;
 
         const sx = tx * ts + camOffX;
@@ -1070,6 +1203,10 @@ export class GameMap {
           this._drawPillar(ctx, sx, sy, ts, now);
         } else if (tileId === TILE.WATER) {
           this._drawWater(ctx, sx, sy, ts, tx, ty, now);
+        } else if (tileId === TILE.ICE) {
+          this._drawIce(ctx, sx, sy, ts, tx, ty, now);
+        } else if (tileId === TILE.MAGMA) {
+          this._drawMagma(ctx, sx, sy, ts, tx, ty, now);
         } else if (tileId === TILE.TRAP) {
           this._drawRevealedTrap(ctx, sx, sy, ts);
         }
@@ -1151,6 +1288,84 @@ export class GameMap {
     ctx.beginPath();
     ctx.ellipse(sx + ts * 0.35, sy + ts * 0.32, ts * 0.12, ts * 0.06, -0.5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  private _drawIce(
+    ctx: CanvasRenderingContext2D,
+    sx: number, sy: number, ts: number, tx: number, ty: number, _now: number,
+  ): void {
+    ctx.save();
+    const seed = tx * 11 + ty * 17;
+    // ベース：薄い水色
+    const grad = ctx.createLinearGradient(sx, sy, sx + ts, sy + ts);
+    grad.addColorStop(0, 'rgba(180,230,255,0.85)');
+    grad.addColorStop(1, 'rgba(120,190,230,0.72)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx, sy, ts, ts);
+    // ひび模様（結晶ライン）
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const phase = (seed + i * 37) % 13;
+      ctx.beginPath();
+      ctx.moveTo(sx + (phase * 7) % ts, sy);
+      ctx.lineTo(sx + ((phase * 3) % ts), sy + ts);
+      ctx.stroke();
+    }
+    // キラッと光沢
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(sx + ts * 0.3, sy + ts * 0.28, ts * 0.12, ts * 0.045, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // 外縁の冷気グロー
+    ctx.strokeStyle = 'rgba(220,245,255,0.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
+    ctx.restore();
+  }
+
+  private _drawMagma(
+    ctx: CanvasRenderingContext2D,
+    sx: number, sy: number, ts: number, tx: number, ty: number, now: number,
+  ): void {
+    ctx.save();
+    const seed = tx * 23 + ty * 29;
+    const t = now * 1.2 + seed * 0.5;
+    // ベース：赤-黒のグラデ
+    const grad = ctx.createRadialGradient(
+      sx + ts / 2, sy + ts / 2, 2,
+      sx + ts / 2, sy + ts / 2, ts * 0.7,
+    );
+    const pulse = 0.85 + 0.15 * Math.sin(t);
+    grad.addColorStop(0, `rgba(255,${160 + Math.round(40 * pulse)},40,0.95)`);
+    grad.addColorStop(0.5, 'rgba(220,60,20,0.88)');
+    grad.addColorStop(1, 'rgba(60,8,4,0.8)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx, sy, ts, ts);
+    // ひび（黒い割れ目）
+    ctx.strokeStyle = 'rgba(20,10,8,0.7)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(sx + (seed % 7),        sy + ts * 0.4);
+    ctx.lineTo(sx + ts * 0.5,          sy + ts * 0.55);
+    ctx.lineTo(sx + ts - (seed % 5),   sy + ts * 0.3);
+    ctx.stroke();
+    // 泡（時間でぽこぽこ）
+    for (let i = 0; i < 2; i++) {
+      const phase = (t * 0.6 + i * 1.7 + seed * 0.1) % 1;
+      const bx = sx + ts * (0.25 + ((seed + i * 31) % 5) / 10);
+      const by = sy + ts * (0.95 - phase * 0.7);
+      const br = ts * (0.05 + 0.04 * (1 - phase));
+      ctx.fillStyle = `rgba(255,230,120,${0.3 + 0.5 * (1 - phase)})`;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 縁の焦げ
+    ctx.strokeStyle = 'rgba(40,10,5,0.9)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
     ctx.restore();
   }
 

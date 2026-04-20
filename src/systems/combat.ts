@@ -28,6 +28,8 @@ export interface CombatActor {
   ty:              number;
   alive:           boolean;
   statusEffects?:  StatusEffectEntry[];
+  /** 謎の結界が有効な間、プレイヤーの攻撃は無効化される（ボス専用）。 */
+  riddleActive?:   boolean;
   takeDamage(amount: number, fromDirX?: number, fromDirY?: number): number;
   screenPos(camOffX: number, camOffY: number): { sx: number; sy: number };
 }
@@ -82,6 +84,31 @@ export function attack(
   const { player, logger, particles, camOffX, camOffY, onFlash, onShake, onHitStop, onFloatingText } = ctx;
   const isPlayerAttacking = (attacker === (player as unknown as CombatActor));
   const isPlayerDefending = (defender === (player as unknown as CombatActor));
+
+  // ── 結界（謎を解いていないボス）: プレイヤーの攻撃は通らない ──
+  if (isPlayerAttacking && defender.riddleActive) {
+    const { sx, sy } = defender.screenPos(camOffX, camOffY);
+    particles.spawn(sx, sy, '#fde047', 8);
+    onFlash('rgba(253,224,71,0.18)');
+    if (onShake) onShake(3, 0.10);
+    if (onFloatingText) {
+      onFloatingText({
+        text:  '🛡 結界',
+        x: sx, y: sy - 18,
+        alpha: 1, scale: 1.1,
+        color: '#fde047',
+        life:  0.7, maxLife: 0.7,
+        big:   false,
+      });
+    }
+    const sealLabel = (defender as { sealLabel?: string | null }).sealLabel ?? null;
+    if (sealLabel) {
+      logger.add(`🛡 ${defender.name} の封印（${sealLabel}）を先に解け！`, 'warn');
+    } else {
+      logger.add(`🛡 ${defender.name} は封印に守られている！封印を解け！`, 'warn');
+    }
+    return 0;
+  }
 
   const def    = defender.def ?? 0;
   let damage   = Math.max(1, rawAtk - def);
@@ -150,13 +177,23 @@ export function attack(
   }
 
   // ── 防具耐久（防御者がプレイヤーのとき） ────────────
+  //   head / chest / waist / legs のうち「装備中かつ耐久値がある」枠から
+  //   ランダムに1つ選んで耐久を1消費。0になったら解除。
   if (isPlayerDefending) {
-    const a = player.equip?.armor;
-    if (a?.durability !== undefined) {
-      a.durability--;
-      if (a.durability <= 0) {
-        logger.add(`${a.icon}${a.name} が壊れた！`, 'warn');
-        player.equip.armor = null;
+    const armorSlots: Array<'head' | 'chest' | 'waist' | 'legs'> = ['head', 'chest', 'waist', 'legs'];
+    const candidates = armorSlots.filter(s => {
+      const it = player.equip?.[s];
+      return it && it.durability !== undefined;
+    });
+    if (candidates.length > 0) {
+      const slot = candidates[Math.floor(Math.random() * candidates.length)];
+      const a    = player.equip[slot];
+      if (a && a.durability !== undefined) {
+        a.durability--;
+        if (a.durability <= 0) {
+          logger.add(`${a.icon}${a.name} が壊れた！`, 'warn');
+          player.equip[slot] = null;
+        }
       }
     }
   }

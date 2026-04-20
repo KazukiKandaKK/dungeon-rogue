@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 奈落の番人 — 無限ダンジョン（奈落の底）ボス -->
+  <defs>
+    <linearGradient id="aw_robe" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#312e81"/>
+      <stop offset="60%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0c0a1a"/>
+    </linearGradient>
+    <linearGradient id="aw_hood" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <radialGradient id="aw_void" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#c4b5fd"/>
+      <stop offset="45%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#0c0a1a"/>
+    </radialGradient>
+    <radialGradient id="aw_eye" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#e9d5ff"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#4c1d95"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 虚無オーラ -->
+  <circle cx="32" cy="32" r="30" fill="url(#aw_void)" opacity="0.25"/>
+
+  <!-- 影 -->
+  <ellipse cx="32" cy="60" rx="24" ry="2.6" fill="rgba(0,0,0,0.55)"/>
+
+  <!-- ローブの裾（床に広がる） -->
+  <path d="M8,58 Q10,44 18,34 L46,34 Q54,44 56,58 Q44,62 32,62 Q20,62 8,58 Z"
+        fill="url(#aw_robe)" stroke="#0c0a1a" stroke-width="1"/>
+  <!-- 裾の模様（ルーン） -->
+  <g stroke="#7c3aed" stroke-width="0.5" fill="none" opacity="0.8">
+    <path d="M14,54 L18,50 L22,54 L26,50"/>
+    <path d="M38,50 L42,54 L46,50 L50,54"/>
+    <path d="M28,56 L32,52 L36,56"/>
+  </g>
+
+  <!-- ローブ本体 -->
+  <path d="M18,20 Q14,34 18,46 L46,46 Q50,34 46,20 Q32,16 18,20 Z"
+        fill="url(#aw_robe)" stroke="#0c0a1a" stroke-width="1"/>
+  <!-- 縦ライン -->
+  <path d="M32,20 L32,46" stroke="#4c1d95" stroke-width="0.6" opacity="0.8"/>
+
+  <!-- 左袖 -->
+  <path d="M18,22 Q8,28 8,42 Q12,44 16,42 Q14,32 20,24 Z"
+        fill="url(#aw_robe)" stroke="#0c0a1a" stroke-width="0.8"/>
+  <!-- 右袖 -->
+  <path d="M46,22 Q56,28 56,42 Q52,44 48,42 Q50,32 44,24 Z"
+        fill="url(#aw_robe)" stroke="#0c0a1a" stroke-width="0.8"/>
+
+  <!-- 左手（骨の指） -->
+  <g>
+    <ellipse cx="10" cy="42" rx="2.4" ry="2" fill="#e7e5e4" stroke="#0c0a09" stroke-width="0.4"/>
+    <path d="M8,44 L6,48" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M10,45 L9,49" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M12,44 L14,48" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+  </g>
+  <!-- 右手（大鎌を握る） -->
+  <g>
+    <ellipse cx="54" cy="42" rx="2.4" ry="2" fill="#e7e5e4" stroke="#0c0a09" stroke-width="0.4"/>
+    <path d="M56,44 L58,48" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M54,45 L55,49" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M52,44 L50,48" stroke="#e7e5e4" stroke-width="0.9" stroke-linecap="round"/>
+  </g>
+
+  <!-- 大鎌（右手から伸びる） -->
+  <g>
+    <!-- 柄 -->
+    <rect x="53.3" y="6" width="1.4" height="40" fill="#1c1917" stroke="#0c0a09" stroke-width="0.4"/>
+    <!-- 柄の装飾 -->
+    <circle cx="54" cy="22" r="1.2" fill="#7c3aed" stroke="#0c0a09" stroke-width="0.3"/>
+    <!-- 刃（内側に湾曲） -->
+    <path d="M54,8 Q40,4 36,2 Q44,12 54,14 Z"
+          fill="#e7e5e4" stroke="#0c0a09" stroke-width="0.6"/>
+    <!-- 刃のエッジ（紫光） -->
+    <path d="M54,8 Q44,6 38,4" stroke="#c4b5fd" stroke-width="0.5" fill="none"/>
+    <!-- 刃の根元装飾 -->
+    <path d="M52,6 L56,8 L54,10 Z" fill="#7c3aed"/>
+  </g>
+
+  <!-- フード（顔の枠） -->
+  <path d="M20,8 Q18,20 22,26 L42,26 Q46,20 44,8 Q32,2 20,8 Z"
+        fill="url(#aw_hood)" stroke="#0c0a1a" stroke-width="1"/>
+  <!-- フードの影（内側） -->
+  <path d="M24,14 Q22,22 26,26 L38,26 Q42,22 40,14 Q32,10 24,14 Z"
+        fill="#0c0a1a"/>
+  <!-- フードの縁（紫の光） -->
+  <path d="M20,8 Q18,20 22,26" stroke="#7c3aed" stroke-width="0.7" fill="none" opacity="0.8"/>
+  <path d="M44,8 Q46,20 42,26" stroke="#7c3aed" stroke-width="0.7" fill="none" opacity="0.8"/>
+
+  <!-- 顔の虚無（骸骨＋光る目） -->
+  <g>
+    <!-- ぼんやりした輪郭 -->
+    <ellipse cx="32" cy="20" rx="5" ry="5.5" fill="#1c1917" opacity="0.85"/>
+    <!-- 鼻穴 -->
+    <path d="M31,20 L30,23 L32,24 L34,23 L33,20 Z" fill="#0c0a1a"/>
+    <!-- 左目 -->
+    <ellipse cx="29" cy="19" rx="1.6" ry="1.4" fill="url(#aw_eye)"/>
+    <circle cx="29" cy="19" r="0.6" fill="#fff"/>
+    <!-- 右目 -->
+    <ellipse cx="35" cy="19" rx="1.6" ry="1.4" fill="url(#aw_eye)"/>
+    <circle cx="35" cy="19" r="0.6" fill="#fff"/>
+    <!-- 口（歯並び） -->
+    <path d="M28,24 L36,24 M29,24 L29,26 M31,24 L31,26 M33,24 L33,26 M35,24 L35,26"
+          stroke="#f5f5f4" stroke-width="0.5"/>
+  </g>
+
+  <!-- 胸の封印（深淵の印） -->
+  <g transform="translate(32 36)">
+    <circle r="5" fill="none" stroke="#7c3aed" stroke-width="0.8"/>
+    <circle r="3" fill="none" stroke="#a855f7" stroke-width="0.5"/>
+    <path d="M0,-4 L3.5,2 L-3.5,2 Z" fill="none" stroke="#c4b5fd" stroke-width="0.6"/>
+    <circle r="1.2" fill="#e9d5ff"/>
+    <circle r="0.5" fill="#fff"/>
+  </g>
+
+  <!-- 浮遊する鎖（呪い） -->
+  <g stroke="#78716c" stroke-width="0.5" fill="none" opacity="0.85">
+    <circle cx="6" cy="32" r="1.2"/>
+    <circle cx="9" cy="35" r="1.2"/>
+    <circle cx="12" cy="38" r="1.2"/>
+    <circle cx="58" cy="32" r="1.2"/>
+    <circle cx="55" cy="35" r="1.2"/>
+    <circle cx="52" cy="38" r="1.2"/>
+  </g>
+
+  <!-- 虚無のパーティクル -->
+  <g fill="#c4b5fd" opacity="0.9">
+    <circle cx="10" cy="16" r="0.7"/>
+    <circle cx="54" cy="14" r="0.7"/>
+    <circle cx="16" cy="4" r="0.5"/>
+    <circle cx="48" cy="4" r="0.5"/>
+    <circle cx="4" cy="48" r="0.5"/>
+    <circle cx="60" cy="50" r="0.5"/>
+  </g>
+</svg>

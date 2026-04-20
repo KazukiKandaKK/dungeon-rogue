@@ -26,6 +26,7 @@ export interface SpellDef {
   drain?:       boolean;   // ドレイン（HP吸収）
   pct?:         number;    // 最大HP%ダメージ（gravity / void_rift）
   selfHeal?:    number;    // 自身回復（sanctuary）
+  lightning?:   boolean;   // 雷属性（水タイルと接触すると連鎖通電）
 }
 
 // ── 外部依存の最小インターフェース ─────────────────
@@ -80,8 +81,8 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   thunder: {
     id: 'thunder', name: 'サンダー', mp: 3, power: 10,
-    range: 'line', rangeVal: 8,
-    color: '#fbbf24', icon: '⚡', desc: '向いた方向に直進貫通8マス',
+    range: 'line', rangeVal: 8, lightning: true,
+    color: '#fbbf24', icon: '⚡', desc: '向いた方向に直進貫通8マス（水上の敵に連鎖）',
   },
   blizzard: {
     id: 'blizzard', name: 'ブリザード', mp: 5, power: 14,
@@ -183,8 +184,8 @@ export const SPELLS: Record<string, SpellDef> = {
   // ── 新規：連鎖電撃 ───────────────────────────────
   chain_bolt: {
     id: 'chain_bolt', name: '連鎖雷', mp: 6, power: 12,
-    range: 'chain', rangeVal: 5,
-    color: '#fbbf24', icon: '⚡', desc: '最大4体に連鎖する電撃',
+    range: 'chain', rangeVal: 5, lightning: true,
+    color: '#fbbf24', icon: '⚡', desc: '最大4体に連鎖する電撃（水上の敵に連鎖）',
   },
 
   // ── 戦士系 ─────────────────────────────────────
@@ -348,6 +349,7 @@ export function resolveSpell(
     }
     if (hitCount > 0) cb.addLog(`${spell.icon} ${spell.name}！ ${hitCount}体に連鎖！`, 'warn');
     else              cb.addLog(`${spell.icon} ${spell.name}を放ったが外れた…`);
+    _chainOnWater(spell, affected, map, enemies, player, cb);
     return { ok: true, affectedTiles: affected };
   }
 
@@ -510,7 +512,86 @@ export function resolveSpell(
     }
   }
 
+  _chainOnWater(spell, affected, map, enemies, player, cb);
   return { ok: true, affectedTiles: affected };
+}
+
+// ── 水タイルへの雷 → 連鎖通電 ─────────────────
+
+/**
+ * 雷属性スペル（spell.lightning = true）が水タイルに触れた場合、
+ * その水塊（4方向連結）全体を通電エリアとしてマークし、
+ * 水上にいる敵（およびプレイヤーが水上なら自分自身）に追加ダメージを与える。
+ */
+function _chainOnWater(
+  spell:    SpellDef,
+  affected: TilePos[],
+  map:      MapGrid,
+  enemies:  Enemy[],
+  player:   Player,
+  cb:       SpellCallbacks,
+): void {
+  if (!spell.lightning) return;
+  const grid = map.grid;
+  if (!grid) return;
+
+  // WATER = 6 を直接使用（world/tiles.ts との整合性を保つ）
+  const WATER_ID = 6;
+
+  // affected の中で水タイル上のものを種として flood-fill
+  const seeds: TilePos[] = affected.filter(({ tx, ty }) => grid[ty]?.[tx] === WATER_ID);
+  if (seeds.length === 0) return;
+
+  const visited = new Set<string>();
+  const queue: TilePos[] = [...seeds];
+  for (const s of seeds) visited.add(`${s.tx},${s.ty}`);
+
+  while (queue.length > 0) {
+    const { tx, ty } = queue.shift()!;
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number,number][]) {
+      const nx = tx + dx, ny = ty + dy;
+      const key = `${nx},${ny}`;
+      if (visited.has(key)) continue;
+      if (grid[ny]?.[nx] !== WATER_ID) continue;
+      visited.add(key);
+      queue.push({ tx: nx, ty: ny });
+    }
+  }
+
+  // 通電エリアを affected に追加（描画用）
+  let chainHits = 0;
+  const alreadyHit = new Set(affected.map(t => `${t.tx},${t.ty}`));
+  for (const key of visited) {
+    if (alreadyHit.has(key)) continue;
+    const [txStr, tyStr] = key.split(',');
+    const tx = Number(txStr), ty = Number(tyStr);
+    affected.push({ tx, ty });
+  }
+
+  // 水上にいる敵に追加ダメージ
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    if (!visited.has(`${e.tx},${e.ty}`)) continue;
+    // seed で既にヒットしていた敵はスキップ
+    const wasOnSeed = seeds.some(s => s.tx === e.tx && s.ty === e.ty);
+    if (wasOnSeed) continue;
+    const dmg = Math.max(1, Math.floor(spell.power * 0.8) - (e.def ?? 0));
+    e.takeDamage(dmg, 0, 0);
+    cb.spawnParticle(e, spell.color);
+    chainHits++;
+  }
+
+  // プレイヤー自身が水上にいれば、自爆ダメージ
+  if (visited.has(`${player.tx},${player.ty}`)) {
+    const selfDmg = Math.max(1, Math.floor(spell.power * 0.5));
+    player.hp = Math.max(1, player.hp - selfDmg);
+    cb.spawnSelfEffect(spell.color);
+    cb.addLog(`⚡ 自分も水上にいて感電！ ${selfDmg}ダメージ`, 'warn');
+  }
+
+  if (chainHits > 0) {
+    cb.addLog(`⚡ 水を伝って ${chainHits}体に追加の感電！`, 'warn');
+  }
 }
 
 // ── 内部ヘルパー ──────────────────────────────

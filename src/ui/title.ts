@@ -11,6 +11,7 @@ import { BUILDS, BUILD_IDS }      from '../core/game-constants.js';
 import { DUNGEONS }               from '../world/dungeon_defs.js';
 import { getSlotData, hasAnySave } from '../systems/saves.js';
 import type { SaveSlotMode }      from '../core/game-context.js';
+import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
 
 // ── TitleContext / drawTitle ──────────────────────────────
 
@@ -430,6 +431,182 @@ export function drawBuildSelect(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.fillText(mystLabel, W / 2, H - 32);
+}
+
+// ── CharCreateContext / drawCharCreate ────────────────────
+
+export interface CharCreateContext {
+  /** 選択中の種族 index */
+  speciesCursor: number;
+  /** 選択中の色 index */
+  tintCursor:    number;
+  /** 'species' | 'tint' のどちらを選んでいるか */
+  focusGroup:    'species' | 'tint';
+}
+
+export function drawCharCreate(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  c: CharCreateContext,
+): void {
+  // 背景（少しだけ雪っぽく）
+  ctx.fillStyle = '#060118';
+  ctx.fillRect(0, 0, W, H);
+  // 舞う雪片
+  const now = performance.now() / 1000;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 173.3 + now * 18) % W;
+    const sy = (i * 97.1 + now * 32 + i * 7) % H;
+    ctx.beginPath(); ctx.arc(sx, sy, 1.3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // タイトル
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 20;
+  ctx.fillStyle = '#fde68a';
+  ctx.fillText('キャラクタをつくる', W / 2, 60);
+  ctx.shadowBlur = 0;
+  ctx.font = '13px monospace';
+  ctx.fillStyle = '#a5b4fc';
+  ctx.fillText('← → で種族　　↑ ↓ で色　　Enter で決定', W / 2, 92);
+  ctx.restore();
+
+  // ── 中央の大きなプレビュー ─────────────
+  const previewCX = W / 2;
+  const previewCY = H / 2 - 30;
+  const previewS  = 260;
+  const species   = APPEARANCES[APPEARANCE_IDS[c.speciesCursor]];
+  const tint      = TINTS[c.tintCursor].color;
+  const phase     = (now * 0.6) % 1;
+
+  // プレビュー台座
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,10,40,0.8)';
+  ctx.strokeStyle = 'rgba(168,85,247,0.45)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, previewCX - 180, previewCY - 150, 360, 300, 14);
+  ctx.fill(); ctx.stroke();
+  // 淡い光
+  ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 18;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // 3方向プレビュー：正面（大）、側面（小左）、背面（小右）
+  ctx.save();
+  species.draw(ctx, previewCX, previewCY + 10, previewS, 'front', tint, phase, 1);
+  ctx.restore();
+  ctx.save();
+  species.draw(ctx, previewCX - 128, previewCY + 80, 110, 'side', tint, (phase + 0.3) % 1, 1);
+  ctx.restore();
+  ctx.save();
+  species.draw(ctx, previewCX + 128, previewCY + 80, 110, 'back', tint, (phase + 0.6) % 1, 1);
+  ctx.restore();
+
+  // 小ラベル
+  ctx.save();
+  ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(168,85,247,0.7)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('SIDE', previewCX - 128, previewCY + 138);
+  ctx.fillText('FRONT', previewCX,       previewCY + 138);
+  ctx.fillText('BACK', previewCX + 128, previewCY + 138);
+  ctx.restore();
+
+  // ── 種族カルーセル（上部） ─────────────
+  const speciesY = 170;
+  const speciesCardW = 96, speciesCardH = 88, speciesGap = 10;
+  const speciesTotalW = APPEARANCE_IDS.length * speciesCardW + (APPEARANCE_IDS.length - 1) * speciesGap;
+  const speciesStartX = (W - speciesTotalW) / 2;
+
+  APPEARANCE_IDS.forEach((id, i) => {
+    const def = APPEARANCES[id];
+    const cx0 = speciesStartX + i * (speciesCardW + speciesGap);
+    const sel = i === c.speciesCursor;
+    const focused = sel && c.focusGroup === 'species';
+
+    ctx.save();
+    roundRect(ctx, cx0, speciesY, speciesCardW, speciesCardH, 8);
+    ctx.fillStyle = sel ? 'rgba(88,28,135,0.55)' : 'rgba(12,4,28,0.75)';
+    ctx.fill();
+    ctx.strokeStyle = focused ? '#f0abfc' : (sel ? 'rgba(168,85,247,0.7)' : 'rgba(80,60,140,0.4)');
+    ctx.lineWidth = focused ? 2.2 : 1;
+    ctx.stroke();
+    if (focused) {
+      ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 10;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+
+    // ミニプレビュー
+    ctx.save();
+    def.draw(ctx, cx0 + speciesCardW / 2, speciesY + 38, 70, 'front', tint, (phase + i * 0.1) % 1, 1);
+    ctx.restore();
+    // 名前
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = sel ? '#fff' : '#c4b5fd';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(def.name, cx0 + speciesCardW / 2, speciesY + speciesCardH - 6);
+    ctx.restore();
+  });
+
+  // ── 色パレット（下部） ─────────────
+  const tintY = H - 150;
+  const tintCardW = 96, tintCardH = 52, tintGap = 10;
+  const tintTotalW = TINTS.length * tintCardW + (TINTS.length - 1) * tintGap;
+  const tintStartX = (W - tintTotalW) / 2;
+
+  TINTS.forEach((t, i) => {
+    const cx0 = tintStartX + i * (tintCardW + tintGap);
+    const sel = i === c.tintCursor;
+    const focused = sel && c.focusGroup === 'tint';
+
+    ctx.save();
+    roundRect(ctx, cx0, tintY, tintCardW, tintCardH, 8);
+    ctx.fillStyle = sel ? 'rgba(88,28,135,0.55)' : 'rgba(12,4,28,0.75)';
+    ctx.fill();
+    ctx.strokeStyle = focused ? '#f0abfc' : (sel ? 'rgba(168,85,247,0.7)' : 'rgba(80,60,140,0.4)');
+    ctx.lineWidth = focused ? 2.2 : 1;
+    ctx.stroke();
+    if (focused) {
+      ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 10;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // カラーチップ
+    ctx.fillStyle = t.color;
+    ctx.shadowColor = t.color; ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(cx0 + tintCardW / 2, tintY + 18, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 名前
+    ctx.font = '10px monospace';
+    ctx.fillStyle = sel ? '#fff' : '#c4b5fd';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(t.name, cx0 + tintCardW / 2, tintY + tintCardH - 5);
+    ctx.restore();
+  });
+
+  // 種族説明
+  ctx.save();
+  ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(200,180,240,0.8)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const lines = species.desc.split('\n');
+  lines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, tintY - 42 + i * 14);
+  });
+  ctx.restore();
+
+  // フッター
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(148,130,220,0.55)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('← → ↑ ↓ で選択   Enter で決定   Backspace で戻る', W / 2, H - 16);
 }
 
 // ── GameOverContext / drawGameOver ────────────────────────

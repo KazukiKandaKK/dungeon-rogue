@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♋ Cancer — 巨大蟹全身 -->
+  <defs>
+    <radialGradient id="ca_shell" cx="50%" cy="40%" r="60%">
+      <stop offset="0%"  stop-color="#fdba74"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </radialGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="38" rx="30" ry="24" fill="rgba(251,146,60,0.15)" stroke="rgba(251,146,60,0.35)" stroke-width="0.6"/>
+
+  <!-- 脚（8 本） -->
+  <g stroke="#7c2d12" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M18,36 L8,30 L6,40"/>
+    <path d="M18,42 L6,46 L8,56"/>
+    <path d="M24,48 L22,58 L30,60"/>
+    <path d="M40,48 L42,58 L34,60"/>
+    <path d="M46,42 L58,46 L56,56"/>
+    <path d="M46,36 L56,30 L58,40"/>
+  </g>
+
+  <!-- 左ハサミ -->
+  <path d="M10,22 Q4,16 6,10 Q14,14 20,22 Q16,26 10,22Z" fill="#ea580c" stroke="#7c2d12" stroke-width="1"/>
+  <path d="M4,14 Q2,10 6,8 Q10,12 8,16Z" fill="#f97316" stroke="#7c2d12" stroke-width="0.8"/>
+  <line x1="9" y1="14" x2="12" y2="16" stroke="#7c2d12" stroke-width="0.6"/>
+
+  <!-- 右ハサミ -->
+  <path d="M54,22 Q60,16 58,10 Q50,14 44,22 Q48,26 54,22Z" fill="#ea580c" stroke="#7c2d12" stroke-width="1"/>
+  <path d="M60,14 Q62,10 58,8 Q54,12 56,16Z" fill="#f97316" stroke="#7c2d12" stroke-width="0.8"/>
+  <line x1="55" y1="14" x2="52" y2="16" stroke="#7c2d12" stroke-width="0.6"/>
+
+  <!-- ハサミの繋ぎ -->
+  <ellipse cx="18" cy="30" rx="4" ry="3" fill="#c2410c" stroke="#7c2d12" stroke-width="0.8"/>
+  <ellipse cx="46" cy="30" rx="4" ry="3" fill="#c2410c" stroke="#7c2d12" stroke-width="0.8"/>
+
+  <!-- 甲羅 -->
+  <ellipse cx="32" cy="36" rx="18" ry="14" fill="url(#ca_shell)" stroke="#7c2d12" stroke-width="1.2"/>
+  <!-- 甲羅模様 -->
+  <ellipse cx="32" cy="34" rx="14" ry="10" fill="none" stroke="#7c2d12" stroke-width="0.6" opacity="0.6"/>
+  <circle cx="26" cy="32" r="1.8" fill="#fed7aa" stroke="#7c2d12" stroke-width="0.5"/>
+  <circle cx="38" cy="32" r="1.8" fill="#fed7aa" stroke="#7c2d12" stroke-width="0.5"/>
+  <ellipse cx="32" cy="40" rx="4" ry="2" fill="#fed7aa" stroke="#7c2d12" stroke-width="0.5"/>
+  <path d="M20,36 Q25,32 30,36" stroke="#7c2d12" stroke-width="0.4" fill="none"/>
+  <path d="M34,36 Q39,32 44,36" stroke="#7c2d12" stroke-width="0.4" fill="none"/>
+
+  <!-- 目柄（茎） -->
+  <line x1="28" y1="24" x2="26" y2="14" stroke="#7c2d12" stroke-width="1.4"/>
+  <line x1="36" y1="24" x2="38" y2="14" stroke="#7c2d12" stroke-width="1.4"/>
+  <!-- 目玉 -->
+  <circle cx="26" cy="12" r="2.6" fill="#fef3c7" stroke="#7c2d12" stroke-width="0.8"/>
+  <circle cx="38" cy="12" r="2.6" fill="#fef3c7" stroke="#7c2d12" stroke-width="0.8"/>
+  <!-- 瞳 -->
+  <circle cx="26" cy="12" r="1.4" fill="#0c0a09"/>
+  <circle cx="38" cy="12" r="1.4" fill="#0c0a09"/>
+  <circle cx="26.5" cy="11.5" r="0.5" fill="#fff"/>
+  <circle cx="38.5" cy="11.5" r="0.5" fill="#fff"/>
+
+  <!-- 口の泡 -->
+  <circle cx="30" cy="44" r="0.8" fill="none" stroke="#fff" stroke-width="0.4" opacity="0.7"/>
+  <circle cx="34" cy="46" r="0.6" fill="none" stroke="#fff" stroke-width="0.4" opacity="0.7"/>
+</svg>

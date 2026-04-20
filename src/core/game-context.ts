@@ -12,6 +12,7 @@ export type GameState =
   | 'LOADING'
   | 'TITLE'
   | 'SAVE_SLOT'
+  | 'CHAR_CREATE'
   | 'CLASS_SELECT'
   | 'BUILD_SELECT'
   | 'PLAYER_TURN'
@@ -26,12 +27,13 @@ export type SaveSlotMode = 'load' | 'save';
 
 // ── カジノ関連 ────────────────────────────────
 
-export type CasinoMode = 'select' | 'bj' | 'roulette' | 'chinchiro';
+export type CasinoMode = 'select' | 'bj' | 'roulette' | 'chinchiro' | 'slot';
 export type BjPhase    = 'bet' | 'play' | 'result';
 export type BjResult   = 'win' | 'lose' | 'push' | 'blackjack' | '';
 export type RlPhase    = 'bet' | 'spin' | 'result';
 export type RlBetType  = 'red' | 'black' | 'odd' | 'even' | 'low' | 'high' | 'number';
 export type CcPhase    = 'bet' | 'player_roll' | 'dealer_roll' | 'result';
+export type SlPhase    = 'bet' | 'spin' | 'result';
 
 export interface BlackjackCard {
   rank:  string;

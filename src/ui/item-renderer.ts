@@ -9,14 +9,16 @@ import { lightenColor, darkenColor } from '../core/colors.js';
 
 // ── アイテム描画に必要な最小型定義 ──────────────
 
-export type ItemSlot = 'consumable' | 'weapon' | 'armor' | 'accessory' | 'gold';
+export type ItemSlot = 'consumable' | 'weapon' | 'head' | 'chest' | 'waist' | 'legs' | 'accessory' | 'gold';
 
 export interface RenderableItem {
-  color?:   string;
-  slot:     ItemSlot;
-  id?:      string;
-  spellId?: string;
-  healMp?:  number | 'full';
+  color?:      string;
+  slot:        ItemSlot;
+  id?:         string;
+  spellId?:    string;
+  healMp?:     number | 'full';
+  spriteName?: string;
+  icon?:       string;
 }
 
 // ── Canvas 描画プリミティブ ──────────────────────
@@ -210,6 +212,44 @@ export function drawItemGem(
   ctx.beginPath(); ctx.moveTo(cx - gw * 0.15, cy - gt * 0.85); ctx.lineTo(cx + gw * 0.2, cy - gt * 0.45); ctx.lineTo(cx - gw * 0.08, cy - gt * 0.15); ctx.lineTo(cx - gw * 0.3, cy - gt * 0.55); ctx.closePath(); ctx.fill();
 }
 
+// ── スプライト優先のフォールバック描画 ───────────────
+
+/**
+ * スプライトマネージャの最小インターフェース
+ */
+export interface SpriteManagerLike {
+  get(name: string | null): unknown;
+  draw(
+    ctx:  CanvasRenderingContext2D,
+    name: string,
+    cx: number, cy: number,
+    w: number, h: number,
+  ): void;
+}
+
+/**
+ * スプライト優先、未ロードなら絵文字アイコンにフォールバックして描画する。
+ * UI・HUD・プレイヤーオーバレイなど、装備品アイコンを描くすべての箇所で使う。
+ */
+export function drawItemIcon(
+  ctx: CanvasRenderingContext2D,
+  item: { icon?: string; spriteName?: string } | null | undefined,
+  cx: number, cy: number, sz: number,
+  sprites?: SpriteManagerLike | null,
+): void {
+  if (!item) return;
+  if (sprites && item.spriteName && sprites.get(item.spriteName)) {
+    sprites.draw(ctx, item.spriteName, cx, cy, sz, sz);
+    return;
+  }
+  if (item.icon) {
+    ctx.font         = `${(sz * 0.85) | 0}px serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.icon, cx, cy);
+  }
+}
+
 // ── ディスパッチャ ────────────────────────────────
 
 /**
@@ -222,7 +262,13 @@ export function drawItemSvg(
   cx:   number,
   cy:   number,
   sz:   number,
+  sprites?: SpriteManagerLike | null,
 ): void {
+  // スプライトが存在すればそれを最優先で描画
+  if (sprites && item.spriteName && sprites.get(item.spriteName)) {
+    sprites.draw(ctx, item.spriteName, cx, cy, sz, sz);
+    return;
+  }
   const c = item.color ?? '#fbbf24';
   const { slot, id } = item;
   if (slot === 'gold') {
@@ -236,7 +282,7 @@ export function drawItemSvg(
     else if (id?.includes('hammer')) drawItemHammer(ctx, cx, cy, sz, c);
     else if (id?.includes('staff'))  drawItemStaff(ctx, cx, cy, sz, c);
     else                         drawItemSword(ctx, cx, cy, sz, c);
-  } else if (slot === 'armor') {
+  } else if (slot === 'head' || slot === 'chest' || slot === 'waist' || slot === 'legs') {
     drawItemShield(ctx, cx, cy, sz, c);
   } else {
     if (id?.includes('ring')) drawItemRing(ctx, cx, cy, sz, c);

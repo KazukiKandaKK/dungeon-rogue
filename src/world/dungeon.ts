@@ -194,14 +194,13 @@ export class DungeonGenerator {
       }
     }
 
-    // ── 水 (WATER): 1〜2箇所に水たまり ──────────────────────
-    const poolCount = 1 + Math.floor(Math.random() * 2);
-    for (let p = 0; p < poolCount; p++) {
+    // ── 特殊床 (WATER / ICE / MAGMA): 各 1〜2箇所 ──────────────
+    const placePatch = (tile: TileType, growProb: number) => {
       const room = rooms[Math.floor(Math.random() * rooms.length)];
-      if (room.w < 4 || room.h < 4) continue;
+      if (room.w < 4 || room.h < 4) return;
       const sx = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
       const sy = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
-      if (grid[sy][sx] !== TILE.FLOOR) continue;
+      if (grid[sy][sx] !== TILE.FLOOR) return;
       const targetSize = 3 + Math.floor(Math.random() * 5);
       const frontier: [number, number][] = [[sx, sy]];
       let added = 0;
@@ -210,13 +209,20 @@ export class DungeonGenerator {
         const [cx, cy] = frontier.splice(idx2, 1)[0];
         if (grid[cy]?.[cx] !== TILE.FLOOR) continue;
         if (stairs && stairs.tx === cx && stairs.ty === cy) continue;
-        grid[cy][cx] = TILE.WATER;
+        grid[cy][cx] = tile;
         added++;
         for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number,number][]) {
-          if (Math.random() < 0.55) frontier.push([cx+dx, cy+dy]);
+          if (Math.random() < growProb) frontier.push([cx+dx, cy+dy]);
         }
       }
-    }
+    };
+    // 水
+    const poolCount = 1 + Math.floor(Math.random() * 2);
+    for (let p = 0; p < poolCount; p++) placePatch(TILE.WATER, 0.55);
+    // 氷（40% の確率で 1 箇所）
+    if (Math.random() < 0.4) placePatch(TILE.ICE, 0.55);
+    // マグマ（30% の確率で 1 箇所、小さめ）
+    if (Math.random() < 0.3) placePatch(TILE.MAGMA, 0.45);
 
     // ── 罠 (TRAP): フロア全体に3〜7個ランダム配置 ────────────
     const density   = this.trapDensity;
@@ -474,13 +480,64 @@ export class BaseRoomGenerator {
           ? TILE.WALL : TILE.FLOOR
       )
     );
-    // 内側に柱（装飾）— BASE_COLS=16,BASE_ROWS=12 レイアウト対応
-    const pillars: [number, number][] = [[2,8],[2,9],[13,8],[13,9]];
-    for (const [px, py] of pillars) {
-      if (px > 0 && py > 0 && px < cols-1 && py < rows-1) {
+
+    // 28×20 レイアウト（地区分け）
+    //   ポータルの間と中央広場を区切る「アーチ状の仕切り壁」
+    //   中央の噴水（2×2 ブロック）
+    //   各施設は 3×2 タイル占有の建物（本体 5 マスが壁、扉 1 マスだけ床）
+    //   商業地区／工房地区の区切り柱
+    //   裏路地の結界柱
+    const walls: [number, number][] = [
+      // ── 上段：ポータルの間を囲む飾り柱 ──
+      [1, 2], [26, 2],
+      [1, 6], [26, 6],
+
+      // ── 中仕切り（y=7）：左右に壁、中央 x=6..21 は広いアーチで開放 ──
+      [2, 7], [3, 7], [4, 7], [5, 7],
+      [22, 7], [23, 7], [24, 7], [25, 7],
+
+      // ── 中央噴水（2×2） ──
+      [13, 8], [14, 8],
+      [13, 9], [14, 9],
+
+      // ── 商業地区（西）／工房地区（東）を画定する柱 ──
+      [2, 11], [25, 11],
+      [2, 13], [25, 13],
+
+      // ── 裏路地の入口柱（門柱風） ──
+      [10, 14], [17, 14],
+
+      // ── ショップ（扉 (4,12)） 本体 5 マス ──
+      [3, 11], [4, 11], [5, 11],
+      [3, 12],          [5, 12],
+
+      // ── 委託露店（扉 (8,12)） 本体 5 マス ──
+      [7, 11], [8, 11], [9, 11],
+      [7, 12],          [9, 12],
+
+      // ── 鍛冶屋（扉 (19,12)） 本体 5 マス ──
+      [18, 11], [19, 11], [20, 11],
+      [18, 12],           [20, 12],
+
+      // ── 転職の祭壇（扉 (23,12)） 本体 5 マス ──
+      [22, 11], [23, 11], [24, 11],
+      [22, 12],           [24, 12],
+
+      // ── 金貸し（扉 (3,15)） 本体 5 マス ──
+      [2, 14], [3, 14], [4, 14],
+      [2, 15],          [4, 15],
+
+      // ── カジノ（扉 (24,15)） 本体 5 マス ──
+      [23, 14], [24, 14], [25, 14],
+      [23, 15],           [25, 15],
+    ];
+
+    for (const [px, py] of walls) {
+      if (px > 0 && py > 0 && px < cols - 1 && py < rows - 1) {
         grid[py][px] = TILE.WALL;
       }
     }
+
     return { grid, exits: {}, rooms: [], monsterHouseRoom: null, stairs: null };
   }
 }

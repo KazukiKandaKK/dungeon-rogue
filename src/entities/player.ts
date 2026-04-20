@@ -7,7 +7,9 @@ import { TILE_SIZE }         from '../world/tiles.js';
 import { CLASSES }           from '../data/classes.js';
 import type { ClassId }      from '../data/classes.js';
 import type { ItemDef }      from '../data/equipment.js';
+import { ARMOR_SLOTS }        from '../data/equipment.js';
 import type { StatusEffectEntry, SpriteManager } from '../types.js';
+import { APPEARANCES, APPEARANCE_IDS } from '../data/appearances.js';
 
 // ── 型定義 ────────────────────────────────────
 
@@ -20,11 +22,19 @@ export interface BuildBonus {
   lukEvery: number;
 }
 
-type EquipSlotName = 'weapon' | 'armor' | 'accessory';
+type EquipSlotName = 'weapon' | 'head' | 'chest' | 'waist' | 'legs' | 'accessory';
+
+export interface Appearance {
+  species: string;  // APPEARANCE_IDS のいずれか
+  tint:    string;  // #rrggbb
+}
 
 interface Equipment {
   weapon:    ItemDef | null;
-  armor:     ItemDef | null;
+  head:      ItemDef | null;
+  chest:     ItemDef | null;
+  waist:     ItemDef | null;
+  legs:      ItemDef | null;
   accessory: ItemDef | null;
 }
 
@@ -72,7 +82,10 @@ export class Player extends Actor {
   inventory:    ItemDef[];
   maxInventory: number;
 
-  constructor(tx: number, ty: number, classType: ClassId = 'warrior', buildBonus: BuildBonus | null = null) {
+  /** キャラクリで選んだ見た目。未指定なら SVG スプライトを使う。 */
+  appearance: Appearance | null;
+
+  constructor(tx: number, ty: number, classType: ClassId = 'warrior', buildBonus: BuildBonus | null = null, appearance: Appearance | null = null) {
     const cls = CLASSES[classType] ?? CLASSES.warrior;
     super(tx, ty, cls.baseHP);
     this.name       = '勇者';
@@ -105,9 +118,11 @@ export class Player extends Actor {
     this.stones = 0;
     this.wood   = 0;
 
-    this.equip        = { weapon: null, armor: null, accessory: null };
+    this.equip        = { weapon: null, head: null, chest: null, waist: null, legs: null, accessory: null };
     this.inventory    = [];
-    this.maxInventory = 20;
+    this.maxInventory = 40;
+
+    this.appearance = appearance;
   }
 
   // ── 計算済みステータス ─────────────────────────
@@ -125,8 +140,10 @@ export class Player extends Actor {
     const barrierBonus   = this.statusEffects.find(e => e.type === 'barrier')?.power      ?? 0;
     const ironSkinBonus  = this.statusEffects.find(e => e.type === 'iron_skin')?.power     ?? 0;
     const berserkPenalty = this.statusEffects.find(e => e.type === 'berserk')?.defPenalty  ?? 0;
+    let armorDef = 0;
+    for (const s of ARMOR_SLOTS) armorDef += (this.equip[s]?.def ?? 0);
     return this.baseDef
-      + (this.equip.armor?.def     ?? 0)
+      + armorDef
       + (this.equip.accessory?.def ?? 0)
       + barrierBonus
       + ironSkinBonus
@@ -141,9 +158,11 @@ export class Player extends Actor {
   get luk(): number { return this.baseLuk; }
 
   get totalMaxHP(): number {
+    let armorHp = 0;
+    for (const s of ARMOR_SLOTS) armorHp += (this.equip[s]?.maxHp ?? 0);
     return this.baseMaxHP
       + (this.lv - 1) * (this.hpPerLv + (this.buildBonus?.hpPerLv ?? 0))
-      + (this.equip.armor?.maxHp     ?? 0)
+      + armorHp
       + (this.equip.accessory?.maxHp ?? 0);
   }
 
@@ -172,13 +191,39 @@ export class Player extends Actor {
     return old;
   }
 
+  /**
+   * アイテムをインベントリに追加する。
+   * 消耗品（slot === 'consumable'）は同じ id があれば個数加算（スタック）。
+   * 装備品は耐久値などが異なるため常に新規スロットを使う。
+   */
   addToInventory(item: ItemDef): boolean {
+    const addCount = item.count ?? 1;
+    if (item.slot === 'consumable') {
+      const existing = this.inventory.find(
+        i => i.slot === 'consumable' && i.id === item.id,
+      );
+      if (existing) {
+        existing.count = (existing.count ?? 1) + addCount;
+        return true;
+      }
+    }
     if (this.inventory.length >= this.maxInventory) return false;
-    this.inventory.push(item);
+    this.inventory.push({ ...item, count: addCount });
     return true;
   }
 
+  /**
+   * スロットから1個取り出す。スタック >1 のときは個数を1減らしてスロットを残す。
+   * 返り値の item は常に count=1 のコピー。
+   */
   removeFromInventory(index: number): ItemDef | null {
+    const it = this.inventory[index];
+    if (!it) return null;
+    const c = it.count ?? 1;
+    if (c > 1) {
+      it.count = c - 1;
+      return { ...it, count: 1 };
+    }
     return this.inventory.splice(index, 1)[0] ?? null;
   }
 
@@ -232,6 +277,11 @@ export class Player extends Actor {
         this.hp = Math.max(1, this.hp - dmg);
         onPoison?.(dmg);
       }
+      if (ef.type === 'burn') {
+        const dmg = ef.power ?? 2;
+        this.hp = Math.max(1, this.hp - dmg);
+        onPoison?.(dmg);
+      }
       ef.turnsLeft = (ef.turnsLeft ?? 1) - 1;
     }
     this.statusEffects = this.statusEffects.filter(e => (e.turnsLeft ?? 0) > 0);
@@ -245,6 +295,68 @@ export class Player extends Actor {
       return true;
     }
     return false;
+  }
+
+  // ── 転職 ─────────────────────────────────────
+  /**
+   * 職業を変更する。レベル・経験値・装備・インベントリ・所持金（変更前後で別途コスト処理）は保持し、
+   * baseAtk / baseDef / baseMp / hpPerLv などの成長係数を新職業の数値で再計算する。
+   * spells は新職業の startSpells + 現在レベル以下の progression をすべて習得した状態に置き換える。
+   * HP / MP は新しい最大値まで全回復。
+   */
+  reclassTo(newClassId: ClassId): boolean {
+    const cls = CLASSES[newClassId];
+    if (!cls) return false;
+    if (this.classType === newClassId) return false;
+
+    const bb = this.buildBonus;
+    const lv = this.lv;
+
+    this.classType = newClassId;
+    this.atkPerLv  = cls.atkPerLv;
+    this.defPerLv  = cls.defPerLv;
+    this.hpPerLv   = cls.hpPerLv;
+    this.mpPerLv   = cls.mpPerLv ?? 1;
+    this.baseMaxHP = cls.baseHP;
+
+    // 累積ステータス再計算（初期値 + レベル成長 + ビルドボーナス累積）
+    this.baseAtk = cls.baseAtk + (lv - 1) * (cls.atkPerLv + (bb.atkPerLv ?? 0));
+    this.baseDef = cls.baseDef + (lv - 1) * (cls.defPerLv + (bb.defPerLv ?? 0));
+    this.baseMp  = (cls.baseMpMax ?? 10) + (lv - 1) * (bb.mpPerLv ?? 0);
+
+    // SPD / LUK はレベルアップ時の累積ボーナスを再現
+    let spd = cls.baseSpd ?? 0;
+    let luk = cls.baseLuk ?? 0;
+    const spdEvery = bb.spdEvery ?? 0;
+    const lukEvery = bb.lukEvery ?? 0;
+    for (let l = 2; l <= lv; l++) {
+      if (l % 5 === 0) spd += 1;
+      if (spdEvery > 0 && l % spdEvery === 0) spd += 1;
+      if (l % 4 === 0) luk += 1;
+      if (lukEvery > 0 && l % lukEvery === 0) luk += 1;
+    }
+    this.baseSpd = spd;
+    this.baseLuk = luk;
+
+    // スペルを新職業で置き換え
+    const learned: string[] = [...(cls.startSpells ?? [])];
+    const prog = cls.spellProgression ?? {};
+    for (const key of Object.keys(prog)) {
+      const at = Number(key);
+      if (at <= lv) {
+        for (const s of prog[at] ?? []) {
+          if (!learned.includes(s)) learned.push(s);
+        }
+      }
+    }
+    this.spells = learned;
+
+    // HP/MP を新しい最大値まで全回復
+    this.maxHP = this.totalMaxHP;
+    this.hp    = this.maxHP;
+    this.mp    = this.totalMaxMp;
+
+    return true;
   }
 
   // ── 経験値・レベルアップ ──────────────────────
@@ -304,15 +416,31 @@ export class Player extends Actor {
     } else if (this.equip?.weapon?.color) {
       ctx.shadowColor = this.equip.weapon.color;
       ctx.shadowBlur  = 12;
-    } else if (this.equip?.armor?.color) {
-      ctx.shadowColor = this.equip.armor.color;
+    } else if (this.equip?.chest?.color) {
+      ctx.shadowColor = this.equip.chest.color;
       ctx.shadowBlur  = 10;
     } else {
       ctx.shadowColor = 'rgba(180,210,255,0.6)';
       ctx.shadowBlur  = 6;
     }
 
-    if (sprites.get(spriteName)) {
+    // アクセサリのマント（スプライトの後ろ側）
+    if (this.equip.accessory) {
+      this._drawAccessoryCape(ctx, sx, sy, spriteName);
+    }
+
+    if (this.appearance && APPEARANCES[this.appearance.species]) {
+      // キャラクリで選んだ見た目（procedural）
+      const def = APPEARANCES[this.appearance.species];
+      const facing: 'front' | 'back' | 'side' =
+        spriteName === 'player_back' ? 'back' :
+        spriteName === 'player_side' ? 'side' : 'front';
+      // 歩行アイドル位相（歩行中はテンポよく、停止時はゆっくり揺れる）
+      const moving = Math.abs(this.bumpX) + Math.abs(this.bumpY) > 0.01;
+      const speed  = moving ? 1.6 : 0.7;
+      const phase  = ((Date.now() * 0.001 * speed) % 1 + 1) % 1;
+      def.draw(ctx, sx, sy, SZ, facing, this.appearance.tint, phase, this.dirX);
+    } else if (sprites.get(spriteName)) {
       if (this.dirX < 0) {
         ctx.translate(sx, sy);
         ctx.scale(-1, 1);
@@ -326,6 +454,9 @@ export class Player extends Actor {
     }
     ctx.shadowBlur = 0;
     ctx.restore();
+
+    // 装備スキンのオーバーレイ（スプライトの上に鎧・兜・武器などを重ねる）
+    this._drawEquipmentSkin(ctx, sx, sy, spriteName, this.dirX);
 
     // ── 武器振り抜きアーク（攻撃時のみ） ───────────
     if (this.swipeTime > 0 && this.swipeMax > 0) {
@@ -361,7 +492,7 @@ export class Player extends Actor {
 
     // ── 装備アイコン ───────────────────────────────
     {
-      const slots    = ['weapon', 'armor', 'accessory'] as EquipSlotName[];
+      const slots    = ['weapon', 'head', 'chest', 'waist', 'legs', 'accessory'] as EquipSlotName[];
       const equipped = slots.map(s => this.equip?.[s]).filter((i): i is ItemDef => i !== null);
       if (equipped.length > 0) {
         ctx.save();
@@ -406,9 +537,16 @@ export class Player extends Actor {
           ctx.fill();
           ctx.stroke();
 
-          ctx.font      = '13px serif';
+          // スプライト優先（14px 程度の小さなバッジ）、未ロードなら絵文字
           ctx.fillStyle = '#ffffff';
-          ctx.fillText(item.icon, ix, iy);
+          if (item.spriteName && sprites.get(item.spriteName)) {
+            sprites.draw(ctx, item.spriteName, ix, iy, 14, 14);
+          } else {
+            ctx.font = '13px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.icon, ix, iy);
+          }
         });
 
         ctx.restore();
@@ -419,6 +557,398 @@ export class Player extends Actor {
 
     _drawHPBar(ctx, sx, sy - SZ / 2 - 8,  SZ, this.hp, this.maxHP,      '#34d399', this.displayHp);
     _drawHPBar(ctx, sx, sy - SZ / 2 - 15, SZ, this.mp, this.totalMaxMp, '#818cf8');
+  }
+
+  // ─── 装備スキンのオーバーレイ ─────────────────
+  // 装備アイテムの色・ティア・名前（武器種判定）に応じて、スプライトの上に
+  // 兜・胸当て・ベルト・脛当て・武器などを procedural に描画する。
+  private _drawEquipmentSkin(
+    ctx: CanvasRenderingContext2D,
+    sx:  number,
+    sy:  number,
+    spriteName: string,
+    dirX: number,
+  ): void {
+    const s = SZ;
+    const facing: 'front' | 'back' | 'side' =
+      spriteName === 'player_back' ? 'back' :
+      spriteName === 'player_side' ? 'side' : 'front';
+    const handSign = facing === 'side' ? (dirX >= 0 ? 1 : -1) : 1;
+
+    // ── 脛当て & ブーツ（legs） ──
+    if (this.equip.legs) {
+      const c = this.equip.legs.color ?? '#475569';
+      const tier = this.equip.legs.tier ?? 0;
+      ctx.save();
+      ctx.shadowColor = c; ctx.shadowBlur = 4;
+      ctx.fillStyle = c + 'd8';
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1;
+      // 左脚
+      ctx.fillRect(sx - s * 0.14, sy + s * 0.14, s * 0.1, s * 0.17);
+      ctx.strokeRect(sx - s * 0.14, sy + s * 0.14, s * 0.1, s * 0.17);
+      // 右脚
+      ctx.fillRect(sx + s * 0.04, sy + s * 0.14, s * 0.1, s * 0.17);
+      ctx.strokeRect(sx + s * 0.04, sy + s * 0.14, s * 0.1, s * 0.17);
+      // 膝飾り（tier ≥ 2）
+      if (tier >= 2) {
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath(); ctx.arc(sx - s * 0.09, sy + s * 0.2, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx + s * 0.09, sy + s * 0.2, 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+      // ブーツ
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#1c1917';
+      ctx.fillRect(sx - s * 0.15, sy + s * 0.31, s * 0.12, s * 0.05);
+      ctx.fillRect(sx + s * 0.03, sy + s * 0.31, s * 0.12, s * 0.05);
+      ctx.fillStyle = '#44403c';
+      ctx.fillRect(sx - s * 0.15, sy + s * 0.34, s * 0.12, s * 0.02);
+      ctx.fillRect(sx + s * 0.03, sy + s * 0.34, s * 0.12, s * 0.02);
+      ctx.restore();
+    }
+
+    // ── 胸当て（chest） ──
+    if (this.equip.chest) {
+      const c = this.equip.chest.color ?? '#94a3b8';
+      const tier = this.equip.chest.tier ?? 0;
+      const name = this.equip.chest.name ?? '';
+      const isRobe = /ローブ|robe|法衣/i.test(name);
+      ctx.save();
+      ctx.shadowColor = c; ctx.shadowBlur = 6;
+      ctx.fillStyle = c + 'd8';
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1.2;
+      const cy = sy - s * 0.02;
+      if (isRobe) {
+        // ローブ（裾が広がる）
+        ctx.beginPath();
+        ctx.moveTo(sx - s * 0.17, cy - s * 0.09);
+        ctx.lineTo(sx + s * 0.17, cy - s * 0.09);
+        ctx.lineTo(sx + s * 0.22, cy + s * 0.14);
+        ctx.lineTo(sx - s * 0.22, cy + s * 0.14);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // 襟
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.moveTo(sx - s * 0.07, cy - s * 0.09);
+        ctx.lineTo(sx, cy - s * 0.03);
+        ctx.lineTo(sx + s * 0.07, cy - s * 0.09);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // 胸当て（プレート）
+        ctx.beginPath();
+        ctx.moveTo(sx - s * 0.16, cy - s * 0.09);
+        ctx.lineTo(sx + s * 0.16, cy - s * 0.09);
+        ctx.lineTo(sx + s * 0.19, cy + s * 0.1);
+        ctx.lineTo(sx - s * 0.19, cy + s * 0.1);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // 中央のライン
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath(); ctx.moveTo(sx, cy - s * 0.09); ctx.lineTo(sx, cy + s * 0.1); ctx.stroke();
+        // 肩パッド（tier ≥ 2）
+        if (tier >= 2) {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.ellipse(sx - s * 0.19, cy - s * 0.06, s * 0.06, s * 0.045, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(sx + s * 0.19, cy - s * 0.06, s * 0.06, s * 0.045, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // 中央エンブレム（tier ≥ 1）
+      if (tier >= 1) {
+        ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 6;
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath(); ctx.arc(sx, cy, 2.8, 0, Math.PI * 2); ctx.fill();
+      }
+      // tier 3 の追加輝き
+      if (tier >= 3) {
+        ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(sx, cy, 5.5, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ── ベルト（waist） ──
+    if (this.equip.waist) {
+      const c = this.equip.waist.color ?? '#78350f';
+      ctx.save();
+      ctx.fillStyle = c;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(sx - s * 0.2, sy + s * 0.08, s * 0.4, s * 0.045);
+      ctx.strokeRect(sx - s * 0.2, sy + s * 0.08, s * 0.4, s * 0.045);
+      // バックル
+      ctx.fillStyle = '#fde68a';
+      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 4;
+      ctx.fillRect(sx - 5, sy + s * 0.087, 10, s * 0.029);
+      ctx.restore();
+    }
+
+    // ── 兜・フード・帽子（head） ──
+    if (this.equip.head) {
+      const c = this.equip.head.color ?? '#94a3b8';
+      const tier = this.equip.head.tier ?? 0;
+      const name = this.equip.head.name ?? '';
+      const isHood   = /フード|hood|帽子|ハット|hat/i.test(name);
+      const isCrown  = /王冠|crown|ティアラ|tiara/i.test(name);
+      const isHorned = /角|horn|兜/i.test(name);
+      ctx.save();
+      ctx.shadowColor = c; ctx.shadowBlur = 7;
+      ctx.fillStyle = c;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1.5;
+      const hx = sx, hy = sy - s * 0.32;
+      if (isCrown) {
+        // 王冠
+        ctx.beginPath();
+        ctx.moveTo(hx - s * 0.18, hy + s * 0.06);
+        ctx.lineTo(hx - s * 0.18, hy - s * 0.02);
+        ctx.lineTo(hx - s * 0.10, hy + s * 0.02);
+        ctx.lineTo(hx - s * 0.06, hy - s * 0.1);
+        ctx.lineTo(hx,             hy);
+        ctx.lineTo(hx + s * 0.06, hy - s * 0.1);
+        ctx.lineTo(hx + s * 0.10, hy + s * 0.02);
+        ctx.lineTo(hx + s * 0.18, hy - s * 0.02);
+        ctx.lineTo(hx + s * 0.18, hy + s * 0.06);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ef4444';
+        ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 5;
+        ctx.beginPath(); ctx.arc(hx, hy + s * 0.01, 3, 0, Math.PI * 2); ctx.fill();
+      } else if (isHood) {
+        // フード（背中まで伸びる）
+        ctx.beginPath();
+        ctx.moveTo(hx - s * 0.22, hy + s * 0.16);
+        ctx.quadraticCurveTo(hx - s * 0.25, hy - s * 0.02, hx, hy - s * 0.16);
+        ctx.quadraticCurveTo(hx + s * 0.25, hy - s * 0.02, hx + s * 0.22, hy + s * 0.16);
+        ctx.lineTo(hx + s * 0.12, hy + s * 0.16);
+        ctx.quadraticCurveTo(hx, hy - s * 0.04, hx - s * 0.12, hy + s * 0.16);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      } else {
+        // ヘルメット（ドーム＋面頬）
+        ctx.beginPath();
+        ctx.arc(hx, hy + s * 0.05, s * 0.21, Math.PI, 0);
+        ctx.lineTo(hx + s * 0.22, hy + s * 0.13);
+        ctx.lineTo(hx - s * 0.22, hy + s * 0.13);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // バイザーの隙間
+        if (facing !== 'back') {
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillRect(hx - s * 0.1, hy + s * 0.06, s * 0.2, 2);
+          ctx.fillRect(hx - s * 0.03, hy - s * 0.01, s * 0.06, 2);
+        }
+        // 角（isHorned or tier ≥ 2）
+        if (isHorned || tier >= 2) {
+          ctx.fillStyle = tier >= 3 ? '#fde68a' : c;
+          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+          // 左角
+          ctx.beginPath();
+          ctx.moveTo(hx - s * 0.15, hy - s * 0.06);
+          ctx.quadraticCurveTo(hx - s * 0.22, hy - s * 0.16, hx - s * 0.1, hy - s * 0.18);
+          ctx.quadraticCurveTo(hx - s * 0.1, hy - s * 0.1, hx - s * 0.12, hy - s * 0.04);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          // 右角
+          ctx.beginPath();
+          ctx.moveTo(hx + s * 0.15, hy - s * 0.06);
+          ctx.quadraticCurveTo(hx + s * 0.22, hy - s * 0.16, hx + s * 0.1, hy - s * 0.18);
+          ctx.quadraticCurveTo(hx + s * 0.1, hy - s * 0.1, hx + s * 0.12, hy - s * 0.04);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+        }
+      }
+      // tier 3 光輪
+      if (tier >= 3) {
+        ctx.strokeStyle = 'rgba(253,224,71,0.9)';
+        ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 10;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(hx, hy - s * 0.18, s * 0.14, s * 0.04, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ── 武器（weapon） ──
+    if (this.equip.weapon) {
+      const c = this.equip.weapon.color ?? '#94a3b8';
+      const tier = this.equip.weapon.tier ?? 0;
+      const name = this.equip.weapon.name ?? '';
+      const isStaff = /杖|staff|wand|ロッド|rod/i.test(name);
+      const isBow   = /弓|bow|crossbow/i.test(name);
+      const isAxe   = /斧|axe|マサカリ/i.test(name);
+      const isDagger = /短剣|dagger|ナイフ|knife/i.test(name);
+      ctx.save();
+      ctx.shadowColor = c; ctx.shadowBlur = 10;
+      const wx = sx + handSign * s * 0.28;
+      const wy = sy + s * 0.04;
+      if (isStaff) {
+        // 杖
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(wx - 2, wy - s * 0.3, 4, s * 0.45);
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(wx - 2, wy - s * 0.3, 4, s * 0.45);
+        // 宝玉
+        ctx.fillStyle = c;
+        ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(wx, wy - s * 0.33, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 1;
+        ctx.stroke();
+        // 宝玉ハイライト
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath(); ctx.arc(wx - 2, wy - s * 0.35, 1.5, 0, Math.PI * 2); ctx.fill();
+      } else if (isBow) {
+        // 弓
+        ctx.strokeStyle = c; ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        const bowR = s * 0.25;
+        ctx.beginPath();
+        ctx.arc(wx, wy, bowR, Math.PI * 0.72, Math.PI * 1.28);
+        ctx.stroke();
+        // 弦
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1;
+        const y1 = wy + Math.sin(Math.PI * 0.72) * bowR;
+        const y2 = wy + Math.sin(Math.PI * 1.28) * bowR;
+        const bxE = wx + Math.cos(Math.PI * 0.72) * bowR;
+        ctx.beginPath(); ctx.moveTo(bxE, y1); ctx.lineTo(bxE, y2); ctx.stroke();
+        // 握り
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(wx - handSign * bowR - 2, wy - 4, 5, 8);
+      } else if (isAxe) {
+        // 斧
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(wx - 2, wy - s * 0.3, 4, s * 0.4);
+        // 刃（扇形）
+        ctx.fillStyle = c;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(wx + handSign * 2, wy - s * 0.26);
+        ctx.quadraticCurveTo(wx + handSign * s * 0.13, wy - s * 0.24, wx + handSign * s * 0.12, wy - s * 0.1);
+        ctx.lineTo(wx + handSign * 2, wy - s * 0.15);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      } else if (isDagger) {
+        // 短剣
+        ctx.fillStyle = c;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(wx, wy - s * 0.18);
+        ctx.lineTo(wx + 2, wy + s * 0.02);
+        ctx.lineTo(wx - 2, wy + s * 0.02);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(wx - 3, wy + s * 0.02, 6, s * 0.06);
+        ctx.fillStyle = '#fde68a';
+        ctx.fillRect(wx - 5, wy, 10, 2);
+      } else {
+        // 剣（デフォルト）
+        // 刃
+        ctx.fillStyle = c;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1;
+        ctx.fillRect(wx - 2, wy - s * 0.3, 4, s * 0.3);
+        ctx.strokeRect(wx - 2, wy - s * 0.3, 4, s * 0.3);
+        // 刃先
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(wx - 1, wy - s * 0.3, 2, 4);
+        // つば
+        ctx.fillStyle = tier >= 2 ? '#fde68a' : '#d4a574';
+        ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 4;
+        ctx.fillRect(wx - 7, wy - 2, 14, 3);
+        // 柄
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(wx - 3, wy + 1, 6, s * 0.09);
+        // 柄頭
+        ctx.fillStyle = c;
+        ctx.shadowColor = c; ctx.shadowBlur = 5;
+        ctx.beginPath(); ctx.arc(wx, wy + s * 0.11, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ── アクセサリの補助表示（頭上のオーラリング） ──
+    if (this.equip.accessory) {
+      const c = this.equip.accessory.color ?? '#a855f7';
+      const tier = this.equip.accessory.tier ?? 0;
+      ctx.save();
+      ctx.shadowColor = c; ctx.shadowBlur = 10;
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.8;
+      ctx.globalAlpha = 0.75 + 0.25 * Math.sin(Date.now() * 0.004);
+      // 頭上の光輪
+      ctx.beginPath();
+      ctx.ellipse(sx, sy - s * 0.48, s * 0.15, s * 0.04, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (tier >= 2) {
+        // 二重リング
+        ctx.beginPath();
+        ctx.ellipse(sx, sy - s * 0.48, s * 0.19, s * 0.05, 0, 0, Math.PI * 2);
+        ctx.globalAlpha *= 0.5;
+        ctx.stroke();
+      }
+      // 浮遊オーブ（アクセサリ色の輝点が頭の周りを回る）
+      const t = Date.now() * 0.002;
+      const orbN = tier >= 2 ? 3 : 2;
+      for (let i = 0; i < orbN; i++) {
+        const ang = t + (i / orbN) * Math.PI * 2;
+        const ox = sx + Math.cos(ang) * s * 0.28;
+        const oy = sy - s * 0.4 + Math.sin(ang) * s * 0.06;
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(ox, oy, 2.4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  /** アクセサリ（tier ≥ 1）装備時の背面マント */
+  private _drawAccessoryCape(
+    ctx: CanvasRenderingContext2D,
+    sx:  number,
+    sy:  number,
+    spriteName: string,
+  ): void {
+    const acc = this.equip.accessory;
+    if (!acc) return;
+    const tier = acc.tier ?? 0;
+    if (tier < 1) return;
+    if (spriteName !== 'player_front' && spriteName !== 'player_back') return;
+    const c = acc.color ?? '#a855f7';
+    const s = SZ;
+    ctx.save();
+    ctx.shadowColor = c; ctx.shadowBlur = 8;
+    const wave = Math.sin(Date.now() * 0.003) * s * 0.02;
+    // マント本体
+    const mg = ctx.createLinearGradient(sx, sy - s * 0.1, sx, sy + s * 0.4);
+    mg.addColorStop(0, c + 'd0');
+    mg.addColorStop(1, c + '60');
+    ctx.fillStyle = mg;
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx - s * 0.2, sy - s * 0.1);
+    ctx.lineTo(sx + s * 0.2, sy - s * 0.1);
+    ctx.quadraticCurveTo(sx + s * 0.24 - wave, sy + s * 0.15, sx + s * 0.14 - wave, sy + s * 0.38);
+    ctx.quadraticCurveTo(sx + wave, sy + s * 0.42, sx - s * 0.14 + wave, sy + s * 0.38);
+    ctx.quadraticCurveTo(sx - s * 0.24 + wave, sy + s * 0.15, sx - s * 0.2, sy - s * 0.1);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // 首元の留め金
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.arc(sx, sy - s * 0.11, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 }
 

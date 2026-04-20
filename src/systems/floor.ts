@@ -1,6 +1,6 @@
 import { Enemy, getBossName } from '../entities/enemy.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
-import { BOSS_RUSH_NAMES } from '../world/dungeon_defs.js';
+import { BOSS_RUSH_NAMES, BOSS_RUSH_SPRITES, BOSS_RUSH_VARIANTS } from '../world/dungeon_defs.js';
 import type { ItemDef } from '../data/equipment.js';
 import { treasureDrop, SHOP_CATALOG, ITEMS } from '../data/equipment.js';
 import { TILE } from '../world/tiles.js';
@@ -56,9 +56,14 @@ export function spawnBoss(ctx: BossSpawnContext): Enemy[] {
   boss.alerted = true;
 
   if (currentDungeon?.bossRush) {
-    const wave = floorNumber;
-    const name = BOSS_RUSH_NAMES[Math.min(wave - 1, BOSS_RUSH_NAMES.length - 1)];
+    const wave    = floorNumber;
+    const idx     = Math.min(wave - 1, BOSS_RUSH_NAMES.length - 1);
+    const name    = BOSS_RUSH_NAMES[idx];
+    const sprite  = BOSS_RUSH_SPRITES[idx];
+    const variant = BOSS_RUSH_VARIANTS[idx];
     boss.name     = `[Wave ${wave}] ${name}`;
+    if (sprite) boss.spriteName = sprite;
+    if (variant) boss.bossVariant = variant;
     boss.maxHP    = Math.floor(boss.maxHP * (1 + wave * 0.6));
     boss.hp       = boss.maxHP;
     boss.atk      = boss.atk + wave * 5;
@@ -66,6 +71,7 @@ export function spawnBoss(ctx: BossSpawnContext): Enemy[] {
     boss.expValue = Math.floor(boss.expValue * (1 + wave * 2.0));
   } else {
     boss.name  = currentDungeon?.bossName ?? getBossName(floorNumber);
+    if (currentDungeon?.bossSprite) boss.spriteName = currentDungeon.bossSprite;
     const tier = Math.floor((floorNumber - 5) / 5);
     boss.maxHP = Math.floor(boss.maxHP * (1 + tier * 0.5));
     boss.hp    = boss.maxHP;
@@ -74,7 +80,76 @@ export function spawnBoss(ctx: BossSpawnContext): Enemy[] {
     boss.expValue = Math.floor(boss.expValue * (1 + tier * 0.8));
   }
 
-  return [boss];
+  // ── ボス封印（BossSeal）を設定 ─────────────────
+  //   bossRush では封印なし（波が連戦のため）。
+  //   通常ダンジョンは bossSeal の type に従って解除条件を設定する。
+  const result: Enemy[] = [boss];
+  if (!currentDungeon?.bossRush && currentDungeon?.bossSeal) {
+    const seal = currentDungeon.bossSeal;
+    boss.riddleActive   = true;   // 既存の結界バリア機構を流用
+    boss.riddleAnswered = false;
+    boss.sealType       = seal.type;
+    boss.sealLabel      = seal.label;
+
+    if (seal.type === 'guards') {
+      const spawnType = seal.spawnType ?? 'goblin';
+      const needed    = seal.count ?? 3;
+      const slots     = _collectNearbyWalkable(map, boss.tx, boss.ty, 1, 3);
+      for (let i = 0; i < needed && i < slots.length; i++) {
+        const s = slots[i]!;
+        const guard = new Enemy(s.tx, s.ty, spawnType);
+        guard.alerted      = true;
+        guard.isSealMinion = true;
+        result.push(guard);
+      }
+    } else if (seal.type === 'statues') {
+      const needed = seal.count ?? 2;
+      const slots  = _collectNearbyWalkable(map, boss.tx, boss.ty, 1, 3);
+      for (let i = 0; i < needed && i < slots.length; i++) {
+        const s = slots[i]!;
+        const st = new Enemy(s.tx, s.ty, 'seal_statue');
+        st.isSealMinion = true;
+        result.push(st);
+      }
+    }
+    // 'key' は main.js 側で床にアイテム設置する。ここでは何もしない。
+  }
+
+  return result;
+}
+
+/**
+ * ボス周囲の半径 minR..maxR の歩けるタイルを、重複なしで集める。
+ * ボス自身の位置は除外。順序はランダムシャッフル。
+ */
+function _collectNearbyWalkable(
+  map: SpawnMap,
+  cx:  number,
+  cy:  number,
+  minR = 1,
+  maxR = 3,
+): Array<{ tx: number; ty: number }> {
+  const out: Array<{ tx: number; ty: number }> = [];
+  for (let dy = -maxR; dy <= maxR; dy++) {
+    for (let dx = -maxR; dx <= maxR; dx++) {
+      const r = Math.max(Math.abs(dx), Math.abs(dy));
+      if (r < minR || r > maxR) continue;
+      const tx = cx + dx;
+      const ty = cy + dy;
+      if (!map.isWalkable(tx, ty)) continue;
+      if (map.getExitDir(tx, ty)) continue;
+      if (map.isStairs(tx, ty))   continue;
+      out.push({ tx, ty });
+    }
+  }
+  // Fisher–Yates シャッフル
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = out[i]!;
+    out[i] = out[j]!;
+    out[j] = tmp;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +173,10 @@ export function spawnEnemies(ctx: SpawnContext): Enemy[] {
 
   if (isBossFloor) return spawnBoss({ currentDungeon, floorNumber, map });
 
-  const allowedTypes = currentDungeon?.enemyTypes ?? ['slime', 'goblin', 'archer', 'wizard'];
+  const baseTypes    = currentDungeon?.enemyTypes ?? ['slime', 'goblin', 'archer', 'wizard'];
+  const minFloorMap  = currentDungeon?.enemyMinFloor ?? {};
+  const filtered     = baseTypes.filter(t => (minFloorMap[t] ?? 1) <= floorNumber);
+  const allowedTypes = filtered.length > 0 ? filtered : baseTypes;
   const diffMult     = currentDungeon?.diffMult ?? 1.0;
   const scale        = (floorNumber - 1) * diffMult;
   const result: Enemy[] = [];

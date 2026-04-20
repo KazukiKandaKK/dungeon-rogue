@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♓ Pisces — 逆向きに泳ぐ双魚 -->
+  <defs>
+    <linearGradient id="pi_a" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="pi_b" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#5eead4"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="32" rx="30" ry="30" fill="rgba(34,211,238,0.15)" stroke="rgba(103,232,249,0.4)" stroke-width="0.6"/>
+
+  <!-- 魚 A（左上、右を向く） -->
+  <g>
+    <!-- 体 -->
+    <path d="M6,18 Q16,10 30,14 Q40,18 42,22 Q38,24 30,26 Q16,28 6,22 Z"
+          fill="url(#pi_a)" stroke="#0e7490" stroke-width="0.9"/>
+    <!-- 尾びれ -->
+    <path d="M6,18 L2,10 L4,22 L2,30 L6,22 Z" fill="#06b6d4" stroke="#0e7490" stroke-width="0.7"/>
+    <!-- 背びれ -->
+    <path d="M20,14 L22,8 L28,14 Z" fill="#06b6d4" stroke="#0e7490" stroke-width="0.6"/>
+    <!-- 胸びれ -->
+    <path d="M22,22 L20,28 L28,24 Z" fill="#22d3ee" stroke="#0e7490" stroke-width="0.5"/>
+    <!-- 鱗 -->
+    <g stroke="#bae6fd" stroke-width="0.4" fill="none" opacity="0.9">
+      <path d="M12,18 Q14,16 16,18 Q18,16 20,18 Q22,16 24,18"/>
+      <path d="M12,22 Q14,20 16,22 Q18,20 20,22 Q22,20 24,22"/>
+    </g>
+    <!-- エラ -->
+    <path d="M32,18 Q32,22 34,24" stroke="#0e7490" stroke-width="0.6" fill="none"/>
+    <!-- 目 -->
+    <circle cx="38" cy="19" r="1.7" fill="#fef3c7" stroke="#0e7490" stroke-width="0.5"/>
+    <circle cx="38" cy="19" r="0.9" fill="#0c0a09"/>
+    <circle cx="38.3" cy="18.7" r="0.4" fill="#fff"/>
+    <!-- 口 -->
+    <path d="M42,22 Q44,22 44,24 Q42,24 42,22 Z" fill="#0e7490"/>
+  </g>
+
+  <!-- 魚 B（右下、左を向く） -->
+  <g>
+    <!-- 体 -->
+    <path d="M58,46 Q48,54 34,50 Q24,46 22,42 Q26,40 34,38 Q48,36 58,42 Z"
+          fill="url(#pi_b)" stroke="#134e4a" stroke-width="0.9"/>
+    <!-- 尾びれ -->
+    <path d="M58,46 L62,54 L60,42 L62,34 L58,42 Z" fill="#14b8a6" stroke="#134e4a" stroke-width="0.7"/>
+    <!-- 背びれ -->
+    <path d="M44,50 L42,56 L36,50 Z" fill="#14b8a6" stroke="#134e4a" stroke-width="0.6"/>
+    <!-- 胸びれ -->
+    <path d="M42,42 L44,36 L36,40 Z" fill="#2dd4bf" stroke="#134e4a" stroke-width="0.5"/>
+    <!-- 鱗 -->
+    <g stroke="#99f6e4" stroke-width="0.4" fill="none" opacity="0.9">
+      <path d="M40,46 Q42,44 44,46 Q46,44 48,46 Q50,44 52,46"/>
+      <path d="M40,42 Q42,40 44,42 Q46,40 48,42 Q50,40 52,42"/>
+    </g>
+    <!-- エラ -->
+    <path d="M32,46 Q32,42 30,40" stroke="#134e4a" stroke-width="0.6" fill="none"/>
+    <!-- 目 -->
+    <circle cx="26" cy="45" r="1.7" fill="#fef3c7" stroke="#134e4a" stroke-width="0.5"/>
+    <circle cx="26" cy="45" r="0.9" fill="#0c0a09"/>
+    <circle cx="26.3" cy="44.7" r="0.4" fill="#fff"/>
+    <!-- 口 -->
+    <path d="M22,42 Q20,42 20,40 Q22,40 22,42 Z" fill="#134e4a"/>
+  </g>
+
+  <!-- 繋ぐ黄金リボン（ふたつを結ぶ紐） -->
+  <path d="M10,26 Q16,34 22,30 Q28,26 32,32 Q36,38 44,34 Q50,30 56,38"
+        stroke="#fbbf24" stroke-width="1.4" fill="none"/>
+  <!-- 中心の結び目 -->
+  <circle cx="32" cy="32" r="3" fill="#fde047" stroke="#78350f" stroke-width="0.7"/>
+  <circle cx="32" cy="32" r="1.2" fill="#fef3c7"/>
+  <path d="M29,30 L35,34 M29,34 L35,30" stroke="#78350f" stroke-width="0.5"/>
+
+  <!-- 水泡 -->
+  <g fill="none" stroke="#bae6fd" stroke-width="0.5" opacity="0.7">
+    <circle cx="48" cy="14" r="1"/>
+    <circle cx="52" cy="10" r="0.7"/>
+    <circle cx="14" cy="50" r="1"/>
+    <circle cx="10" cy="54" r="0.7"/>
+  </g>
+</svg>

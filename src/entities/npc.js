@@ -277,7 +277,7 @@ export class NPC extends Actor {
     // 装備状況
     if (!player.equip?.weapon) {
       lines.push('丸腰か？せめて何か武器を拾え。死にたくなければな。');
-    } else if (!player.equip?.armor) {
+    } else if (!player.equip?.chest) {
       lines.push('武器はあるが鎧がないのか。攻めるだけが戦いではないぞ。');
     }
 

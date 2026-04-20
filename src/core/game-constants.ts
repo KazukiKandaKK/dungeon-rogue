@@ -18,10 +18,10 @@ export const SAVE_SLOT_KEYS = ['dungeon_slot_0', 'dungeon_slot_1', 'dungeon_slot
 
 // ── 拠点マップ ────────────────────────────────
 
-export const BASE_COLS  = 16;
-export const BASE_ROWS  = 12;
-export const BASE_SPAWN = { tx: 8, ty: 9 } as const;
-export const BASE_CHEST_POS = { tx: 8, ty: 7 } as const;
+export const BASE_COLS  = 28;
+export const BASE_ROWS  = 20;
+export const BASE_SPAWN = { tx: 14, ty: 17 } as const;
+export const BASE_CHEST_POS = { tx: 14, ty: 14 } as const;
 
 export interface PortalDef {
   tx:        number;
@@ -29,20 +29,44 @@ export interface PortalDef {
   dungeonId: string;
 }
 
+/**
+ * ポータル配置：
+ *   上段（y=3）… 通常ダンジョン4つ
+ *   下段（y=5）… 特殊ポータル（ボスラッシュ／無限回廊）を中央寄りに配置
+ */
 export const BASE_PORTALS: PortalDef[] = [
-  { tx: 2,  ty: 3, dungeonId: 'cave' },
-  { tx: 6,  ty: 3, dungeonId: 'goblin_nest' },
-  { tx: 10, ty: 3, dungeonId: 'cursed_forest' },
-  { tx: 14, ty: 3, dungeonId: 'abyss' },
-  { tx: 8,  ty: 5, dungeonId: 'boss_rush' },
-  { tx: 4,  ty: 5, dungeonId: 'infinite_abyss' },
+  { tx:  5, ty: 3, dungeonId: 'cave' },
+  { tx: 10, ty: 3, dungeonId: 'goblin_nest' },
+  { tx: 17, ty: 3, dungeonId: 'cursed_forest' },
+  { tx: 22, ty: 3, dungeonId: 'abyss' },
+  { tx: 10, ty: 5, dungeonId: 'boss_rush' },
+  { tx: 17, ty: 5, dungeonId: 'infinite_abyss' },
 ];
 
-/** 拠点内施設の座標 */
-export const BASE_SHOP_POS   = { tx: 4,  ty: 7 } as const; // 拠点ショップ
-export const BASE_CASINO_POS = { tx: 12, ty: 7 } as const; // カジノ
-export const BASE_STALL_POS  = { tx: 14, ty: 7 } as const; // 委託露店
-export const BASE_LOAN_POS   = { tx: 2,  ty: 5 } as const; // 金貸し
+/**
+ * 拠点内施設の座標（地区ごとに配置）
+ *   西地区（商業）   : ショップ・委託露店
+ *   東地区（工房）   : クラフト（鍛冶）・転職の祭壇
+ *   裏路地（南角）   : 金貸し（南西）・カジノ（南東）
+ */
+export const BASE_SHOP_POS    = { tx:  4, ty: 12 } as const; // 拠点ショップ（西）
+export const BASE_STALL_POS   = { tx:  8, ty: 12 } as const; // 委託露店（西）
+export const BASE_CRAFT_POS   = { tx: 19, ty: 12 } as const; // 鍛冶屋（東）
+export const BASE_RECLASS_POS = { tx: 23, ty: 12 } as const; // 転職の祭壇（東）
+export const BASE_LOAN_POS    = { tx:  3, ty: 15 } as const; // 金貸し（南西角）
+export const BASE_CASINO_POS  = { tx: 24, ty: 15 } as const; // カジノ（南東角）
+
+/** 中央広場の噴水（装飾かつ通行不可の 2×2 ブロック） */
+export const BASE_FOUNTAIN_POS = { tx: 13, ty: 8 } as const;
+
+/** クラフト（武器合成）コスト：基礎 + 合成元合計 tier に比例 */
+export const CRAFT_BASE_COST     = 120;
+export const CRAFT_COST_PER_TIER = 80;
+
+/** 転職コスト（レベルに比例） */
+export const RECLASS_COST_PER_LV = 150;
+/** 転職の最低コスト */
+export const RECLASS_COST_MIN    = 300;
 
 // ── ビルド定義 ────────────────────────────────
 
@@ -136,12 +160,12 @@ export const SHINIGAMI_RESPAWN = 200;
 
 // ── インベントリ ──────────────────────────────
 
-export const SLOTS      = ['weapon', 'armor', 'accessory'] as const;
+export const SLOTS      = ['weapon', 'head', 'chest', 'waist', 'legs', 'accessory'] as const;
 export const SLOT_LABEL: Record<string, string> = {
-  weapon: '武器', armor: '鎧', accessory: '装飾',
+  weapon: '武器', head: '頭', chest: '胸', waist: '腰', legs: '足', accessory: '装飾',
 };
 /** インベントリグリッド列数 */
-export const INV_COLS = 5;
+export const INV_COLS = 8;
 
 // ── 画面遷移フェード ──────────────────────────
 

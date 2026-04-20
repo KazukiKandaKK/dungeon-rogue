@@ -86,19 +86,59 @@ describe('Player', () => {
   });
 
   describe('addToInventory / removeFromInventory', () => {
-    it('20枠まで追加できる', () => {
+    it('装備品は 40 枠まで追加できる（非スタック）', () => {
       const p = makePlayer('warrior');
-      for (let i = 0; i < 20; i++) {
-        expect(p.addToInventory({ ...ITEMS['herb'] })).toBe(true);
+      for (let i = 0; i < 40; i++) {
+        expect(p.addToInventory({ ...ITEMS['dagger'] })).toBe(true);
       }
-      expect(p.addToInventory({ ...ITEMS['herb'] })).toBe(false);
+      expect(p.addToInventory({ ...ITEMS['dagger'] })).toBe(false);
+      expect(p.inventory).toHaveLength(40);
     });
 
-    it('インデックスで削除できる', () => {
+    it('消耗品は同じ ID ならスタックする', () => {
+      const p = makePlayer('warrior');
+      for (let i = 0; i < 10; i++) {
+        expect(p.addToInventory({ ...ITEMS['herb'] })).toBe(true);
+      }
+      // 1 スロットに 10 個スタック
+      expect(p.inventory).toHaveLength(1);
+      expect(p.inventory[0]?.id).toBe('herb');
+      expect(p.inventory[0]?.count).toBe(10);
+    });
+
+    it('インベントリ満杯でも既存スタックへは加算できる', () => {
+      const p = makePlayer('warrior');
+      // 最初に 1 個だけ herb を入れ、残り 39 枠を別装備で埋める
+      p.addToInventory({ ...ITEMS['herb'] });
+      for (let i = 0; i < 39; i++) {
+        p.addToInventory({ ...ITEMS['dagger'] });
+      }
+      expect(p.inventory).toHaveLength(40);
+      // 満杯だが herb はスタックできる
+      expect(p.addToInventory({ ...ITEMS['herb'] })).toBe(true);
+      expect(p.inventory[0]?.count).toBe(2);
+    });
+
+    it('インデックスで 1 個ずつ取り出せる（スタック減）', () => {
       const p = makePlayer('warrior');
       p.addToInventory({ ...ITEMS['herb'] });
+      p.addToInventory({ ...ITEMS['herb'] });
+      p.addToInventory({ ...ITEMS['herb'] });
+      expect(p.inventory[0]?.count).toBe(3);
+      const r1 = p.removeFromInventory(0);
+      expect(r1?.id).toBe('herb');
+      expect(r1?.count).toBe(1);
+      expect(p.inventory[0]?.count).toBe(2);
+      p.removeFromInventory(0);
+      p.removeFromInventory(0);
+      expect(p.inventory).toHaveLength(0);
+    });
+
+    it('単発アイテムは従来どおり splice で消える', () => {
+      const p = makePlayer('warrior');
+      p.addToInventory({ ...ITEMS['dagger'] });
       const removed = p.removeFromInventory(0);
-      expect(removed?.id).toBe('herb');
+      expect(removed?.id).toBe('dagger');
       expect(p.inventory).toHaveLength(0);
     });
   });

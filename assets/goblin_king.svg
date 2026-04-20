@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ゴブリンキング — ゴブリンの巣ボス -->
+  <defs>
+    <linearGradient id="gk_skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+    <linearGradient id="gk_armor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#854d0e"/>
+      <stop offset="100%" stop-color="#422006"/>
+    </linearGradient>
+    <linearGradient id="gk_cape" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#7f1d1d"/>
+      <stop offset="100%" stop-color="#450a0a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 影 -->
+  <ellipse cx="32" cy="60" rx="20" ry="2.5" fill="rgba(0,0,0,0.4)"/>
+
+  <!-- マント -->
+  <path d="M12,30 Q10,50 16,60 L48,60 Q54,50 52,30 Q32,38 12,30 Z"
+        fill="url(#gk_cape)" stroke="#1c1917" stroke-width="0.8"/>
+  <!-- マントの裏地 -->
+  <path d="M20,38 Q18,52 22,58 L42,58 Q46,52 44,38 Q32,42 20,38 Z"
+        fill="#fde68a" opacity="0.25"/>
+
+  <!-- 脚 -->
+  <rect x="22" y="48" width="6" height="10" rx="1.2" fill="url(#gk_skin)" stroke="#14532d" stroke-width="0.6"/>
+  <rect x="36" y="48" width="6" height="10" rx="1.2" fill="url(#gk_skin)" stroke="#14532d" stroke-width="0.6"/>
+  <!-- ブーツ -->
+  <rect x="20" y="56" width="10" height="4" rx="1" fill="#422006" stroke="#1c1917" stroke-width="0.6"/>
+  <rect x="34" y="56" width="10" height="4" rx="1" fill="#422006" stroke="#1c1917" stroke-width="0.6"/>
+
+  <!-- 胴 -->
+  <path d="M20,28 Q18,42 22,50 L42,50 Q46,42 44,28 Z"
+        fill="url(#gk_armor)" stroke="#1c1917" stroke-width="0.9"/>
+  <!-- 鎧プレート -->
+  <path d="M22,32 L42,32 M22,38 L42,38 M22,44 L42,44" stroke="#fbbf24" stroke-width="0.5" opacity="0.6"/>
+  <!-- 中央の紋章（髑髏） -->
+  <g transform="translate(32 40)">
+    <ellipse cx="0" cy="0" rx="3.5" ry="3" fill="#f5f5f4" stroke="#1c1917" stroke-width="0.4"/>
+    <ellipse cx="-1.2" cy="-0.5" rx="0.7" ry="0.9" fill="#0c0a09"/>
+    <ellipse cx="1.2" cy="-0.5" rx="0.7" ry="0.9" fill="#0c0a09"/>
+    <path d="M-1,1.5 L1,1.5" stroke="#0c0a09" stroke-width="0.5"/>
+  </g>
+
+  <!-- 肩パッド -->
+  <ellipse cx="16" cy="30" rx="5" ry="4" fill="#78350f" stroke="#1c1917" stroke-width="0.7"/>
+  <ellipse cx="48" cy="30" rx="5" ry="4" fill="#78350f" stroke="#1c1917" stroke-width="0.7"/>
+  <!-- 肩スパイク -->
+  <path d="M13,28 L11,23 L15,26 Z" fill="#a8a29e" stroke="#1c1917" stroke-width="0.4"/>
+  <path d="M51,28 L53,23 L49,26 Z" fill="#a8a29e" stroke="#1c1917" stroke-width="0.4"/>
+
+  <!-- 右腕＋巨大棍棒 -->
+  <path d="M48,32 Q54,36 54,44" stroke="url(#gk_skin)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M48,32 Q54,36 54,44" stroke="#14532d" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+  <!-- 棍棒 -->
+  <rect x="52" y="18" width="3" height="28" fill="#78350f" stroke="#1c1917" stroke-width="0.5"/>
+  <path d="M49,12 L58,12 L60,22 L47,22 Z" fill="#78716c" stroke="#1c1917" stroke-width="0.7"/>
+  <!-- 棍棒のスパイク -->
+  <path d="M49,13 L46,11 L49,14 Z" fill="#a8a29e"/>
+  <path d="M58,13 L61,11 L58,14 Z" fill="#a8a29e"/>
+  <path d="M53,11 L53,8 L55,11 Z" fill="#a8a29e"/>
+
+  <!-- 左腕 -->
+  <path d="M16,32 Q10,36 12,44" stroke="url(#gk_skin)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M16,32 Q10,36 12,44" stroke="#14532d" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+  <!-- 左手（拳） -->
+  <circle cx="12" cy="44" r="2.4" fill="#4ade80" stroke="#14532d" stroke-width="0.5"/>
+
+  <!-- 首 -->
+  <rect x="28" y="24" width="8" height="6" fill="#4ade80" stroke="#14532d" stroke-width="0.4"/>
+  <!-- ネックレス（牙） -->
+  <path d="M26,28 Q32,32 38,28" stroke="#fef3c7" stroke-width="0.7" fill="none"/>
+  <path d="M30,30 L30,32 L31,30 Z" fill="#fef3c7"/>
+  <path d="M34,30 L34,32 L33,30 Z" fill="#fef3c7"/>
+
+  <!-- 頭 -->
+  <ellipse cx="32" cy="17" rx="8" ry="8.5" fill="url(#gk_skin)" stroke="#14532d" stroke-width="0.9"/>
+  <!-- 顔の傷 -->
+  <path d="M27,10 L31,18" stroke="#7f1d1d" stroke-width="0.6"/>
+  <!-- 耳 -->
+  <path d="M23,15 L17,11 L20,18 Z" fill="#4ade80" stroke="#14532d" stroke-width="0.5"/>
+  <path d="M41,15 L47,11 L44,18 Z" fill="#4ade80" stroke="#14532d" stroke-width="0.5"/>
+
+  <!-- 王冠 -->
+  <path d="M22,8 L26,3 L29,7 L32,2 L35,7 L38,3 L42,8 L40,12 L24,12 Z"
+        fill="#fde047" stroke="#78350f" stroke-width="0.8"/>
+  <!-- 王冠の宝石 -->
+  <circle cx="32" cy="8" r="1.4" fill="#ef4444" stroke="#7f1d1d" stroke-width="0.3"/>
+  <circle cx="27" cy="9" r="0.9" fill="#3b82f6"/>
+  <circle cx="37" cy="9" r="0.9" fill="#22c55e"/>
+
+  <!-- 目（獰猛） -->
+  <ellipse cx="28" cy="18" rx="1.8" ry="1.4" fill="#fef3c7"/>
+  <ellipse cx="36" cy="18" rx="1.8" ry="1.4" fill="#fef3c7"/>
+  <circle cx="28" cy="18" r="1" fill="#dc2626"/>
+  <circle cx="36" cy="18" r="1" fill="#dc2626"/>
+  <circle cx="28.3" cy="17.7" r="0.3" fill="#fff"/>
+  <circle cx="36.3" cy="17.7" r="0.3" fill="#fff"/>
+  <!-- 眉 -->
+  <path d="M25,15 L31,16" stroke="#14532d" stroke-width="1" stroke-linecap="round"/>
+  <path d="M39,15 L33,16" stroke="#14532d" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- 鼻 -->
+  <path d="M31,20 L30,23 L32,24 L34,23 L33,20 Z" fill="#166534" stroke="#14532d" stroke-width="0.4"/>
+
+  <!-- 口（牙） -->
+  <path d="M27,25 Q32,28 37,25 Z" fill="#1c1917"/>
+  <path d="M29,25 L28,27 L30,26 Z" fill="#fef3c7"/>
+  <path d="M35,25 L36,27 L34,26 Z" fill="#fef3c7"/>
+</svg>

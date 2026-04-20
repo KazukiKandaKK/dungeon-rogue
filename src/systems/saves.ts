@@ -11,7 +11,12 @@ import { SAVE_SLOT_KEYS } from '../core/game-constants.js';
 
 export interface SaveEquip {
   weapon:    string | null;
-  armor:     string | null;
+  /** v3以前の互換フィールド（現行では chest へマップされる） */
+  armor?:    string | null;
+  head?:     string | null;
+  chest?:    string | null;
+  waist?:    string | null;
+  legs?:     string | null;
   accessory: string | null;
 }
 
@@ -39,9 +44,14 @@ export interface SaveData {
   baseLuk:         number;
   baseMp:          number;
   buildBonus:      Record<string, number>;
+  /** キャラクリで選んだ見た目（v4+）。旧セーブでは undefined */
+  appearance?:     { species: string; tint: string } | null;
   equip:           SaveEquip;
-  /** アイテム ID の配列 */
-  inventory:       string[];
+  /**
+   * 所持品。旧形式は string（= id）、新形式は { id, count } でスタック対応。
+   * 読み込み側で string を { id, count: 1 } として扱う。
+   */
+  inventory:       (string | { id: string; count: number })[];
   /** スペル ID の配列 */
   spells:          string[];
   /** ホットバー（スペル ID or null）6 スロット */

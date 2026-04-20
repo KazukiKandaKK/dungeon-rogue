@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <rect x="6" y="10" width="52" height="48" rx="4" fill="#1c1510" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="12" y="18" width="40" height="20" rx="3" fill="#0f172a" stroke="#f59e0b" stroke-width="1"/>
+    <text x="22" y="34" font-family="serif" font-size="14" fill="#e2e8f0" font-weight="bold">♠</text>
+    <text x="32" y="34" font-family="serif" font-size="14" fill="#f87171" font-weight="bold">♥</text>
+    <text x="42" y="34" font-family="serif" font-size="14" fill="#f87171" font-weight="bold">♦</text>
+    <circle cx="18" cy="48" r="3" fill="#f59e0b"/>
+    <circle cx="32" cy="48" r="3" fill="#ef4444"/>
+    <circle cx="46" cy="48" r="3" fill="#4ade80"/>
+  </svg>

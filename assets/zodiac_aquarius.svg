@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♒ Aquarius — 水瓶を持つ青年 -->
+  <defs>
+    <linearGradient id="aq_robe" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="aq_water" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="32" rx="30" ry="30" fill="rgba(14,165,233,0.16)" stroke="rgba(125,211,252,0.4)" stroke-width="0.6"/>
+
+  <!-- 波（地面） -->
+  <g fill="url(#aq_water)" opacity="0.7">
+    <path d="M4,58 Q12,54 20,58 Q28,54 36,58 Q44,54 52,58 Q60,54 64,58 L64,64 L0,64 Z"/>
+  </g>
+  <path d="M4,56 Q12,52 20,56 Q28,52 36,56 Q44,52 52,56 Q60,52 64,56" stroke="#bae6fd" stroke-width="0.6" fill="none"/>
+
+  <!-- ローブ裾 -->
+  <path d="M18,36 Q32,32 46,36 L50,58 L14,58 Z" fill="url(#aq_robe)" stroke="#075985" stroke-width="0.8"/>
+  <!-- 裾の波模様 -->
+  <path d="M16,48 Q20,46 24,48 Q28,46 32,48 Q36,46 40,48 Q44,46 48,48" stroke="#bae6fd" stroke-width="0.6" fill="none"/>
+  <path d="M14,54 Q18,52 22,54 Q26,52 30,54 Q34,52 38,54 Q42,52 46,54 Q50,52 52,54" stroke="#bae6fd" stroke-width="0.6" fill="none"/>
+
+  <!-- 胴 -->
+  <rect x="22" y="22" width="12" height="18" rx="3" fill="#0ea5e9" stroke="#075985" stroke-width="0.7"/>
+  <!-- 肩章 -->
+  <rect x="20" y="22" width="16" height="2" fill="#38bdf8"/>
+
+  <!-- 腕（右・水瓶を抱える） -->
+  <path d="M34,26 Q44,24 46,32" stroke="#0ea5e9" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M34,26 Q44,24 46,32" stroke="#075985" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+  <!-- 腕（左・下方向） -->
+  <path d="M22,26 Q14,30 14,40" stroke="#0ea5e9" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M22,26 Q14,30 14,40" stroke="#075985" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+  <!-- 手 -->
+  <circle cx="14" cy="40" r="1.8" fill="#fde68a" stroke="#78350f" stroke-width="0.4"/>
+  <circle cx="46" cy="32" r="1.8" fill="#fde68a" stroke="#78350f" stroke-width="0.4"/>
+
+  <!-- 頭 -->
+  <ellipse cx="28" cy="14" rx="6" ry="6.5" fill="#fde68a" stroke="#78350f" stroke-width="0.7"/>
+  <!-- 髪（ウェーブのかかった青） -->
+  <path d="M22,12 Q22,4 28,3 Q34,4 34,14 Q30,8 26,10 Q24,12 22,12 Z" fill="#1e40af"/>
+  <path d="M34,10 Q36,16 34,20" fill="#1e40af"/>
+  <!-- 目 -->
+  <circle cx="26" cy="14" r="0.8" fill="#0c0a09"/>
+  <circle cx="30" cy="14" r="0.8" fill="#0c0a09"/>
+  <circle cx="26.3" cy="13.7" r="0.3" fill="#fff"/>
+  <circle cx="30.3" cy="13.7" r="0.3" fill="#fff"/>
+  <!-- 口 -->
+  <path d="M26,17 Q28,18.2 30,17" stroke="#78350f" stroke-width="0.5" fill="none"/>
+
+  <!-- 水瓶（斜めに傾ける） -->
+  <g transform="rotate(-25 50 28)">
+    <!-- 瓶本体 -->
+    <path d="M44,20 Q44,36 48,40 L56,40 Q60,36 60,20 Q60,18 58,18 L46,18 Q44,18 44,20 Z"
+          fill="#94a3b8" stroke="#334155" stroke-width="0.9"/>
+    <!-- 口 -->
+    <ellipse cx="52" cy="19" rx="6" ry="2" fill="#64748b" stroke="#334155" stroke-width="0.7"/>
+    <!-- 持ち手 -->
+    <path d="M44,26 Q40,28 40,32 Q40,36 44,34" fill="none" stroke="#334155" stroke-width="1.4"/>
+    <!-- 装飾 -->
+    <line x1="46" y1="24" x2="58" y2="24" stroke="#334155" stroke-width="0.5"/>
+    <line x1="46" y1="32" x2="58" y2="32" stroke="#334155" stroke-width="0.5"/>
+  </g>
+
+  <!-- 流れる水（瓶から人に沿って波へ） -->
+  <path d="M44,28 Q42,36 38,42 Q32,48 28,54"
+        stroke="url(#aq_water)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M44,28 Q42,36 38,42 Q32,48 28,54"
+        stroke="#bae6fd" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <!-- 水しぶき -->
+  <g fill="#7dd3fc">
+    <circle cx="36" cy="44" r="0.9"/>
+    <circle cx="32" cy="50" r="0.7"/>
+    <circle cx="40" cy="38" r="0.7"/>
+    <circle cx="26" cy="56" r="0.8"/>
+  </g>
+</svg>

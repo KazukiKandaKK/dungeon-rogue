@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♏ Scorpio — 巨大蠍（尾が上に反る） -->
+  <defs>
+    <linearGradient id="sc_body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#450a0a"/>
+    </linearGradient>
+    <radialGradient id="sc_sting" cx="50%" cy="30%" r="70%">
+      <stop offset="0%"  stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </radialGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="38" rx="30" ry="26" fill="rgba(220,38,38,0.15)" stroke="rgba(239,68,68,0.4)" stroke-width="0.6"/>
+
+  <!-- 尾（S字にカール、上から降る） -->
+  <path d="M40,42 Q56,44 58,28 Q58,12 42,8" fill="none" stroke="#991b1b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M40,42 Q56,44 58,28 Q58,12 42,8" fill="none" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- 尾の節 -->
+  <g fill="#450a0a">
+    <circle cx="48" cy="42" r="2"/>
+    <circle cx="54" cy="38" r="2"/>
+    <circle cx="57" cy="30" r="2"/>
+    <circle cx="55" cy="20" r="2"/>
+    <circle cx="50" cy="12" r="2"/>
+  </g>
+  <!-- 毒針 -->
+  <path d="M42,8 L32,2 L40,12 Z" fill="url(#sc_sting)" stroke="#7c2d12" stroke-width="0.7"/>
+  <!-- 毒のしずく -->
+  <ellipse cx="36" cy="6" rx="1" ry="2" fill="#86efac" opacity="0.9"/>
+  <ellipse cx="36" cy="6" rx="0.4" ry="1" fill="#fff"/>
+
+  <!-- 左ハサミ -->
+  <path d="M16,30 Q4,26 2,18 Q12,20 18,26 Q14,30 16,30 Z" fill="#b91c1c" stroke="#450a0a" stroke-width="0.9"/>
+  <path d="M4,20 Q2,16 6,14 Q10,18 8,22 Z" fill="#dc2626" stroke="#450a0a" stroke-width="0.7"/>
+  <!-- ハサミの切れ込み -->
+  <line x1="4" y1="19" x2="9" y2="20" stroke="#450a0a" stroke-width="0.5"/>
+
+  <!-- 右ハサミ（対称・少しずらす） -->
+  <path d="M22,34 Q12,38 8,48 Q16,46 24,38 Q24,36 22,34 Z" fill="#b91c1c" stroke="#450a0a" stroke-width="0.9"/>
+  <path d="M8,46 Q4,50 8,54 Q12,50 10,46 Z" fill="#dc2626" stroke="#450a0a" stroke-width="0.7"/>
+  <line x1="9" y1="48" x2="12" y2="51" stroke="#450a0a" stroke-width="0.5"/>
+
+  <!-- 胴体（節のある長い体） -->
+  <ellipse cx="28" cy="40" rx="16" ry="7" fill="url(#sc_body)" stroke="#450a0a" stroke-width="1"/>
+  <!-- 節 -->
+  <g stroke="#450a0a" stroke-width="0.6" fill="none">
+    <path d="M18,36 Q18,40 18,44"/>
+    <path d="M24,34 Q24,40 24,46"/>
+    <path d="M30,34 Q30,40 30,46"/>
+    <path d="M36,34 Q36,40 36,46"/>
+    <path d="M40,36 Q40,40 40,44"/>
+  </g>
+  <!-- 胴の表面艶 -->
+  <path d="M16,36 Q28,33 40,36" stroke="#fca5a5" stroke-width="0.8" fill="none" opacity="0.5"/>
+
+  <!-- 脚（4 対 8 本） -->
+  <g stroke="#450a0a" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M16,44 L10,54"/>
+    <path d="M22,46 L18,58"/>
+    <path d="M28,46 L28,60"/>
+    <path d="M34,46 L38,60"/>
+    <path d="M38,44 L46,54"/>
+  </g>
+
+  <!-- 頭部 -->
+  <ellipse cx="16" cy="36" rx="5" ry="4" fill="#7f1d1d" stroke="#450a0a" stroke-width="0.8"/>
+  <!-- 複眼 -->
+  <circle cx="14" cy="35" r="1.4" fill="#fde047"/>
+  <circle cx="14" cy="35" r="0.6" fill="#0c0a09"/>
+  <circle cx="18" cy="35" r="1.4" fill="#fde047"/>
+  <circle cx="18" cy="35" r="0.6" fill="#0c0a09"/>
+  <!-- 小さな触角 -->
+  <path d="M12,33 Q8,30 10,28" stroke="#450a0a" stroke-width="0.6" fill="none"/>
+  <path d="M20,33 Q18,30 20,28" stroke="#450a0a" stroke-width="0.6" fill="none"/>
+
+  <!-- アンタレス（胴の宝石） -->
+  <circle cx="30" cy="40" r="2.5" fill="#ef4444"/>
+  <circle cx="30" cy="40" r="1.2" fill="#fca5a5"/>
+  <circle cx="30" cy="40" r="4"   fill="none" stroke="rgba(239,68,68,0.45)" stroke-width="0.6"/>
+</svg>

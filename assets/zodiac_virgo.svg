@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♍ Virgo — 翼ある乙女（麦穂持ち） -->
+  <defs>
+    <linearGradient id="vi_dress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#dcfce7"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="32" rx="30" ry="30" fill="rgba(134,239,172,0.15)" stroke="rgba(187,247,208,0.4)" stroke-width="0.6"/>
+
+  <!-- 翼（左） -->
+  <path d="M16,26 Q4,22 2,14 Q10,16 16,22 Q8,24 6,30 Q14,28 18,32 Z"
+        fill="#f5f5f4" stroke="#14532d" stroke-width="0.6"/>
+  <path d="M4,16 Q8,18 12,20 M6,22 Q10,22 14,24 M8,26 Q12,26 16,28"
+        stroke="#86efac" stroke-width="0.4" fill="none"/>
+
+  <!-- 翼（右） -->
+  <path d="M48,26 Q60,22 62,14 Q54,16 48,22 Q56,24 58,30 Q50,28 46,32 Z"
+        fill="#f5f5f4" stroke="#14532d" stroke-width="0.6"/>
+  <path d="M60,16 Q56,18 52,20 M58,22 Q54,22 50,24 M56,26 Q52,26 48,28"
+        stroke="#86efac" stroke-width="0.4" fill="none"/>
+
+  <!-- ドレス裾 -->
+  <path d="M20,32 Q32,28 44,32 L50,60 L14,60 Z" fill="url(#vi_dress)" stroke="#14532d" stroke-width="0.8"/>
+  <!-- ドレスのリボン -->
+  <path d="M20,40 Q32,38 44,40" stroke="#86efac" stroke-width="0.8" fill="none"/>
+  <path d="M20,48 Q32,46 44,48" stroke="#86efac" stroke-width="0.8" fill="none"/>
+  <path d="M22,56 Q32,54 42,56" stroke="#86efac" stroke-width="0.8" fill="none"/>
+
+  <!-- 胴 -->
+  <rect x="26" y="22" width="12" height="14" rx="3" fill="#ecfccb" stroke="#14532d" stroke-width="0.7"/>
+  <!-- 腰紐 -->
+  <rect x="24" y="33" width="16" height="2" fill="#84cc16"/>
+  <circle cx="32" cy="34" r="1.5" fill="#fde047" stroke="#78350f" stroke-width="0.4"/>
+
+  <!-- 腕 -->
+  <rect x="18" y="24" width="5" height="14" rx="2" fill="#ecfccb" stroke="#14532d" stroke-width="0.5"/>
+  <rect x="41" y="24" width="5" height="14" rx="2" fill="#ecfccb" stroke="#14532d" stroke-width="0.5"/>
+  <!-- 手 -->
+  <circle cx="20.5" cy="39" r="2" fill="#fde68a" stroke="#78350f" stroke-width="0.4"/>
+  <circle cx="43.5" cy="39" r="2" fill="#fde68a" stroke="#78350f" stroke-width="0.4"/>
+
+  <!-- 麦穂（スピカ） -->
+  <line x1="43" y1="38" x2="54" y2="52" stroke="#b45309" stroke-width="1.2"/>
+  <g stroke="#fef3c7" stroke-width="0.7" fill="none">
+    <line x1="47" y1="42" x2="44" y2="41"/>
+    <line x1="48" y1="44" x2="45" y2="43"/>
+    <line x1="49" y1="46" x2="46" y2="45"/>
+    <line x1="50" y1="48" x2="47" y2="47"/>
+    <line x1="52" y1="50" x2="49" y2="49"/>
+  </g>
+  <!-- スピカの大きな輝星 -->
+  <circle cx="54" cy="52" r="2.6" fill="#fef3c7"/>
+  <circle cx="54" cy="52" r="5"   fill="none" stroke="rgba(254,243,199,0.4)" stroke-width="0.6"/>
+  <path d="M54,47 L54,57 M49,52 L59,52" stroke="#fef3c7" stroke-width="0.7" opacity="0.7"/>
+
+  <!-- 頭 -->
+  <ellipse cx="32" cy="14" rx="6.5" ry="7" fill="#fde68a" stroke="#78350f" stroke-width="0.8"/>
+  <!-- 長い髪 -->
+  <path d="M25,12 Q22,20 26,28 Q28,24 28,20" fill="#7c2d12" stroke="#451a03" stroke-width="0.4"/>
+  <path d="M39,12 Q42,20 38,28 Q36,24 36,20" fill="#7c2d12" stroke="#451a03" stroke-width="0.4"/>
+  <path d="M25,10 Q25,4 32,3 Q39,4 39,10 Q37,7 32,7 Q27,7 25,10 Z" fill="#7c2d12"/>
+
+  <!-- 目 -->
+  <ellipse cx="30" cy="14" rx="1.1" ry="1.3" fill="#0c0a09"/>
+  <ellipse cx="34" cy="14" rx="1.1" ry="1.3" fill="#0c0a09"/>
+  <circle cx="30.3" cy="13.7" r="0.4" fill="#fff"/>
+  <circle cx="34.3" cy="13.7" r="0.4" fill="#fff"/>
+  <!-- まつ毛 -->
+  <path d="M28,13 L29,12 M36,13 L35,12" stroke="#0c0a09" stroke-width="0.4"/>
+  <!-- 唇 -->
+  <path d="M30,17 Q32,18.3 34,17" stroke="#b91c1c" stroke-width="0.7" fill="none"/>
+
+  <!-- 円環の冠 -->
+  <ellipse cx="32" cy="7" rx="6" ry="1.2" fill="none" stroke="#fef3c7" stroke-width="0.7"/>
+</svg>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♑ Capricorn — 海山羊（上半身=山羊／下半身=魚） -->
+  <defs>
+    <linearGradient id="cp_goat" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#f5f5f4"/>
+      <stop offset="100%" stop-color="#57534e"/>
+    </linearGradient>
+    <linearGradient id="cp_fish" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0e7490"/>
+    </linearGradient>
+  </defs>
+
+  <!-- オーラ -->
+  <ellipse cx="32" cy="32" rx="30" ry="30" fill="rgba(34,211,238,0.15)" stroke="rgba(103,232,249,0.4)" stroke-width="0.6"/>
+
+  <!-- 魚の尾（下半身・波打つ） -->
+  <path d="M22,36 Q14,40 14,50 Q20,58 32,58 Q44,56 52,52 Q58,46 60,38 Q50,42 40,38 Q30,34 22,36 Z"
+        fill="url(#cp_fish)" stroke="#164e63" stroke-width="1"/>
+  <!-- 鱗 -->
+  <g stroke="#67e8f9" stroke-width="0.4" fill="none" opacity="0.9">
+    <path d="M22,42 Q26,40 30,42 Q34,40 38,42 Q42,40 46,42"/>
+    <path d="M22,46 Q26,44 30,46 Q34,44 38,46 Q42,44 46,46"/>
+    <path d="M22,50 Q26,48 30,50 Q34,48 38,50 Q42,48 46,50"/>
+  </g>
+  <!-- 背びれ -->
+  <path d="M28,34 L32,26 L36,34 Z" fill="#06b6d4" stroke="#164e63" stroke-width="0.6"/>
+  <path d="M40,36 L46,30 L48,38 Z" fill="#06b6d4" stroke="#164e63" stroke-width="0.6"/>
+  <!-- 胸びれ -->
+  <path d="M20,42 Q14,44 12,50 Q18,48 22,46 Z" fill="#0ea5e9" stroke="#164e63" stroke-width="0.5"/>
+  <!-- 尾びれ -->
+  <path d="M56,34 L62,26 L62,44 L58,38 Z" fill="#06b6d4" stroke="#164e63" stroke-width="0.7"/>
+
+  <!-- 山羊の胴体 -->
+  <ellipse cx="24" cy="32" rx="11" ry="10" fill="url(#cp_goat)" stroke="#1f2937" stroke-width="0.9"/>
+  <!-- 毛並み -->
+  <g stroke="#78716c" stroke-width="0.4" fill="none" opacity="0.8">
+    <path d="M16,30 Q18,32 16,34"/>
+    <path d="M20,34 Q22,36 20,38"/>
+    <path d="M28,32 Q30,34 28,36"/>
+  </g>
+
+  <!-- 前脚 -->
+  <rect x="18" y="38" width="3.5" height="8" rx="0.8" fill="#57534e" stroke="#1f2937" stroke-width="0.4"/>
+  <rect x="26" y="38" width="3.5" height="8" rx="0.8" fill="#57534e" stroke="#1f2937" stroke-width="0.4"/>
+  <!-- 蹄 -->
+  <ellipse cx="19.8" cy="47" rx="2.2" ry="1" fill="#0c0a09"/>
+  <ellipse cx="27.8" cy="47" rx="2.2" ry="1" fill="#0c0a09"/>
+
+  <!-- 山羊の頭 -->
+  <ellipse cx="22" cy="18" rx="8" ry="8" fill="url(#cp_goat)" stroke="#1f2937" stroke-width="0.9"/>
+  <!-- 角（後ろに湾曲） -->
+  <path d="M16,14 Q6,4 4,16 Q10,14 18,18" fill="#78716c" stroke="#1f2937" stroke-width="0.7"/>
+  <path d="M28,14 Q38,4 40,16 Q34,14 26,18" fill="#78716c" stroke="#1f2937" stroke-width="0.7"/>
+  <!-- 角の節 -->
+  <path d="M6,14 Q8,15 10,15" stroke="#1f2937" stroke-width="0.4"/>
+  <path d="M38,14 Q36,15 34,15" stroke="#1f2937" stroke-width="0.4"/>
+
+  <!-- 目 -->
+  <ellipse cx="19" cy="18" rx="1.6" ry="1.3" fill="#fef3c7"/>
+  <ellipse cx="25" cy="18" rx="1.6" ry="1.3" fill="#fef3c7"/>
+  <rect x="18.2" y="17" width="1.6" height="2" fill="#0c0a09"/>
+  <rect x="24.2" y="17" width="1.6" height="2" fill="#0c0a09"/>
+  <!-- 鼻 -->
+  <ellipse cx="22" cy="22" rx="3" ry="2" fill="#6b7280"/>
+  <circle cx="20.5" cy="22" r="0.5" fill="#0c0a09"/>
+  <circle cx="23.5" cy="22" r="0.5" fill="#0c0a09"/>
+  <!-- 口 -->
+  <path d="M22,24 L22,26" stroke="#1f2937" stroke-width="0.6"/>
+  <!-- 髭 -->
+  <path d="M20,26 Q20,30 22,30 Q24,30 24,26" fill="#e7e5e4" stroke="#78716c" stroke-width="0.4"/>
+
+  <!-- 水しぶき（尾周り） -->
+  <g fill="#bae6fd" opacity="0.85">
+    <circle cx="56" cy="30" r="1.2"/>
+    <circle cx="58" cy="42" r="0.8"/>
+    <circle cx="14" cy="54" r="1"/>
+    <circle cx="10" cy="48" r="0.7"/>
+  </g>
+</svg>

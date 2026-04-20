@@ -25,6 +25,10 @@ export interface StatusEffectEntry {
  */
 export interface MapGrid {
   isWalkable(x: number, y: number): boolean;
+  /** タイル ID 取得（省略可）— WATER 連鎖など拡張ロジック向け */
+  grid?: number[][];
+  cols?: number;
+  rows?: number;
 }
 
 /**

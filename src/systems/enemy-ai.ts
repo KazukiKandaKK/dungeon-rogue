@@ -5,6 +5,12 @@
 import { Enemy }  from '../entities/enemy.js';
 import type { Player } from '../entities/player.js';
 import type { GameMap } from '../types.js';
+import { TILE } from '../world/tiles.js';
+import { BOSS_SUMMON_TYPES } from '../world/dungeon_defs.js';
+
+interface GridMap extends GameMap {
+  grid?: number[][];
+}
 
 // ── 公開インターフェース ──────────────────────
 
@@ -71,6 +77,21 @@ interface StatusEffectInternal {
 export function doEnemyTurn(enemy: Enemy, ctx: EnemyAIContext): void {
   const { player, camOffX, camOffY } = ctx;
 
+  // ── マグマダメージ + 延焼（magma に立っていればターン開始時に発動） ──
+  const gridMap = ctx.map as GridMap;
+  const standTile = gridMap.grid?.[enemy.ty]?.[enemy.tx];
+  if (standTile === TILE.MAGMA) {
+    const dmg = 3;
+    enemy.hp = Math.max(0, enemy.hp - dmg);
+    const { sx: msx, sy: msy } = enemy.screenPos(camOffX, camOffY);
+    ctx.onFloatingText({ text: `🔥${dmg}`, x: msx, y: msy - 16, alpha: 1, scale: 1, color: '#f97316', life: 0.8, maxLife: 0.8 });
+    if (enemy.hp <= 0) { enemy.alive = false; return; }
+    if (!enemy.statusEffects) enemy.statusEffects = [];
+    const ex = (enemy.statusEffects as StatusEffectInternal[]).find(e => e.type === 'burn');
+    if (ex) { ex.turns = Math.max(ex.turns ?? 0, 3); }
+    else    { enemy.statusEffects.push({ type: 'burn', turns: 3, power: 2 }); }
+  }
+
   // ── ステータス異常処理 ──────────────────────────────
   if (enemy.statusEffects?.length) {
     let skipTurn = false;
@@ -81,6 +102,13 @@ export function doEnemyTurn(enemy: Enemy, ctx: EnemyAIContext): void {
         if (enemy.hp <= 0) enemy.alive = false;
         const { sx, sy } = enemy.screenPos(camOffX, camOffY);
         ctx.onFloatingText({ text: `☠${dmg}`, x: sx, y: sy - 16, alpha: 1, scale: 1, color: '#4ade80', life: 0.8, maxLife: 0.8 });
+      }
+      if (eff.type === 'burn') {
+        const dmg = eff.power ?? 2;
+        enemy.hp = Math.max(0, enemy.hp - dmg);
+        if (enemy.hp <= 0) enemy.alive = false;
+        const { sx, sy } = enemy.screenPos(camOffX, camOffY);
+        ctx.onFloatingText({ text: `🔥${dmg}`, x: sx, y: sy - 16, alpha: 1, scale: 1, color: '#fb923c', life: 0.8, maxLife: 0.8 });
       }
       if (eff.type === 'sleep' || eff.type === 'stun') skipTurn = true;
       if (eff.type === 'slow') { eff._skip = !eff._skip; if (eff._skip) skipTurn = true; }
@@ -158,6 +186,20 @@ export function doEnemyTurn(enemy: Enemy, ctx: EnemyAIContext): void {
     bossMagicBolt(enemy, '❄ アイスボルト', enemy.atk * 1.1, '#7dd3fc', ctx);
   } else if (result === 'magicLightning') {
     bossMagicBolt(enemy, '⚡ サンダー', enemy.atk * 1.2, '#fbbf24', ctx);
+  } else if (result === 'summon') {
+    bossSummonMinions(enemy, ctx);
+  } else if (result === 'summonStatue') {
+    bossSummonStatue(enemy, ctx);
+  } else if (result === 'chargeAttack') {
+    bossChargeAttack(enemy, ctx);
+  } else if (result === 'heal') {
+    bossHealSelf(enemy, ctx);
+  } else if (result === 'teleport') {
+    bossTeleportNear(enemy, ctx);
+  } else if (result === 'statueTick') {
+    statueTick(enemy, ctx);
+  } else if (result === 'statueDetonate') {
+    statueDetonate(enemy, ctx);
   }
 }
 
@@ -331,4 +373,170 @@ export function bossMagicBolt(
     isMagic: true,
   });
   ctx.logger.add(`${boss.name} の ${name}！`, 'warn');
+}
+
+// ── ボス召喚 ──────────────────────────────────
+
+/**
+ * ボス周囲 2 マスに 2〜3 体の子分を召喚。
+ * 種類は bossVariant ごとに BOSS_SUMMON_TYPES から引く。
+ */
+export function bossSummonMinions(boss: Enemy, ctx: EnemyAIContext): void {
+  const variant = boss.bossVariant ?? 'aries';
+  const pool    = BOSS_SUMMON_TYPES[variant] ?? ['goblin', 'goblin'];
+  const count   = pool.length;
+
+  // 周囲 2 マス以内の空きタイル候補（距離昇順）
+  const candidates: Array<{ tx: number; ty: number; d: number }> = [];
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = boss.tx + dx, ny = boss.ty + dy;
+      if (!ctx.map.isWalkable(nx, ny)) continue;
+      if (ctx.enemies.some(e => e.alive && e.tx === nx && e.ty === ny)) continue;
+      if (ctx.player.tx === nx && ctx.player.ty === ny) continue;
+      candidates.push({ tx: nx, ty: ny, d: Math.abs(dx) + Math.abs(dy) });
+    }
+  }
+  candidates.sort((a, b) => a.d - b.d);
+
+  let spawned = 0;
+  for (let i = 0; i < pool.length && spawned < count && i < candidates.length; i++) {
+    const slot = candidates[spawned];
+    if (!slot) break;
+    const type = pool[i]!;
+    const m    = new Enemy(slot.tx, slot.ty, type);
+    m.alerted  = true;
+    ctx.enemies.push(m);
+    spawned++;
+  }
+  if (spawned > 0) {
+    ctx.logger.add(`✨ ${boss.name} が ${spawned} 体の眷属を召喚した！`, 'warn');
+    const { sx, sy } = boss.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.onFloatingText({
+      text: '✨ 召喚！', x: sx, y: sy - 32,
+      alpha: 1, scale: 1, color: '#c4b5fd', life: 1.1, maxLife: 1.1,
+    });
+  }
+}
+
+/**
+ * プレイヤーの近くに cosmic_statue を召喚。
+ * 10 ターン以内に破壊しないと大ダメージが発生する。
+ */
+export function bossSummonStatue(boss: Enemy, ctx: EnemyAIContext): void {
+  const px = ctx.player.tx, py = ctx.player.ty;
+  // プレイヤーの周囲 1〜2 マスに設置を試みる
+  const offsets: Array<[number, number]> = [
+    [1,0],[-1,0],[0,1],[0,-1],
+    [2,0],[-2,0],[0,2],[0,-2],
+    [1,1],[-1,1],[1,-1],[-1,-1],
+  ];
+  for (const [ox, oy] of offsets) {
+    const nx = px + ox, ny = py + oy;
+    if (!ctx.map.isWalkable(nx, ny)) continue;
+    if (ctx.enemies.some(e => e.alive && e.tx === nx && e.ty === ny)) continue;
+    if (nx === px && ny === py) continue;
+    const statue = new Enemy(nx, ny, 'cosmic_statue');
+    statue.alerted = true;
+    ctx.enemies.push(statue);
+    ctx.logger.add(`🗿 ${boss.name} が石像を召喚！ 10 ターン以内に破壊しないと大ダメージ！`, 'warn');
+    const { sx, sy } = statue.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.onFloatingText({
+      text: '🗿 10', x: sx, y: sy - 20,
+      alpha: 1, scale: 1.1, color: '#fde68a', life: 1.4, maxLife: 1.4,
+    });
+    return;
+  }
+}
+
+/** 直線方向へ突進＋ダメージ（5 マスまで、LOS 貫通） */
+export function bossChargeAttack(boss: Enemy, ctx: EnemyAIContext): void {
+  const dx = Math.sign(ctx.player.tx - boss.tx);
+  const dy = Math.sign(ctx.player.ty - boss.ty);
+  if (dx === 0 && dy === 0) return;
+  // 5 マスまでの直線を示す
+  for (let i = 1; i <= 5; i++) {
+    const tx = boss.tx + dx * i;
+    const ty = boss.ty + dy * i;
+    ctx.onAoeFlash({ tx, ty, alpha: 1, color: 'rgba(251,191,36,' });
+    if (tx === ctx.player.tx && ty === ctx.player.ty) {
+      ctx.attack(boss, ctx.player, Math.ceil(boss.atk * 1.8));
+      ctx.logger.add(`💨 ${boss.name} の突進！`, 'warn');
+      ctx.onFlash('rgba(251,191,36,0.25)');
+      break;
+    }
+  }
+}
+
+/** 自己回復（maxHP の 8%） */
+export function bossHealSelf(boss: Enemy, ctx: EnemyAIContext): void {
+  const heal = Math.max(10, Math.floor(boss.maxHP * 0.08));
+  boss.hp = Math.min(boss.maxHP, boss.hp + heal);
+  const { sx, sy } = boss.screenPos(ctx.camOffX, ctx.camOffY);
+  ctx.onFloatingText({
+    text: `+${heal}`, x: sx, y: sy - 24,
+    alpha: 1, scale: 1.1, color: '#86efac', life: 1.1, maxLife: 1.1,
+  });
+  ctx.logger.add(`💖 ${boss.name} が自身を ${heal} 回復した！`, 'heal');
+}
+
+/** プレイヤー近くの空きタイルへ瞬間移動 */
+export function bossTeleportNear(boss: Enemy, ctx: EnemyAIContext): void {
+  const px = ctx.player.tx, py = ctx.player.ty;
+  const offsets: Array<[number, number]> = [
+    [2,0],[-2,0],[0,2],[0,-2],
+    [2,2],[-2,-2],[2,-2],[-2,2],
+    [3,0],[-3,0],[0,3],[0,-3],
+  ];
+  for (const [ox, oy] of offsets) {
+    const nx = px + ox, ny = py + oy;
+    if (!ctx.map.isWalkable(nx, ny)) continue;
+    if (ctx.enemies.some(e => e !== boss && e.alive && e.tx === nx && e.ty === ny)) continue;
+    if (nx === px && ny === py) continue;
+    boss.moveTo(nx, ny);
+    ctx.logger.add(`🌀 ${boss.name} が瞬間移動した！`, 'warn');
+    const { sx, sy } = boss.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.onFloatingText({
+      text: '🌀', x: sx, y: sy - 18,
+      alpha: 1, scale: 1.3, color: '#a78bfa', life: 0.9, maxLife: 0.9,
+    });
+    return;
+  }
+}
+
+/** 石像のカウントダウン表示（何もしない行動） */
+export function statueTick(statue: Enemy, ctx: EnemyAIContext): void {
+  const { sx, sy } = statue.screenPos(ctx.camOffX, ctx.camOffY);
+  const left = statue.statueCountdown;
+  const color = left <= 3 ? '#ef4444' : (left <= 6 ? '#f59e0b' : '#fde68a');
+  ctx.onFloatingText({
+    text: `🗿${left}`, x: sx, y: sy - 20,
+    alpha: 1, scale: 1.0, color, life: 0.8, maxLife: 0.8,
+  });
+}
+
+/** 石像の起爆: 周囲 3 マスに大ダメージ、石像は消滅 */
+export function statueDetonate(statue: Enemy, ctx: EnemyAIContext): void {
+  const radius = 3;
+  const dmg = 60;
+  const px = ctx.player.tx, py = ctx.player.ty;
+  const d = Math.max(Math.abs(statue.tx - px), Math.abs(statue.ty - py));
+  if (d <= radius) {
+    ctx.attack(statue, ctx.player, dmg);
+    ctx.logger.add(`💥 石像が起爆！ 裁きの光が降り注ぐ！`, 'warn');
+  } else {
+    ctx.logger.add(`💥 石像が起爆したが射程外だった！`, 'normal');
+  }
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) <= radius) {
+        ctx.onAoeFlash({ tx: statue.tx + dx, ty: statue.ty + dy, alpha: 1, color: 'rgba(252,211,77,' });
+      }
+    }
+  }
+  ctx.onFlash('rgba(252,211,77,0.45)');
+  // 石像自体を消滅させる
+  statue.hp    = 0;
+  statue.alive = false;
 }

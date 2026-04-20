@@ -9,7 +9,9 @@ export const TILE = Object.freeze({
   STAIRS:   3, // 階段（歩行可・次フロアへ）
   PILLAR:   4, // 柱（通行不可）
   TRAP:     5, // 罠（通行可・踏むとダメージ）
-  WATER:    6, // 水（通行可・スプラッシュ）
+  WATER:    6, // 水（通行可・雷と接触すると連鎖）
+  ICE:      7, // 氷（通行可・踏むと滑る）
+  MAGMA:    8, // マグマ（通行可・踏むとダメージ＋延焼）
 } as const);
 
 export type TileType = typeof TILE[keyof typeof TILE];
@@ -38,7 +40,7 @@ export interface Theme {
   corridor: FloorPalette;
 }
 
-export type ThemeId = 'dungeon' | 'forest' | 'town' | 'base';
+export type ThemeId = 'dungeon' | 'forest' | 'town' | 'base' | 'cosmic';
 
 // テーマ別カラーパレット（描画は map.ts が使用）
 // 写実寄りの色調に調整：彩度控えめ、石・土・草の自然なトーン
@@ -71,9 +73,16 @@ export const THEMES: Record<ThemeId, Theme> = {
     floor:    { base: '#a8886a', grid: 'rgba(120,80,36,0.30)', hi: 'rgba(255,240,200,0.05)' },
     corridor: { base: '#8e7050', grid: 'rgba(100,70,30,0.32)', hi: 'rgba(255,240,200,0.04)' },
   },
+  cosmic: {
+    bg:       '#02000a',
+    label:    '宇宙',
+    wall:     { base: '#1a0a3a', lo: '#050018', hi: 'rgba(180,120,255,0.22)', sh: 'rgba(0,0,0,0.88)', moss: '#2a1050' },
+    floor:    { base: '#050018', grid: 'rgba(80,40,160,0.30)', hi: 'rgba(200,180,255,0.06)' },
+    corridor: { base: '#030010', grid: 'rgba(60,30,120,0.30)', hi: 'rgba(200,180,255,0.05)' },
+  },
 };
 
-export const THEME_IDS: ThemeId[] = ['dungeon', 'forest', 'town', 'base'];
+export const THEME_IDS: ThemeId[] = ['dungeon', 'forest', 'town', 'base', 'cosmic'];
 
 export const TILE_SIZE   = 96; // アクター lerp 用（論理単位）
 
@@ -131,6 +140,14 @@ export const TILE_DEF: Record<TileType, TileDef> = {
   },
   [TILE.WATER]: {
     label: '水', color: '#3b6ea8', walkable: true, weight: 8,
+    allowedNeighbors: [TILE.FLOOR, TILE.CORRIDOR],
+  },
+  [TILE.ICE]: {
+    label: '氷', color: '#a5e8ff', walkable: true, weight: 1,
+    allowedNeighbors: [TILE.FLOOR, TILE.CORRIDOR],
+  },
+  [TILE.MAGMA]: {
+    label: 'マグマ', color: '#ef4444', walkable: true, weight: 1,
     allowedNeighbors: [TILE.FLOOR, TILE.CORRIDOR],
   },
 };

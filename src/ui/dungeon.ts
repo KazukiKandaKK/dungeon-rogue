@@ -36,6 +36,7 @@ export interface FloorItem {
 
 export interface FloorItemsContext {
   floorItems: FloorItem[];
+  sprites?:   SpriteLoader;
 }
 
 export interface FloorChest {
@@ -100,23 +101,34 @@ export function drawAttackPreview(
     tileColor  = 'rgba(192,132,252,';
     arrowColor = '#c084fc';
   } else if (aoe === 'burst') {
+    // 実装と同じく、レンジ内最近接の敵を中心に。無ければ正面 1 マス。
+    const range0 = weapon?.range ?? 1;
+    const burstCenter = enemies
+      .filter(e => {
+        if (!e.alive) return false;
+        const cd = Math.max(Math.abs(e.tx - player.tx), Math.abs(e.ty - player.ty));
+        return cd <= range0;
+      })
+      .sort((a, b) =>
+        Math.max(Math.abs(a.tx - player.tx), Math.abs(a.ty - player.ty)) -
+        Math.max(Math.abs(b.tx - player.tx), Math.abs(b.ty - player.ty))
+      )[0];
+    const cx = burstCenter ? burstCenter.tx : targetTx;
+    const cy = burstCenter ? burstCenter.ty : targetTy;
     for (let ady = -aoeRange; ady <= aoeRange; ady++) {
       for (let adx = -aoeRange; adx <= aoeRange; adx++) {
         if (Math.abs(adx) + Math.abs(ady) <= aoeRange + 1) {
-          hitTiles.push({ tx: targetTx + adx, ty: targetTy + ady });
+          hitTiles.push({ tx: cx + adx, ty: cy + ady });
         }
       }
     }
     tileColor  = 'rgba(251,191,36,';
     arrowColor = '#fbbf24';
   } else {
+    // 通常武器：range==1 なら正面 1 マスだけ、range>1 なら正面方向の直線
     const range = player.equip?.weapon?.range ?? 1;
-    for (let ady = -range; ady <= range; ady++) {
-      for (let adx = -range; adx <= range; adx++) {
-        if (adx === 0 && ady === 0) continue;
-        if (Math.max(Math.abs(adx), Math.abs(ady)) > range) continue;
-        hitTiles.push({ tx: player.tx + adx, ty: player.ty + ady });
-      }
+    for (let r = 1; r <= range; r++) {
+      hitTiles.push({ tx: player.tx + dx * r, ty: player.ty + dy * r });
     }
     tileColor  = 'rgba(96,200,255,';
     arrowColor = '#60c8ff';
@@ -135,26 +147,9 @@ export function drawAttackPreview(
     ctx.strokeRect(fx + 1, fy + 1, ts - 2, ts - 2);
   }
 
-  let arrowDx = dx;
-  let arrowDy = dy;
-  if (!aoe) {
-    const nearEnemy = enemies
-      .filter(e => {
-        if (!e.alive) return false;
-        const cd = Math.max(Math.abs(e.tx - player.tx), Math.abs(e.ty - player.ty));
-        return cd <= (player.equip?.weapon?.range ?? 1);
-      })
-      .sort(
-        (a, b) =>
-          Math.hypot(a.tx - player.tx, a.ty - player.ty) -
-          Math.hypot(b.tx - player.tx, b.ty - player.ty),
-      )[0];
-    if (nearEnemy) {
-      arrowDx = Math.sign(nearEnemy.tx - player.tx);
-      arrowDy = Math.sign(nearEnemy.ty - player.ty);
-    }
-  }
-
+  // 矢印はプレイヤーの向きに固定（攻撃は正面方向のみ）
+  const arrowDx = dx;
+  const arrowDy = dy;
   const arrowTargetTx = player.tx + arrowDx;
   const arrowTargetTy = player.ty + arrowDy;
   const arrowCx = arrowTargetTx * ts + camOffX + ts / 2;
@@ -320,7 +315,7 @@ export function drawFloorItems(
   camOffY: number,
   c: FloorItemsContext,
 ): void {
-  const { floorItems } = c;
+  const { floorItems, sprites } = c;
   const ts = TILE_SIZE;
 
   for (const { tx, ty, item } of floorItems) {
@@ -341,7 +336,7 @@ export function drawFloorItems(
     ctx.restore();
 
     ctx.save();
-    drawItemSvg(ctx, item, sx, sy, sz);
+    drawItemSvg(ctx, item, sx, sy, sz, sprites);
     ctx.restore();
 
     const label = `${item.icon ?? ''}${item.name ?? ''}`;

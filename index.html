@@ -118,6 +118,50 @@
       opacity: 0.85;
     }
     .log-text { flex: 1; }
+
+    /* ─ デバッグボタン（右上固定） ─ */
+    #debugPanel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: none;          /* ダンジョン中のみ JS から表示する */
+      flex-direction: column;
+      gap: 6px;
+      z-index: 9999;
+      font-family: 'Noto Sans JP', monospace;
+    }
+    #debugPanel button {
+      background: rgba(127,29,29,0.85);
+      color: #fde68a;
+      border: 1px solid rgba(251,191,36,0.45);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(127,29,29,0.4);
+      transition: background 0.15s, transform 0.1s;
+    }
+    #debugPanel button:hover {
+      background: rgba(185,28,28,0.95);
+      transform: translateY(-1px);
+    }
+    #debugPanel button:active { transform: translateY(0); }
+    #debugPanel button:disabled {
+      background: rgba(60,60,60,0.6);
+      color: #78716c;
+      border-color: rgba(120,113,108,0.3);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #debugPanel .debug-label {
+      font-size: 9px;
+      color: rgba(251,191,36,0.7);
+      text-align: center;
+      letter-spacing: 0.15em;
+      margin-bottom: 2px;
+    }
   </style>
 </head>
 <body>
@@ -128,6 +172,11 @@
 
   <canvas id="gameCanvas"></canvas>
 
+  <div id="debugPanel">
+    <div class="debug-label">DEBUG</div>
+    <button id="btnWarpBoss" type="button" title="現在のダンジョンのボス階へワープ">🐉 ボス階へ</button>
+  </div>
+
   <div id="logPanel">
     <div id="logHeader">
       <div class="log-dot"></div>
@@ -136,6 +185,6 @@
     <div id="battleLog"></div>
   </div>
 
-  <script type="module" src="dist/core/main.js?v=109"></script>
+  <script type="module" src="dist/core/main.js?v=143"></script>
 </body>
 </html>

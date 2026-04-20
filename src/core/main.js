@@ -13,13 +13,16 @@ import { SpriteLoader }        from './sprites.js';
 import { Logger }              from './logger.js?v=2';
 import { initAstar }           from '../world/astar.js';
 import { ITEMS, itemStatText, treasureDrop, chestDrop, SHOP_CATALOG, mysteryStartItems } from '../data/equipment.js?v=4';
+import { GENERATED_ICONS } from '../data/icon_sprites.js';
 import { SPELLS, resolveSpell }        from '../data/magic.js';
 import { CLASSES, CLASS_IDS } from '../data/classes.js';
 import {
   CANVAS_W, CANVAS_H, MAP_COLS, MAP_ROWS, ENEMY_COUNT, MIN_SPAWN_DIST,
   ITEM_PER_FLOOR, SAVE_SLOT_KEYS,
   BASE_COLS, BASE_ROWS, BASE_SPAWN, BASE_CHEST_POS, BASE_PORTALS,
-  BASE_SHOP_POS, BASE_CASINO_POS, BASE_STALL_POS, BASE_LOAN_POS,
+  BASE_SHOP_POS, BASE_CASINO_POS, BASE_STALL_POS, BASE_LOAN_POS, BASE_RECLASS_POS,
+  BASE_CRAFT_POS,
+  RECLASS_COST_PER_LV, RECLASS_COST_MIN,
   BUILDS, BUILD_IDS,
   LOAN_AMOUNTS, REPAY_AMOUNTS, LOAN_INTEREST, LOAN_QUEST_FLOORS,
   RL_RED,
@@ -40,7 +43,11 @@ import { drawMagicMenu, drawShopMenu, drawInventory } from '../ui/inventory.js';
 import { tickWaveSpawn } from '../systems/wave-spawn.js';
 import { drawCasino, drawLoan } from '../ui/casino.js';
 import { drawStall, drawBaseChest, drawBaseShop } from '../ui/base.js';
-import { drawTitle, drawSaveSlot, drawClassSelect, drawBuildSelect, drawGameOver } from '../ui/title.js';
+import { drawReclassMenu } from '../ui/reclass.js';
+import { drawCraftMenu, listWeapons as _craftListWeapons } from '../ui/craft.js';
+import { canCraft as _craftCan, craftCost as _craftCost, combineWeapons as _craftCombine } from '../systems/craft.js';
+import { drawTitle, drawSaveSlot, drawClassSelect, drawBuildSelect, drawGameOver, drawCharCreate } from '../ui/title.js';
+import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
 import { drawAttackPreview, drawEnemyRanges, drawFloorItems, drawChests, drawInfiniteEscapePrompt } from '../ui/dungeon.js';
 import { drawBaseObjects } from '../ui/base-objects.js';
 import { getFloorTheme, spawnEnemies, placeFloorItems, placeChests, placeShop, assignTrapTypes, buildBaseShopItems } from '../systems/floor.js';
@@ -71,6 +78,12 @@ let baseChest      = [];      // 預かりアイテム
 let baseChestOpen  = false;
 let baseChestSide  = 'chest'; // 'chest' | 'inventory'
 let baseCursor     = 0;
+
+// キャラクリ（見た目）
+let charSpeciesCursor = 0;
+let charTintCursor    = 0;
+let charFocusGroup    = 'species'; // 'species' | 'tint'
+let playerAppearance  = null;      // { species, tint } | null
 
 // 職業選択
 let playerClass  = 'warrior';
@@ -130,6 +143,16 @@ let stallOpen   = false;
 let stallCursor = 0;
 let stallItems  = []; // [{item, price}] 預かり中アイテム
 
+// 拠点 転職サービス
+let reclassOpen   = false;
+let reclassCursor = 0;
+
+// 拠点 クラフト屋（鍛冶）
+let craftOpen  = false;
+let craftCurA  = 0;
+let craftCurB  = 0;
+let craftSide  = 'A'; // 'A' | 'B'
+
 // 不思議ダンジョン
 let mysteryMode = false;
 
@@ -148,8 +171,8 @@ let loanQuestActive = false;  // 宝探し依頼中
 
 // ── カジノ ─────────────────────────────────────
 let casinoOpen    = false;
-let casinoMode    = 'select'; // 'select'|'bj'|'roulette'|'chinchiro'
-let casinoCursor  = 0;        // 0=BJ 1=ルーレット 2=チンチロ（選択画面）
+let casinoMode    = 'select'; // 'select'|'bj'|'roulette'|'chinchiro'|'slot'
+let casinoCursor  = 0;        // 0=BJ 1=ルーレット 2=チンチロ 3=スロット（選択画面）
 // ブラックジャック
 let bjPhase       = 'bet';   // 'bet'|'play'|'result'
 let bjBet         = 10;
@@ -176,6 +199,20 @@ let ccDealerDice   = [1,1,1];
 let ccPlayerRolls  = 0;      // 振った回数（最大3回）
 let ccMsg          = '';
 let ccWin          = null;   // true|false|null(push)
+let ccPlayerRollAnim = 0;    // プレイヤーのサイコロ演出残時間（秒）
+let ccDealerRollAnim = 0;    // ディーラーのサイコロ演出残時間（秒）
+
+// スロット
+let slPhase        = 'bet';  // 'bet'|'spin'|'result'
+let slBet          = 10;
+let slReels        = [0, 0, 0];      // 確定シンボルインデックス
+let slReelOffsets  = [0, 0, 0];      // スピン中の縦スクロール量（ピクセル）
+let slReelStopped  = [true, true, true];
+let slReelStopAt   = [0, 0, 0];      // リール停止予定時刻（rAF相対秒）
+let slSpinTimer    = 0;              // スピン経過秒
+let slWin          = false;
+let slPayout       = 0;
+let slMsg          = '';
 
 // 装備画面
 let showInventory = false;
@@ -289,6 +326,25 @@ async function init(canvas, logEl) {
       ['slime',             'assets/slime.svg?v=6'],
       ['goblin',            'assets/goblin.svg?v=6'],
       ['boss',              'assets/boss.svg?v=1'],
+      // ── 通常ダンジョンのボス専用スプライト ──
+      ['giant_slime',       'assets/giant_slime.svg?v=1'],
+      ['goblin_king',       'assets/goblin_king.svg?v=1'],
+      ['cursed_treant',     'assets/cursed_treant.svg?v=1'],
+      ['abyss_demon',       'assets/abyss_demon.svg?v=1'],
+      ['abyss_warden',      'assets/abyss_warden.svg?v=1'],
+      // ── 十二星座ボス ──
+      ['zodiac_aries',       'assets/zodiac_aries.svg?v=2'],
+      ['zodiac_taurus',      'assets/zodiac_taurus.svg?v=2'],
+      ['zodiac_gemini',      'assets/zodiac_gemini.svg?v=2'],
+      ['zodiac_cancer',      'assets/zodiac_cancer.svg?v=2'],
+      ['zodiac_leo',         'assets/zodiac_leo.svg?v=2'],
+      ['zodiac_virgo',       'assets/zodiac_virgo.svg?v=2'],
+      ['zodiac_libra',       'assets/zodiac_libra.svg?v=2'],
+      ['zodiac_scorpio',     'assets/zodiac_scorpio.svg?v=2'],
+      ['zodiac_sagittarius', 'assets/zodiac_sagittarius.svg?v=2'],
+      ['zodiac_capricorn',   'assets/zodiac_capricorn.svg?v=2'],
+      ['zodiac_aquarius',    'assets/zodiac_aquarius.svg?v=2'],
+      ['zodiac_pisces',      'assets/zodiac_pisces.svg?v=2'],
       ['archer',            'assets/archer.svg?v=1'],
       ['wizard',            'assets/wizard.svg?v=1'],
       ['bat',               'assets/bat.svg?v=1'],
@@ -323,6 +379,12 @@ async function init(canvas, logEl) {
       ['chest',             'assets/chest.svg?v=1'],
       ['chest_open',        'assets/chest_open.svg?v=1'],
       ['debt_collector',    'assets/debt_collector.svg?v=1'],
+      // ── 生成武器SVG（scripts/gen_weapons.mjs 由来） ──
+      ...Object.values(ITEMS)
+        .filter(it => it.spriteName && it.spriteName.startsWith('weapon_'))
+        .map(it => [it.spriteName, `assets/weapons/${it.id}.svg?v=1`]),
+      // ── 生成アイコンSVG（scripts/gen_icons.mjs 由来） ──
+      ...GENERATED_ICONS.map(ic => [ic.spriteName, `${ic.url}?v=1`]),
     ]).catch(e => console.warn('スプライトロード失敗:', e)),
     initAstar(),
   ]);
@@ -382,8 +444,17 @@ function _buildBase() {
   baseShopOpen  = false;
   casinoOpen      = false;
   casinoMode      = 'select';
+  slPhase         = 'bet';
+  slReelStopped   = [true, true, true];
+  ccPlayerRollAnim = 0;
+  ccDealerRollAnim = 0;
   loanOpen        = false;
   loanRepayMode   = false;
+  reclassOpen     = false;
+  craftOpen       = false;
+  craftCurA       = 0;
+  craftCurB       = 0;
+  craftSide       = 'A';
   baseShopItems = buildBaseShopItems();
   _placePlayer(BASE_SPAWN.tx, BASE_SPAWN.ty);
 
@@ -403,7 +474,9 @@ function _buildFloor(entryDir) {
   // 無限ダンジョン：10フロアごとにボス戦
   const isBossFloor = currentDungeon?.bossRush
     || (currentDungeon?.infinite ? floorNumber % 10 === 0 : floorNumber === maxFloors);
-  isMonsterHouseFloor = !isBossFloor && Math.random() < 0.70;
+  // モンスターハウス確率：無限ダンジョンは高頻度（70%）、それ以外は控えめ（5%）
+  const mhChance = currentDungeon?.infinite ? 0.70 : 0.05;
+  isMonsterHouseFloor = !isBossFloor && Math.random() < mhChance;
   const theme = getFloorTheme(floorNumber, currentDungeon);
   const trapDensity = currentDungeon?.infinite ? 6 : 1;
   map = new GameMap(MAP_COLS, MAP_ROWS, theme, isBossFloor, trapDensity);
@@ -486,7 +559,7 @@ function _buildFloor(entryDir) {
 
 function _placePlayer(tx, ty) {
   if (!player) {
-    player = new Player(tx, ty, playerClass, BUILDS[playerBuild]?.bonus ?? null);
+    player = new Player(tx, ty, playerClass, BUILDS[playerBuild]?.bonus ?? null, playerAppearance);
   } else {
     player.tx      = tx;
     player.ty      = ty;
@@ -880,6 +953,26 @@ function startLoop(canvas) {
       }
     }
 
+    // チンチロ: ダイスロール演出タイマー
+    if (ccPlayerRollAnim > 0) ccPlayerRollAnim = Math.max(0, ccPlayerRollAnim - dt);
+    if (ccDealerRollAnim > 0) ccDealerRollAnim = Math.max(0, ccDealerRollAnim - dt);
+
+    // スロット: リール回転演出
+    if (casinoOpen && casinoMode === 'slot' && slPhase === 'spin') {
+      slSpinTimer += dt;
+      for (let i = 0; i < 3; i++) {
+        if (!slReelStopped[i]) {
+          slReelOffsets[i] += dt * 900; // px/sec
+          if (slSpinTimer >= slReelStopAt[i]) {
+            slReelStopped[i] = true;
+          }
+        }
+      }
+      if (slReelStopped[0] && slReelStopped[1] && slReelStopped[2]) {
+        _slFinish();
+      }
+    }
+
     // フローティングテキスト更新
     for (const ft of floatingTexts) {
       ft.life -= dt;
@@ -901,6 +994,8 @@ function startLoop(canvas) {
       _handleTitleInput();
     } else if (gameState === 'SAVE_SLOT') {
       _handleSaveSlotInput();
+    } else if (gameState === 'CHAR_CREATE') {
+      _handleCharCreateInput();
     } else if (gameState === 'CLASS_SELECT') {
       _handleClassSelectInput();
     } else if (gameState === 'BUILD_SELECT') {
@@ -931,7 +1026,7 @@ function startLoop(canvas) {
       // メニュー切り替え
       if (input.justPressed('Escape')) {
         showInventory = false; showMagic = false; shopOpen = false;
-        baseChestOpen = false; baseShopOpen = false; casinoOpen = false; stallOpen = false; loanOpen = false;
+        baseChestOpen = false; baseShopOpen = false; casinoOpen = false; stallOpen = false; loanOpen = false; reclassOpen = false; craftOpen = false;
       }
 
       if (input.justPressed('KeyP')) {
@@ -942,7 +1037,7 @@ function startLoop(canvas) {
       }
 
       if (gamePhase === 'BASE') {
-        if (input.justPressed('KeyI') && !baseChestOpen && !baseShopOpen && !casinoOpen && !stallOpen) {
+        if (input.justPressed('KeyI') && !baseChestOpen && !baseShopOpen && !casinoOpen && !stallOpen && !reclassOpen && !craftOpen) {
           showInventory = !showInventory; invCursor = 0;
         }
         if (baseChestOpen)     { _handleBaseChestInput(); }
@@ -950,6 +1045,8 @@ function startLoop(canvas) {
         else if (casinoOpen)   { _handleCasinoInput(); }
         else if (stallOpen)    { _handleStallInput(); }
         else if (loanOpen)     { _handleLoanInput(); }
+        else if (reclassOpen)  { _handleReclassInput(); }
+        else if (craftOpen)    { _handleCraftInput(); }
         else if (showInventory){ _handleInventoryInput(); }
         else                   { _handleBaseInput(); }
       } else {
@@ -1027,6 +1124,16 @@ function startLoop(canvas) {
     }
 
     _draw(ctx, CANVAS_W, CANVAS_H, elapsed);
+
+    // ── デバッグパネルはダンジョン中のみ表示（タイトル/職業選択を邪魔しない） ──
+    const _dbg = document.getElementById('debugPanel');
+    if (_dbg) {
+      const inDungeon = (gamePhase === 'DUNGEON') &&
+        gameState !== 'TITLE' && gameState !== 'CHAR_CREATE' &&
+        gameState !== 'CLASS_SELECT' &&
+        gameState !== 'BUILD_SELECT' && gameState !== 'SAVE_SLOT';
+      _dbg.style.display = inDungeon ? 'flex' : 'none';
+    }
     } catch (err) {
       console.error('[loop error]', err);
     }
@@ -1175,6 +1282,8 @@ function _handleBaseInput() {
   const onCasino = player.tx === BASE_CASINO_POS.tx && player.ty === BASE_CASINO_POS.ty;
   const onStall  = player.tx === BASE_STALL_POS.tx  && player.ty === BASE_STALL_POS.ty;
   const onLoan   = player.tx === BASE_LOAN_POS.tx   && player.ty === BASE_LOAN_POS.ty;
+  const onReclass = player.tx === BASE_RECLASS_POS.tx && player.ty === BASE_RECLASS_POS.ty;
+  const onCraft   = player.tx === BASE_CRAFT_POS.tx   && player.ty === BASE_CRAFT_POS.ty;
 
   if (input.justPressed('Enter') || input.justPressed('KeyE')) {
     if (portal) {
@@ -1200,6 +1309,20 @@ function _handleBaseInput() {
       loanCursor = 0;
       return;
     }
+    if (onReclass) {
+      reclassOpen   = true;
+      // 現在職はスキップして最初の「別の職」にカーソルを置く
+      const curIdx = CLASS_IDS.indexOf(player.classType);
+      reclassCursor = (curIdx >= 0) ? (curIdx + 1) % CLASS_IDS.length : 0;
+      return;
+    }
+    if (onCraft) {
+      craftOpen = true;
+      craftCurA = 0;
+      craftCurB = Math.min(1, Math.max(0, _craftListWeapons(player).length - 1));
+      craftSide = 'A';
+      return;
+    }
   }
 
   const action = _readAction();
@@ -1222,6 +1345,8 @@ function _handleBaseInput() {
         if (cx === BASE_CASINO_POS.tx && cy === BASE_CASINO_POS.ty) break;
         if (cx === BASE_STALL_POS.tx  && cy === BASE_STALL_POS.ty)  break;
         if (cx === BASE_LOAN_POS.tx   && cy === BASE_LOAN_POS.ty)   break;
+        if (cx === BASE_RECLASS_POS.tx && cy === BASE_RECLASS_POS.ty) break;
+        if (cx === BASE_CRAFT_POS.tx   && cy === BASE_CRAFT_POS.ty)   break;
       }
       player.moveTo(cx, cy);
     } else {
@@ -1278,6 +1403,127 @@ function _handleStallInput() {
       }
     }
     stallCursor = Math.min(stallCursor, Math.max(0, stallItems.length + player.inventory.length - 1));
+  }
+}
+
+// ── 転職コスト計算 ────────────────────────────
+function _reclassCost() {
+  return Math.max(RECLASS_COST_MIN, player.lv * RECLASS_COST_PER_LV);
+}
+
+// ── 転職サービス入力 ──────────────────────────
+function _handleReclassInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB')) {
+    reclassOpen = false;
+    return;
+  }
+  const total = CLASS_IDS.length;
+  if (input.justPressed('ArrowUp')   || input.justPressed('KeyW'))
+    reclassCursor = (reclassCursor - 1 + total) % total;
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
+    reclassCursor = (reclassCursor + 1) % total;
+
+  if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+    const target = CLASS_IDS[reclassCursor];
+    if (!target) return;
+    if (target === player.classType) {
+      logger.add('同じ職業には転職できない。', 'warn');
+      return;
+    }
+    const cost = _reclassCost();
+    if (player.gold < cost) {
+      logger.add(`資金不足！ 転職には ${cost}G 必要だ。`, 'warn');
+      return;
+    }
+    const cls = CLASSES[target];
+    player.gold -= cost;
+    const ok = player.reclassTo(target);
+    if (ok) {
+      logger.add(`${cls.icon} ${cls.name} に転職した！ (-${cost}G)`, 'heal');
+      logger.add('スペルが新職業のものに置き換わり、HP/MPが全快した。');
+    } else {
+      player.gold += cost; // 失敗時はロールバック
+      logger.add('転職に失敗した…', 'warn');
+    }
+    reclassOpen = false;
+  }
+}
+
+// ── クラフト屋入力 ────────────────────────────
+function _handleCraftInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB')) {
+    craftOpen = false;
+    return;
+  }
+  const weapons = _craftListWeapons(player);
+  const total = weapons.length;
+  if (total === 0) {
+    // 武器が無ければ Enter/何か押されたら閉じる
+    if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+      logger.add('武器を持っていないと合成できない。', 'warn');
+      craftOpen = false;
+    }
+    return;
+  }
+
+  // 側切替
+  if (input.justPressed('Tab') || input.justPressed('ArrowLeft') || input.justPressed('ArrowRight')
+      || input.justPressed('KeyA') || input.justPressed('KeyD')) {
+    craftSide = (craftSide === 'A') ? 'B' : 'A';
+  }
+
+  // カーソル移動
+  const curKey = craftSide === 'A' ? 'A' : 'B';
+  const getCur = () => (curKey === 'A' ? craftCurA : craftCurB);
+  const setCur = (v) => { if (curKey === 'A') craftCurA = v; else craftCurB = v; };
+
+  if (input.justPressed('ArrowUp') || input.justPressed('KeyW')) {
+    setCur((getCur() - 1 + total) % total);
+  }
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS')) {
+    setCur((getCur() + 1) % total);
+  }
+
+  // Enter: 合成実行
+  if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+    craftCurA = Math.min(craftCurA, total - 1);
+    craftCurB = Math.min(craftCurB, total - 1);
+    const a = weapons[craftCurA];
+    const b = weapons[craftCurB];
+    if (!a || !b) return;
+    if (a.invIndex === b.invIndex) {
+      logger.add('同じ武器は選べない。別々の武器を2本選ぼう。', 'warn');
+      return;
+    }
+    if (!_craftCan(a.item, b.item)) {
+      logger.add('この組み合わせは合成できない。', 'warn');
+      return;
+    }
+    const cost = _craftCost(a.item, b.item);
+    if (player.gold < cost) {
+      logger.add(`資金不足！ 合成には ${cost}G 必要だ。`, 'warn');
+      return;
+    }
+    const result = _craftCombine(a.item, b.item);
+    // 大きい方の invIndex から先に削除（splice のズレ回避）
+    const i1 = Math.max(a.invIndex, b.invIndex);
+    const i2 = Math.min(a.invIndex, b.invIndex);
+    player.removeFromInventory(i1);
+    player.removeFromInventory(i2);
+    player.gold -= cost;
+    if (!player.addToInventory(result)) {
+      // 通常ここには来ない（2本削除した直後なので空きあり）
+      logger.add('所持品がいっぱいで合成品を持てない！', 'warn');
+    } else {
+      logger.add(`⚒ ${result.icon ?? ''}${result.name} を鍛え上げた！ (-${cost}G)`, 'heal');
+    }
+    // カーソルを安全な位置へ
+    const newTotal = _craftListWeapons(player).length;
+    craftCurA = Math.min(craftCurA, Math.max(0, newTotal - 1));
+    craftCurB = Math.min(craftCurB, Math.max(0, newTotal - 1));
+    if (newTotal < 2) {
+      craftOpen = false;
+    }
   }
 }
 
@@ -1376,6 +1622,75 @@ function _ccFinish() {
   ccPhase = ctx.ccPhase; ccWin = ctx.ccWin; ccMsg = ctx.ccMsg;
 }
 
+// ── スロット ロジック ──────────────
+// シンボルインデックス: 0=🍒 1=🍋 2=🔔 3=⭐ 4=💎 5=7️⃣
+// 重み: よく出るシンボルほど払いが小さい
+const _SL_WEIGHTS = [14, 10, 7, 5, 3, 1]; // cherry〜seven
+const _SL_PAYOUTS = { 0: 3, 1: 5, 2: 8, 3: 10, 4: 15, 5: 25 };
+
+function _slPickSymbol() {
+  const total = _SL_WEIGHTS.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < _SL_WEIGHTS.length; i++) {
+    r -= _SL_WEIGHTS[i];
+    if (r <= 0) return i;
+  }
+  return 0;
+}
+
+function _slStart() {
+  player.gold -= slBet;
+  slPhase = 'spin';
+  slSpinTimer = 0;
+  slReels = [_slPickSymbol(), _slPickSymbol(), _slPickSymbol()];
+  slReelOffsets = [0, 0, 0];
+  slReelStopped = [false, false, false];
+  // 各リールが止まる時刻（段階的）
+  slReelStopAt = [1.0, 1.6, 2.3];
+  slWin = false;
+  slPayout = 0;
+  slMsg = '';
+  logger.add(`🎰 スロット始動！ベット ${slBet}G`, 'info');
+}
+
+function _slFinish() {
+  slPhase = 'result';
+  const [a, b, cc] = slReels;
+  let mult = 0;
+  let label = '';
+  if (a === b && b === cc) {
+    mult = _SL_PAYOUTS[a] ?? 0;
+    if (a === 5) label = '🎆 JACKPOT！777 🎆';
+    else if (a === 4) label = '💎 ダイヤ揃い！';
+    else if (a === 3) label = '⭐ スター揃い！';
+    else if (a === 2) label = '🔔 ベル揃い！';
+    else if (a === 1) label = '🍋 レモン揃い！';
+    else label = '🍒 チェリー揃い！';
+  } else if (a === 0 && b === 0) {
+    // チェリー2個
+    mult = 2;
+    label = '🍒 チェリー2個！';
+  } else if (a === 0) {
+    mult = 1.5;
+    label = '🍒 チェリー（先頭）';
+  }
+  if (mult > 0) {
+    const payout = Math.floor(slBet * mult);
+    player.gold += payout;
+    slWin = true;
+    slPayout = payout;
+    slMsg = `${label}  +${payout}G！`;
+    logger.add(`🎰 ${label}  ${payout}G 獲得！`, 'heal');
+    // 画面全体をフラッシュ
+    flashAlpha = 0.35;
+    flashColor = mult >= 20 ? '#fde68a' : '#fbbf24';
+  } else {
+    slWin = false;
+    slPayout = 0;
+    slMsg = '残念…次にチャンス！';
+  }
+}
+
 function _bjDeal() {
   const ctx = { bjPhase, bjResult, bjMsg, bjBet, bjDeck, bjHand, bjDealerHand, player, camOffX, camOffY, onFloatingText: t => floatingTexts.push(t) };
   bjDeal(ctx);
@@ -1399,8 +1714,8 @@ function _handleCasinoInput() {
 
   // ── モード選択 ──────────────────────────────
   if (casinoMode === 'select') {
-    if (input.justPressed('ArrowLeft')  || input.justPressed('KeyA')) casinoCursor = (casinoCursor - 1 + 3) % 3;
-    if (input.justPressed('ArrowRight') || input.justPressed('KeyD')) casinoCursor = (casinoCursor + 1) % 3;
+    if (input.justPressed('ArrowLeft')  || input.justPressed('KeyA')) casinoCursor = (casinoCursor - 1 + 4) % 4;
+    if (input.justPressed('ArrowRight') || input.justPressed('KeyD')) casinoCursor = (casinoCursor + 1) % 4;
     if (input.justPressed('Enter') || input.justPressed('KeyE')) {
       if (casinoCursor === 0) {
         casinoMode = 'bj';
@@ -1410,10 +1725,15 @@ function _handleCasinoInput() {
         casinoMode = 'roulette';
         rlPhase = 'bet';
         rlBet = Math.max(5, Math.min(rlBet, player.gold));
-      } else {
+      } else if (casinoCursor === 2) {
         casinoMode = 'chinchiro';
         ccPhase = 'bet';
         ccBet = Math.max(5, Math.min(ccBet, player.gold));
+      } else {
+        casinoMode = 'slot';
+        slPhase = 'bet';
+        slBet = Math.max(5, Math.min(slBet, player.gold));
+        slReelStopped = [true, true, true];
       }
     }
     return;
@@ -1429,12 +1749,15 @@ function _handleCasinoInput() {
       if (input.justPressed('ArrowLeft')  || input.justPressed('KeyA')) ccBet = Math.max(5, ccBet - 50);
       if (input.justPressed('Enter') || input.justPressed('KeyE')) {
         if (player.gold < ccBet || player.gold < 5) { logger.add('お金が足りない！', 'warn'); return; }
+        if (ccPlayerRollAnim > 0) return; // ロール演出中
         player.gold -= ccBet;
         ccPlayerDice  = _ccRoll();
         ccPlayerRolls = 1;
         ccPhase = 'player_roll';
+        ccPlayerRollAnim = 0.75;
       }
     } else if (ccPhase === 'player_roll') {
+      if (ccPlayerRollAnim > 0) return; // 振ってる最中は入力不可
       const pEv = _ccEval(ccPlayerDice);
       // 即時確定役（ピンゾロ・シゴロ・ヒフミ）はそのまま dealer rollへ
       if (pEv.rank === 100 || pEv.rank === 50 || pEv.rank === -1) {
@@ -1442,6 +1765,7 @@ function _handleCasinoInput() {
         if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
           ccDealerDice = _ccRoll();
           ccPhase = 'dealer_roll';
+          ccDealerRollAnim = 0.8;
           _ccFinish();
         }
       } else if (pEv.rank === 0 && ccPlayerRolls < 3) {
@@ -1449,10 +1773,12 @@ function _handleCasinoInput() {
         if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
           ccPlayerDice  = _ccRoll();
           ccPlayerRolls++;
+          ccPlayerRollAnim = 0.7;
           const ev2 = _ccEval(ccPlayerDice);
           if (ev2.rank !== 0 || ccPlayerRolls >= 3) {
             ccDealerDice = _ccRoll();
             ccPhase = 'dealer_roll';
+            ccDealerRollAnim = 0.8;
             _ccFinish();
           }
         }
@@ -1461,10 +1787,12 @@ function _handleCasinoInput() {
         if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
           ccDealerDice = _ccRoll();
           ccPhase = 'dealer_roll';
+          ccDealerRollAnim = 0.8;
           _ccFinish();
         }
       }
     } else if (ccPhase === 'result') {
+      if (ccDealerRollAnim > 0) return; // ディーラーロール中
       if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
         ccPhase = 'bet';
         ccBet = Math.max(5, Math.min(ccBet, player.gold));
@@ -1508,6 +1836,29 @@ function _handleCasinoInput() {
       if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
         rlPhase = 'bet';
         rlBet   = Math.max(5, Math.min(rlBet, player.gold));
+      }
+    }
+    return;
+  }
+
+  // ── スロット ──────────────────────────────────
+  if (casinoMode === 'slot') {
+    if (slPhase === 'bet') {
+      const maxBet = Math.max(5, player.gold);
+      if (input.justPressed('ArrowUp')    || input.justPressed('KeyW')) slBet = Math.min(maxBet, slBet + 5);
+      if (input.justPressed('ArrowDown')  || input.justPressed('KeyS')) slBet = Math.max(5, slBet - 5);
+      if (input.justPressed('ArrowRight') || input.justPressed('KeyD')) slBet = Math.min(maxBet, slBet + 50);
+      if (input.justPressed('ArrowLeft')  || input.justPressed('KeyA')) slBet = Math.max(5, slBet - 50);
+      if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
+        if (player.gold < slBet || player.gold < 5) { logger.add('お金が足りない！（最低5G必要）', 'warn'); return; }
+        _slStart();
+      }
+    } else if (slPhase === 'spin') {
+      // 演出中は入力不可（自動で進行）
+    } else if (slPhase === 'result') {
+      if (input.justPressed('Enter') || input.justPressed('KeyE') || input.justPressed('Space')) {
+        slPhase = 'bet';
+        slBet   = Math.max(5, Math.min(slBet, player.gold));
       }
     }
     return;
@@ -1817,7 +2168,98 @@ function _doSwitch() {
   } else {
     logger.add(`${floorNumber} 層に移動した。`, 'warn');
   }
+
+  // ── 封印付きボスの登場を通知＋床に鍵を設置（key タイプのみ） ──
+  const _sealedBoss = enemies.find(e => e.alive && e.isBoss && e.riddleActive);
+  if (_sealedBoss) {
+    const label = _sealedBoss.sealLabel ?? '封印';
+    logger.add(`🔒 ${_sealedBoss.name} は ${label} の封印に守られている！`, 'warn');
+    if (_sealedBoss.sealType === 'key') {
+      _placeSealKeyOnFloor(_sealedBoss);
+    }
+  }
   transPhase = 'fade-in';
+}
+
+// ── 封印の鍵アイテムを床のランダムな歩行可能タイルに設置 ──
+function _placeSealKeyOnFloor(boss) {
+  const name = boss.sealLabel ?? '封印の鍵';
+  for (let att = 0; att < 2000; att++) {
+    const tx = Math.floor(Math.random() * map.cols);
+    const ty = Math.floor(Math.random() * map.rows);
+    if (!map.isWalkable(tx, ty)) continue;
+    if (map.getExitDir(tx, ty)) continue;
+    if (map.isStairs(tx, ty)) continue;
+    if (floorItems.some(fi => fi.tx === tx && fi.ty === ty)) continue;
+    if (floorChests.some(c => c.tx === tx && c.ty === ty)) continue;
+    if (shopPos && shopPos.tx === tx && shopPos.ty === ty) continue;
+    if (player && tx === player.tx && ty === player.ty) continue;
+    floorItems.push({
+      tx, ty,
+      item: { slot: 'seal_key', icon: '🗝', color: '#fbbf24', name },
+    });
+    logger.add(`🗝 どこかに「${name}」が落ちているようだ…`, 'info');
+    return;
+  }
+}
+
+// ── 封印の状態更新（ターン終了時などに呼ぶ） ──────────
+// 護衛/石像タイプ: 封印ミニオンが全滅したら封印解除。
+// 鍵タイプ: 拾った時点で解除されるため、ここでは何もしない。
+function _updateSealState() {
+  if (!enemies) return;
+  for (const boss of enemies) {
+    if (!boss.alive || !boss.isBoss || !boss.riddleActive) continue;
+    if (boss.sealType === 'guards' || boss.sealType === 'statues') {
+      const remaining = enemies.some(m => m.alive && m.isSealMinion);
+      if (!remaining) {
+        boss.riddleActive   = false;
+        boss.riddleAnswered = true;
+        logger.add(`✅ 封印が解けた！${boss.name} に挑め！`, 'heal');
+        flashColor = 'rgba(253,224,71,0.35)';
+        flashAlpha = 1;
+        const { sx, sy } = boss.screenPos(camOffX, camOffY);
+        floatingTexts.push({
+          text: '🔓 封印解除！', x: sx, y: sy - 36,
+          alpha: 1, scale: 1.2, color: '#fde047',
+          life: 2.0, maxLife: 2.0, big: true,
+        });
+        particles.spawn(sx, sy, '#fde047', 30);
+      }
+    }
+  }
+}
+
+// ── デバッグ: 現在のダンジョンのボス階へワープ ──────────
+function _debugWarpToBoss() {
+  if (gamePhase !== 'DUNGEON' || !currentDungeon) {
+    logger.add('⚠ デバッグ: ダンジョンに入っていません', 'warn');
+    return;
+  }
+  const prev = floorNumber;
+  let target;
+  if (currentDungeon.bossRush) {
+    // 各 wave がボス。次の wave へ（最終 wave でクランプ）
+    target = Math.min(floorNumber + 1, currentDungeon.maxFloors);
+  } else if (currentDungeon.infinite) {
+    // 次の 10 の倍数階（＝次のボス階）
+    target = Math.floor(floorNumber / 10) * 10 + 10;
+  } else {
+    target = currentDungeon.maxFloors;
+  }
+  if (target === prev) {
+    logger.add('⚠ デバッグ: 既にボス階にいます', 'warn');
+    return;
+  }
+  floorNumber = target;
+  turnCount   = 0;
+  _buildFloor(null);
+  logger.add(`🐉 デバッグワープ: ${prev} → ${target} 階`, 'warn');
+  floatingTexts.push({
+    text: `DEBUG WARP → ${target}F`,
+    x: CANVAS_W / 2, y: CANVAS_H / 2 - 60,
+    alpha: 1, scale: 1, color: '#fbbf24', life: 2.0, maxLife: 2.0, big: true,
+  });
 }
 
 function _startDungeon(dungeonId) {
@@ -1917,12 +2359,16 @@ function _saveToSlot(slot) {
       baseMaxHP: player.baseMaxHP, baseSpd: player.baseSpd,
       baseLuk: player.baseLuk, baseMp: player.baseMp,
       buildBonus: player.buildBonus,
+      appearance: player.appearance ?? null,
       equip: {
         weapon:    player.equip.weapon?.id    ?? null,
-        armor:     player.equip.armor?.id     ?? null,
+        head:      player.equip.head?.id      ?? null,
+        chest:     player.equip.chest?.id     ?? null,
+        waist:     player.equip.waist?.id     ?? null,
+        legs:      player.equip.legs?.id      ?? null,
         accessory: player.equip.accessory?.id ?? null,
       },
-      inventory: player.inventory.map(i => i.id),
+      inventory: player.inventory.map(i => ({ id: i.id, count: i.count ?? 1 })),
       spells:    [...player.spells],
       baseChest: baseChest.map(i => i.id ?? i.name),
       dungeonId:       currentDungeon?.id ?? null,
@@ -1941,6 +2387,10 @@ function _loadFromSlot(slot) {
     playerClass     = s.cls ?? 'warrior';
     playerBuild     = s.build ?? 'balanced';
     mysteryMode     = s.mystery ?? false;
+    // 旧セーブに見た目情報がなければ既存のプレイヤー見た目を継承（= 新しく選んだもの／null）
+    if (s.appearance && APPEARANCES[s.appearance.species]) {
+      playerAppearance = { species: s.appearance.species, tint: s.appearance.tint };
+    }
     floorNumber     = Math.max(1, s.floor ?? 1);
     clearedDungeons = new Set(s.clearedDungeons ?? []);
     player        = null;
@@ -1971,13 +2421,22 @@ function _loadFromSlot(slot) {
     player.hp    = Math.min(s.hp ?? player.maxHP, player.maxHP);
     player.mp    = Math.min(s.mp ?? player.totalMaxMp, player.totalMaxMp);
 
-    for (const slot of ['weapon', 'armor', 'accessory']) {
+    for (const slot of ['weapon', 'head', 'chest', 'waist', 'legs', 'accessory']) {
       const id = s.equip?.[slot];
       if (id && ITEMS[id]) player.equip[slot] = { ...ITEMS[id] };
     }
+    // 旧フォーマット互換: v3以前の `armor` は chest へマップ
+    if (s.equip?.armor && ITEMS[s.equip.armor] && !player.equip.chest) {
+      player.equip.chest = { ...ITEMS[s.equip.armor] };
+    }
     player.inventory = (s.inventory ?? [])
-      .filter(id => ITEMS[id])
-      .map(id => ({ ...ITEMS[id] }))
+      .map(entry => {
+        // 旧形式: 文字列（= id）。新形式: { id, count }
+        if (typeof entry === 'string') return { id: entry, count: 1 };
+        return { id: entry.id, count: entry.count ?? 1 };
+      })
+      .filter(e => ITEMS[e.id])
+      .map(e => ({ ...ITEMS[e.id], count: e.count }))
       .slice(0, player.maxInventory);
     player.spells = s.spells ?? player.spells;
 
@@ -2067,6 +2526,7 @@ function _processTurn(action) {
   const ctx = _makePACtx();
   _processTurnFn(action, ctx);
   _syncPACtx(ctx);
+  _updateSealState();
 }
 
 // ── 敵 AI 行動 ────────────────────────────────
@@ -2118,6 +2578,7 @@ function _processTurnAfterCast() {
   turnCount = ctx.turnCount;
   loanDebt  = ctx.loanDebt;
   loanQuestActive = ctx.loanQuestActive;
+  _updateSealState();
 }
 
 // ── 攻撃解決 → src/systems/combat.ts に移動済み ──────
@@ -2141,6 +2602,14 @@ function _draw(ctx, W, H, now) {
     ctx.fillStyle = '#060118';
     ctx.fillRect(0, 0, W, H);
     drawSaveSlot(ctx, W, H, { saveSlotMode, saveSlotCursor });
+    return;
+  }
+  if (gameState === 'CHAR_CREATE') {
+    drawCharCreate(ctx, W, H, {
+      speciesCursor: charSpeciesCursor,
+      tintCursor:    charTintCursor,
+      focusGroup:    charFocusGroup,
+    });
     return;
   }
   if (gameState === 'CLASS_SELECT') {
@@ -2184,7 +2653,7 @@ function _draw(ctx, W, H, now) {
   }
 
   // 床アイテム描画
-  drawFloorItems(ctx, camOffX, camOffY, { floorItems });
+  drawFloorItems(ctx, camOffX, camOffY, { floorItems, sprites });
 
   // 宝箱描画
   drawChests(ctx, camOffX, camOffY, { floorChests, exploredTiles, player, sprites });
@@ -2198,10 +2667,14 @@ function _draw(ctx, W, H, now) {
       ctx.save();
       ctx.shadowColor = '#fbbf24';
       ctx.shadowBlur  = 12;
-      ctx.font = '20px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🏪', sx, sy);
+      if (sprites.get('ui_shop')) {
+        sprites.draw(ctx, 'ui_shop', sx, sy, ts, ts);
+      } else {
+        ctx.font = '20px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🏪', sx, sy);
+      }
       ctx.shadowBlur = 0;
       ctx.restore();
     }
@@ -2341,12 +2814,12 @@ function _draw(ctx, W, H, now) {
 
   // HUD / minimap / effects → src/ui/hud.ts に移動済み
   drawHUD(ctx, W, H, { player, enemies, gamePhase, currentDungeon, floorNumber, turnCount });
-  drawHotbar(ctx, W, H, { player, hotbar, gamePhase });
+  drawHotbar(ctx, W, H, { player, hotbar, gamePhase, sprites });
   drawBossHPBar(ctx, W, enemies);
   drawMinimap(ctx, W, H, { map, player, enemies, exploredTiles, floorItems, floorChests, shopPos });
   drawFloatingTexts(ctx, floatingTexts);
 
-  if (showInventory) drawInventory(ctx, W, H, { player, invCursor });
+  if (showInventory) drawInventory(ctx, W, H, { player, invCursor, sprites });
   if (showMagic)     drawMagicMenu(ctx, W, H, { player, magicCursor });
   if (shopOpen)      drawShopMenu(ctx, W, H, { player, shopItems, shopCursor });
   if (baseChestOpen) drawBaseChest(ctx, W, H, { player, baseChest, baseChestSide, baseCursor });
@@ -2356,11 +2829,15 @@ function _draw(ctx, W, H, now) {
     bjPhase, bjBet, bjHand, bjDealerHand, bjResult, bjMsg,
     rlPhase, rlSpinAngle, rlBetType, rlBet, rlNumber, rlResult, rlMsg,
     ccPhase, ccBet, ccPlayerDice, ccPlayerRolls, ccDealerDice, ccWin, ccMsg,
+    ccPlayerRollAnim, ccDealerRollAnim,
+    slPhase, slBet, slReels, slReelOffsets, slReelStopped, slWin, slMsg,
   });
   if (stallOpen)     drawStall(ctx, W, H, { player, stallItems, stallCursor, stallPriceFn: _stallPrice });
   if (loanOpen)      drawLoan(ctx, W, H, {
     player, loanRepayMode, loanDebt, loanQuestActive, loanRepayCursor, loanCursor,
   });
+  if (reclassOpen)   drawReclassMenu(ctx, W, H, { player, reclassCursor, cost: _reclassCost() });
+  if (craftOpen)     drawCraftMenu(ctx, W, H, { player, craftCurA, craftCurB, craftSide });
 
   if (transAlpha > 0) {
     ctx.fillStyle = `rgba(0,0,0,${transAlpha.toFixed(3)})`;
@@ -2429,8 +2906,10 @@ function _handleTitleInput() {
     titleCursor = (titleCursor + 1) % (maxIdx + 1);
   if (input.justPressed('Enter') || input.justPressed('Space')) {
     if (titleCursor === 0) {
-      gameState = 'CLASS_SELECT';
-      classCursor = 0;
+      gameState = 'CHAR_CREATE';
+      charSpeciesCursor = 0;
+      charTintCursor    = 0;
+      charFocusGroup    = 'species';
     } else {
       saveSlotMode   = 'load';
       saveSlotFrom   = 'TITLE';
@@ -2467,6 +2946,38 @@ function _handleSaveSlotInput() {
         _loadFromSlot(saveSlotCursor);
       }
     }
+  }
+}
+
+function _handleCharCreateInput() {
+  // ← → ：常に種族、 ↑ ↓ ：常に色（直観的に）
+  if (input.justPressed('ArrowLeft') || input.justPressed('KeyA')) {
+    charSpeciesCursor = (charSpeciesCursor - 1 + APPEARANCE_IDS.length) % APPEARANCE_IDS.length;
+    charFocusGroup = 'species';
+  }
+  if (input.justPressed('ArrowRight') || input.justPressed('KeyD')) {
+    charSpeciesCursor = (charSpeciesCursor + 1) % APPEARANCE_IDS.length;
+    charFocusGroup = 'species';
+  }
+  if (input.justPressed('ArrowUp') || input.justPressed('KeyW')) {
+    charTintCursor = (charTintCursor - 1 + TINTS.length) % TINTS.length;
+    charFocusGroup = 'tint';
+  }
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS')) {
+    charTintCursor = (charTintCursor + 1) % TINTS.length;
+    charFocusGroup = 'tint';
+  }
+  if (input.justPressed('Escape') || input.justPressed('Backspace')) {
+    gameState = 'TITLE';
+    return;
+  }
+  if (input.justPressed('Enter') || input.justPressed('Space')) {
+    playerAppearance = {
+      species: APPEARANCE_IDS[charSpeciesCursor],
+      tint:    TINTS[charTintCursor].color,
+    };
+    gameState   = 'CLASS_SELECT';
+    classCursor = 0;
   }
 }
 
@@ -2511,4 +3022,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   const logEl  = document.getElementById('battleLog');
   await init(canvas, logEl);
   startLoop(canvas);
+
+  // ── デバッグボタン: 現在のダンジョンのボス階へワープ ──
+  const btnWarp = document.getElementById('btnWarpBoss');
+  if (btnWarp) {
+    btnWarp.addEventListener('click', () => {
+      _debugWarpToBoss();
+      btnWarp.blur(); // フォーカスをキャンバスへ戻す
+    });
+  }
 });

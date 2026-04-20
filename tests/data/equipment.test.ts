@@ -17,13 +17,14 @@ describe('ITEMS', () => {
       expect(item.name,  `${key}.name`).toBeTypeOf('string');
       expect(item.icon,  `${key}.icon`).toBeTypeOf('string');
       expect(item.color, `${key}.color`).toBeTypeOf('string');
-      expect(['consumable', 'weapon', 'armor', 'accessory']).toContain(item.slot);
+      expect(['consumable', 'weapon', 'head', 'chest', 'waist', 'legs', 'accessory']).toContain(item.slot);
       expect([0, 1, 2, 3]).toContain(item.tier);
     }
   });
 
   it('武器・防具は durability を持つ', () => {
-    const equipped = Object.values(ITEMS).filter(i => i.slot === 'weapon' || i.slot === 'armor');
+    const armorSlots = new Set(['head', 'chest', 'waist', 'legs']);
+    const equipped = Object.values(ITEMS).filter(i => i.slot === 'weapon' || armorSlots.has(i.slot));
     for (const item of equipped) {
       expect(item.durability,    `${item.id}.durability`).toBeTypeOf('number');
       expect(item.maxDurability, `${item.id}.maxDurability`).toBeTypeOf('number');

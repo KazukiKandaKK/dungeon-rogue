@@ -143,16 +143,81 @@ export interface PlayerActionContext {
   gameOverTimer:  number;
 }
 
+// ── 特殊床エフェクト ──────────────────────────
+
+/** プレイヤーが踏んだタイルに応じてダメージ・ログ・状態異常を適用する */
+function applyTileEffect(tile: unknown, ctx: PlayerActionContext): void {
+  if (tile === TILE.WATER) {
+    ctx.logger.add('💧 水の中を歩いた（雷に弱くなる）', 'info');
+  } else if (tile === TILE.ICE) {
+    ctx.logger.add('🧊 氷の上で滑った！', 'info');
+  } else if (tile === TILE.MAGMA) {
+    const dmg = 3;
+    ctx.player.hp = Math.max(1, ctx.player.hp - dmg);
+    const { sx, sy } = ctx.player.screenPos(ctx.camOffX, ctx.camOffY);
+    ctx.floatingTexts.push({
+      text: `🔥${dmg}`, x: sx, y: sy - 20, alpha: 1, scale: 1,
+      color: '#f97316', life: 0.9, maxLife: 0.9,
+    });
+    ctx.onFlash('rgba(249,115,22,0.25)');
+    // 延焼: burn 状態異常を付与・更新
+    const ex = ctx.player.statusEffects.find(e => e.type === 'burn');
+    if (ex) {
+      ex.turnsLeft = Math.max(ex.turnsLeft ?? 0, 3);
+      ex.power     = Math.max(ex.power ?? 0, 2);
+    } else {
+      ctx.player.statusEffects.push({ type: 'burn', turnsLeft: 3, power: 2 });
+    }
+    ctx.logger.add(`🔥 マグマを踏んだ！${dmg}ダメージ + 延焼`, 'damage');
+  }
+}
+
+/** 氷タイルで滑って 1 マス余分に進む（連続氷上は連鎖、上限 6 マス） */
+function slipOnIce(dx: number, dy: number, ctx: PlayerActionContext): void {
+  const MAX_SLIP = 6;
+  for (let i = 0; i < MAX_SLIP; i++) {
+    const ntx = ctx.player.tx + dx;
+    const nty = ctx.player.ty + dy;
+    if (!ctx.map.isWalkable(ntx, nty)) break;
+    if (ctx.enemies.some(e => e.alive && e.tx === ntx && e.ty === nty)) break;
+    if (ctx.floorChests.some(c => c.tx === ntx && c.ty === nty && !c.opened)) break;
+    const prev = ctx.map.grid[ctx.player.ty]?.[ctx.player.tx];
+    if (prev !== TILE.ICE) break;
+    ctx.player.moveTo(ntx, nty);
+    ctx.player.onStep();
+    ctx.onUpdateExplored();
+    pickupItem(ntx, nty, ctx);
+    const landedTile = ctx.map.grid[nty]?.[ntx];
+    if (landedTile === TILE.MAGMA) {
+      applyTileEffect(landedTile, ctx);
+      break;
+    }
+    if (landedTile !== TILE.ICE) break;
+  }
+}
+
 // ── ターン処理 ─────────────────────────────────
 
 export function processTurn(
   action: { type: string; dx?: number; dy?: number; material?: 'stone' | 'wood' },
   ctx:    PlayerActionContext,
 ): void {
+  // DASH は 1マス = 1ターン の専用ループで処理
+  if (action.type === 'DASH') {
+    processDashTurn(action, ctx);
+    return;
+  }
+
   const acted = doPlayerAction(action, ctx);
   if (!acted) return;
   if (ctx.gameState === 'TRANSITIONING') return;
 
+  advanceWorldTurn(ctx);
+}
+
+// ── 世界の 1 ターン進行（敵 AI・状態異常 tick など） ──
+function advanceWorldTurn(ctx: PlayerActionContext): void {
+  if (ctx.gameState === 'TRANSITIONING') return;
   ctx.turnCount++;
 
   ctx.player.tickStatusEffects(
@@ -284,6 +349,26 @@ export function pickupItem(ntx: number, nty: number, ctx: PlayerActionContext): 
       ctx.floatingTexts.push({ text: `+${(item as ItemDef & { amount?: number }).amount ?? 0}G`, x: sx, y: sy - 28, alpha: 1, scale: 1, color: '#fbbf24', life: 1.2, maxLife: 1.2 });
       applyGoldWithQuest((item as ItemDef & { amount?: number }).amount ?? 0, sx, sy - 28, ctx);
       ctx.logger.add(`💰 ${(item as ItemDef & { amount?: number }).amount ?? 0}G を拾った！`);
+    } else if ((item.slot as string) === 'seal_key') {
+      // ── 封印の鍵: インベントリに入れず、即座にボス封印を解除 ──
+      ctx.floorItems.splice(itemIdx, 1);
+      const boss = ctx.enemies.find(e => e.alive && e.isBoss && e.riddleActive && e.sealType === 'key');
+      if (boss) {
+        boss.riddleActive   = false;
+        boss.riddleAnswered = true;
+        const label = boss.sealLabel ?? item.name ?? '封印の鍵';
+        ctx.logger.add(`✅ ${label} を手にした！封印が解けた！`, 'warn');
+        ctx.onFlash('rgba(253,224,71,0.35)');
+        const { sx, sy } = boss.screenPos(ctx.camOffX, ctx.camOffY);
+        ctx.floatingTexts.push({
+          text: '🔓 封印解除！', x: sx, y: sy - 36,
+          alpha: 1, scale: 1.2, color: '#fde047',
+          life: 2.0, maxLife: 2.0, big: true,
+        });
+        ctx.particles.spawn(sx, sy, '#fde047', 30);
+      } else {
+        ctx.logger.add(`🗝 ${item.name} を拾った。`, 'info');
+      }
     } else if (ctx.player.addToInventory(item)) {
       ctx.floorItems.splice(itemIdx, 1);
       ctx.logger.add(`${item.icon}${item.name} を拾った！`);
@@ -421,48 +506,75 @@ export function doPlayerAction(
     const weapon0 = ctx.player.equip?.weapon;
     const range0  = weapon0?.range ?? 1;
 
-    const targets0 = ctx.enemies
-      .filter(e => {
-        if (!e.alive) return false;
-        const cdist = Math.max(Math.abs(e.tx - ctx.player.tx), Math.abs(e.ty - ctx.player.ty));
-        if (cdist > range0) return false;
-        return ctx.hasLOS(ctx.player.tx, ctx.player.ty, e.tx, e.ty);
-      })
-      .sort((a, b) =>
-        Math.max(Math.abs(a.tx - ctx.player.tx), Math.abs(a.ty - ctx.player.ty)) -
-        Math.max(Math.abs(b.tx - ctx.player.tx), Math.abs(b.ty - ctx.player.ty))
-      );
+    // ── 向き（dirX/dirY が初期 0,0 のときは下向きにフォールバック） ──
+    const fx = ctx.player.dirX || 0;
+    const fy = ctx.player.dirY || (ctx.player.dirX === 0 ? 1 : 0);
 
-    if (targets0.length > 0) {
-      const nearest0 = targets0[0];
-      const ndx = Math.sign(nearest0.tx - ctx.player.tx);
-      const ndy = Math.sign(nearest0.ty - ctx.player.ty);
-      if (ndx !== 0 || ndy !== 0) { ctx.player.dirX = ndx; ctx.player.dirY = ndy; }
-
-      if (weapon0?.aoe) {
-        playerAOEAttack(weapon0, nearest0.tx, nearest0.ty, ndx, ndy, ctx);
-      } else {
-        for (const e of targets0) {
-          if (!e.alive) continue;
-          ctx.attack(ctx.player, e, ctx.player.atk);
-          const doubleChance = (ctx.player.spd ?? 0) * 0.10;
-          if (e.alive && Math.random() < doubleChance) {
-            ctx.attack(ctx.player, e, ctx.player.atk);
-            ctx.logger.add('連続攻撃！', 'warn');
-          }
-        }
+    const doubleAttack = (target: Enemy) => {
+      ctx.attack(ctx.player, target, ctx.player.atk);
+      const doubleChance = (ctx.player.spd ?? 0) * 0.10;
+      if (target.alive && Math.random() < doubleChance) {
+        ctx.attack(ctx.player, target, ctx.player.atk);
+        ctx.logger.add('連続攻撃！', 'warn');
       }
+    };
 
-      const dist0 = Math.max(Math.abs(nearest0.tx - ctx.player.tx), Math.abs(nearest0.ty - ctx.player.ty));
-      if (dist0 > 1) {
-        spawnPlayerArrow(nearest0, weapon0, ctx);
-      } else {
-        ctx.player.attackBump(ndx, ndy);
-      }
+    // ── AOE 武器：従来どおり範囲攻撃（近い敵を中心に） ──
+    if (weapon0?.aoe) {
+      const aoeTargets = ctx.enemies
+        .filter(e => {
+          if (!e.alive) return false;
+          const cdist = Math.max(Math.abs(e.tx - ctx.player.tx), Math.abs(e.ty - ctx.player.ty));
+          if (cdist > range0) return false;
+          return ctx.hasLOS(ctx.player.tx, ctx.player.ty, e.tx, e.ty);
+        })
+        .sort((a, b) =>
+          Math.max(Math.abs(a.tx - ctx.player.tx), Math.abs(a.ty - ctx.player.ty)) -
+          Math.max(Math.abs(b.tx - ctx.player.tx), Math.abs(b.ty - ctx.player.ty))
+        );
+      const center = aoeTargets[0];
+      const ndx = center ? Math.sign(center.tx - ctx.player.tx) : fx;
+      const ndy = center ? Math.sign(center.ty - ctx.player.ty) : fy;
+      if (center && (ndx !== 0 || ndy !== 0)) { ctx.player.dirX = ndx; ctx.player.dirY = ndy; }
+      const tx = center ? center.tx : ctx.player.tx + fx;
+      const ty = center ? center.ty : ctx.player.ty + fy;
+      playerAOEAttack(weapon0, tx, ty, ndx, ndy, ctx);
+      ctx.player.attackBump(ndx || fx, ndy || fy);
       return true;
     }
 
-    ctx.player.attackBump(ctx.player.dirX ?? 0, ctx.player.dirY ?? 1);
+    // ── 遠距離武器（range > 1）：正面方向の直線上で最も近い敵を単体攻撃 ──
+    if (range0 > 1) {
+      let hit: Enemy | null = null;
+      for (let r = 1; r <= range0; r++) {
+        const ttx = ctx.player.tx + fx * r;
+        const tty = ctx.player.ty + fy * r;
+        const e = ctx.enemies.find(e => e.alive && e.tx === ttx && e.ty === tty);
+        if (e && ctx.hasLOS(ctx.player.tx, ctx.player.ty, ttx, tty)) { hit = e; break; }
+        // 壁があればそこで止まる（LOSが切れる）
+        if (!ctx.hasLOS(ctx.player.tx, ctx.player.ty, ttx, tty)) break;
+      }
+      if (hit) {
+        doubleAttack(hit);
+        spawnPlayerArrow(hit, weapon0, ctx);
+        return true;
+      }
+      ctx.player.attackBump(fx, fy);
+      ctx.logger.add('空振り！');
+      return true;
+    }
+
+    // ── 通常近接：正面1マスだけを攻撃 ──
+    const ftx = ctx.player.tx + fx;
+    const fty = ctx.player.ty + fy;
+    const target = ctx.enemies.find(e => e.alive && e.tx === ftx && e.ty === fty);
+    if (target) {
+      doubleAttack(target);
+      ctx.player.attackBump(fx, fy);
+      return true;
+    }
+
+    ctx.player.attackBump(fx, fy);
     ctx.logger.add('空振り！');
     return true;
   }
@@ -492,8 +604,11 @@ export function doPlayerAction(
       ctx.onTriggerTrap(trapType);
     }
 
-    if (landTile === TILE.WATER) {
-      ctx.logger.add('💧 水の中を歩いた', 'info');
+    applyTileEffect(landTile, ctx);
+
+    // ── 氷で滑る（延長移動） ──
+    if (landTile === TILE.ICE) {
+      slipOnIce(dx, dy, ctx);
     }
 
     if (ctx.map.isStairs(ntx, nty)) {
@@ -510,54 +625,87 @@ export function doPlayerAction(
     return true;
   }
 
-  if (action.type === 'DASH') {
-    const dx = action.dx ?? 0;
-    const dy = action.dy ?? 0;
-    ctx.player.dirX = dx;
-    ctx.player.dirY = dy;
+  return false;
+}
 
-    const MAX_DASH = 30;
-    let moved = 0;
+// ── ダッシュ処理（1マス = 1ターン消費、各種トリガで停止） ──
+function processDashTurn(
+  action: { type: string; dx?: number; dy?: number },
+  ctx:    PlayerActionContext,
+): void {
+  const dx = action.dx ?? 0;
+  const dy = action.dy ?? 0;
+  ctx.player.dirX = dx;
+  ctx.player.dirY = dy;
 
-    for (let step = 0; step < MAX_DASH; step++) {
-      const ntx = ctx.player.tx + dx;
-      const nty = ctx.player.ty + dy;
+  const MAX_DASH = 30;
+  let moved = 0;
 
-      const dashEnemy = ctx.enemies.find(e => e.alive && e.tx === ntx && e.ty === nty);
-      if (dashEnemy) break;
-      if (!ctx.map.isWalkable(ntx, nty)) break;
+  for (let step = 0; step < MAX_DASH; step++) {
+    const ntx = ctx.player.tx + dx;
+    const nty = ctx.player.ty + dy;
 
-      const curTile  = ctx.map.grid[ctx.player.ty]?.[ctx.player.tx]  ?? TILE.WALL;
-      const nextTile = ctx.map.grid[nty]?.[ntx] ?? TILE.WALL;
-      const crossing = (curTile === TILE.FLOOR    && nextTile === TILE.CORRIDOR)
-                    || (curTile === TILE.CORRIDOR && nextTile === TILE.FLOOR);
+    // ── 次マスの事前チェック（進入前に止まる条件）──
+    // 敵がいる
+    if (ctx.enemies.some(e => e.alive && e.tx === ntx && e.ty === nty)) break;
+    // 歩けない（壁など）
+    if (!ctx.map.isWalkable(ntx, nty)) break;
+    // 宝箱がある
+    if (ctx.floorChests.some(c => c.tx === ntx && c.ty === nty && !c.opened)) break;
 
-      ctx.player.moveTo(ntx, nty);
-      ctx.player.onStep();
-      ctx.onUpdateExplored();
-      moved++;
-      pickupItem(ntx, nty, ctx);
+    const curTile  = ctx.map.grid[ctx.player.ty]?.[ctx.player.tx]  ?? TILE.WALL;
+    const nextTile = ctx.map.grid[nty]?.[ntx] ?? TILE.WALL;
+    const crossing = (curTile === TILE.FLOOR    && nextTile === TILE.CORRIDOR)
+                  || (curTile === TILE.CORRIDOR && nextTile === TILE.FLOOR);
 
-      if (ctx.map.isStairs(ntx, nty)) {
-        const isBossFlr2 = ctx.currentDungeon?.bossRush
-          || (ctx.currentDungeon?.infinite
-            ? ctx.floorNumber % 10 === 0
-            : ctx.floorNumber === (ctx.currentDungeon?.maxFloors ?? 99));
-        if (isBossFlr2 && ctx.enemies.some(e => e.alive && e.isBoss)) {
-          ctx.logger.add('ボスを倒さないと先に進めない！', 'warn');
-          return true;
-        }
-        ctx.onTransition();
-        return true;
-      }
-      if (crossing) break;
+    // ── 進行 ──
+    ctx.player.moveTo(ntx, nty);
+    ctx.player.onStep();
+    ctx.onUpdateExplored();
+    moved++;
+
+    // アイテム拾得（あれば停止）
+    const hadItem = ctx.floorItems.some(it => it.tx === ntx && it.ty === nty);
+    pickupItem(ntx, nty, ctx);
+
+    // 罠踏み（あれば停止）
+    let trapTriggered = false;
+    if (nextTile === TILE.TRAP && !ctx.map.revealedTraps.has(`${ntx},${nty}`)) {
+      ctx.map.revealedTraps.add(`${ntx},${nty}`);
+      const trapType = ctx.map.trapTypes.get(`${ntx},${nty}`) ?? 'damage';
+      ctx.onTriggerTrap(trapType);
+      trapTriggered = true;
     }
 
-    if (moved > 1) ctx.logger.add(`ダッシュ ${moved}マス！`, 'warn');
-    return moved > 0;
+    applyTileEffect(nextTile, ctx);
+
+    // 1マス = 1ターン消費（敵 AI を 1 回進める）
+    advanceWorldTurn(ctx);
+
+    if (!ctx.player.alive) break;
+    if (ctx.gameState === 'TRANSITIONING') return;
+
+    // 階段 → フロア遷移して終了
+    if (ctx.map.isStairs(ntx, nty)) {
+      const isBossFlr2 = ctx.currentDungeon?.bossRush
+        || (ctx.currentDungeon?.infinite
+          ? ctx.floorNumber % 10 === 0
+          : ctx.floorNumber === (ctx.currentDungeon?.maxFloors ?? 99));
+      if (isBossFlr2 && ctx.enemies.some(e => e.alive && e.isBoss)) {
+        ctx.logger.add('ボスを倒さないと先に進めない！', 'warn');
+      } else {
+        ctx.onTransition();
+      }
+      break;
+    }
+
+    // 通路↔部屋の境界 / アイテム / 罠を踏んだら停止
+    if (crossing)      break;
+    if (hadItem)       break;
+    if (trapTriggered) break;
   }
 
-  return false;
+  if (moved > 1) ctx.logger.add(`ダッシュ ${moved}マス！`, 'warn');
 }
 
 // ── プレイヤー呪文詠唱 ─────────────────────────

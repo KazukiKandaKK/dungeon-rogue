@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ♈ Aries — 立ち姿の牡羊戦士 -->
+  <defs>
+    <radialGradient id="ar_horn" cx="50%" cy="30%" r="70%">
+      <stop offset="0%"  stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </radialGradient>
+    <linearGradient id="ar_body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 後ろの炎オーラ -->
+  <path d="M32,4 Q18,10 14,22 Q12,40 20,56 Q32,60 44,56 Q52,40 50,22 Q46,10 32,4Z"
+        fill="rgba(251,146,60,0.25)" stroke="rgba(251,191,36,0.4)" stroke-width="0.6"/>
+
+  <!-- 尻尾 -->
+  <path d="M46,40 Q54,40 54,44 Q50,42 46,44Z" fill="#fef3c7" stroke="#7c2d12" stroke-width="0.5"/>
+
+  <!-- 胴体（羊毛モコモコ） -->
+  <ellipse cx="32" cy="40" rx="11" ry="12" fill="url(#ar_body)" stroke="#7c2d12" stroke-width="0.8"/>
+  <g fill="#fef9c3" stroke="#92400e" stroke-width="0.3" opacity="0.9">
+    <circle cx="26" cy="36" r="2"/>
+    <circle cx="32" cy="34" r="2.2"/>
+    <circle cx="38" cy="36" r="2"/>
+    <circle cx="26" cy="42" r="2"/>
+    <circle cx="32" cy="44" r="2.2"/>
+    <circle cx="38" cy="42" r="2"/>
+    <circle cx="24" cy="48" r="1.8"/>
+    <circle cx="40" cy="48" r="1.8"/>
+  </g>
+
+  <!-- 腕（前） -->
+  <rect x="20" y="34" width="5" height="10" rx="2" fill="#b45309" stroke="#451a03" stroke-width="0.5"/>
+  <rect x="39" y="34" width="5" height="10" rx="2" fill="#b45309" stroke="#451a03" stroke-width="0.5"/>
+  <!-- 拳 -->
+  <circle cx="22.5" cy="45" r="2.4" fill="#fef3c7" stroke="#451a03" stroke-width="0.5"/>
+  <circle cx="41.5" cy="45" r="2.4" fill="#fef3c7" stroke="#451a03" stroke-width="0.5"/>
+
+  <!-- 脚 -->
+  <rect x="25" y="50" width="5" height="10" rx="1" fill="#78350f" stroke="#451a03" stroke-width="0.5"/>
+  <rect x="34" y="50" width="5" height="10" rx="1" fill="#78350f" stroke="#451a03" stroke-width="0.5"/>
+  <!-- 蹄 -->
+  <ellipse cx="27.5" cy="61" rx="3"  ry="1.5" fill="#1a0a00"/>
+  <ellipse cx="36.5" cy="61" rx="3"  ry="1.5" fill="#1a0a00"/>
+
+  <!-- 頭 -->
+  <ellipse cx="32" cy="22" rx="9" ry="9" fill="#fef3c7" stroke="#92400e" stroke-width="0.8"/>
+
+  <!-- 巨大な渦巻き角（左右） -->
+  <path d="M22,18 Q10,14 8,24 Q10,30 16,28 Q14,22 20,22" fill="url(#ar_horn)" stroke="#7c2d12" stroke-width="0.8"/>
+  <path d="M42,18 Q54,14 56,24 Q54,30 48,28 Q50,22 44,22" fill="url(#ar_horn)" stroke="#7c2d12" stroke-width="0.8"/>
+  <!-- 角の筋 -->
+  <path d="M12,23 Q14,24 16,25" stroke="#7c2d12" stroke-width="0.4" fill="none"/>
+  <path d="M52,23 Q50,24 48,25" stroke="#7c2d12" stroke-width="0.4" fill="none"/>
+
+  <!-- 顔 -->
+  <ellipse cx="28" cy="22" rx="1.6" ry="1.4" fill="#1a0030"/>
+  <ellipse cx="36" cy="22" rx="1.6" ry="1.4" fill="#1a0030"/>
+  <circle cx="28.5" cy="21.5" r="0.5" fill="#fef3c7"/>
+  <circle cx="36.5" cy="21.5" r="0.5" fill="#fef3c7"/>
+  <!-- 怒り眉 -->
+  <path d="M25,19 L29,20" stroke="#7c2d12" stroke-width="1" fill="none"/>
+  <path d="M39,20 L35,19" stroke="#7c2d12" stroke-width="1" fill="none"/>
+  <!-- 鼻口 -->
+  <ellipse cx="32" cy="27" rx="2.2" ry="1.4" fill="#92400e"/>
+  <circle cx="31" cy="27" r="0.3" fill="#1a0a00"/>
+  <circle cx="33" cy="27" r="0.3" fill="#1a0a00"/>
+</svg>
