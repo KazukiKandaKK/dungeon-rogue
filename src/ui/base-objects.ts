@@ -1613,22 +1613,94 @@ function drawQuestSignboard(
     ctx.stroke();
   }
 
-  // 巻物3枚
+  // ── 小屋根（雨避け）：板の上に三角の小さな屋根を乗せる ──
+  const roofH = ts * 0.10;
+  const roofOverhang = ts * 0.06;
+  const roofY = by - roofH;
+  const roofGrad = ctx.createLinearGradient(bx, roofY, bx, roofY + roofH);
+  roofGrad.addColorStop(0, '#4b2408');
+  roofGrad.addColorStop(1, '#2a1304');
+  ctx.fillStyle   = roofGrad;
+  ctx.strokeStyle = '#1c0a01';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(bx - roofOverhang,      roofY + roofH);
+  ctx.lineTo(cx,                     roofY);
+  ctx.lineTo(bx + bw + roofOverhang, roofY + roofH);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // 屋根の瓦目（横線）
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth   = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(bx - roofOverhang * 0.6, roofY + roofH * 0.7);
+  ctx.lineTo(bx + bw + roofOverhang * 0.6, roofY + roofH * 0.7);
+  ctx.stroke();
+
+  // ── 羊皮紙3枚（手書き風縞線・画鋲留め）──
   const scrollW = bw * 0.22;
   const scrollH = bh * 0.6;
   for (let i = 0; i < 3; i++) {
     const sx = bx + bw * 0.12 + i * (scrollW + bw * 0.05);
     const sy = by + bh * 0.18 + Math.sin(now * 2 + i) * 0.8;
-    ctx.fillStyle = '#fef3c7';
+
+    // 紙の微回転（端が少し折れた雰囲気）
+    ctx.save();
+    const tilt = Math.sin(i * 1.3) * 0.04;
+    ctx.translate(sx + scrollW / 2, sy + scrollH / 2);
+    ctx.rotate(tilt);
+    ctx.translate(-(sx + scrollW / 2), -(sy + scrollH / 2));
+
+    // 羊皮紙グラデ（中央やや明るく）
+    const paperGrad = ctx.createLinearGradient(sx, sy, sx, sy + scrollH);
+    paperGrad.addColorStop(0,   '#fef3c7');
+    paperGrad.addColorStop(0.5, '#fde68a');
+    paperGrad.addColorStop(1,   '#f0d48a');
+    ctx.fillStyle = paperGrad;
     roundRect(ctx, sx, sy, scrollW, scrollH, 1.5);
     ctx.fill();
-    ctx.strokeStyle = '#b45309';
+    ctx.strokeStyle = '#92400e';
     ctx.lineWidth = 0.7;
     ctx.stroke();
-    ctx.fillStyle = 'rgba(180,83,9,0.7)';
-    ctx.fillRect(sx + 2, sy + scrollH * 0.25, scrollW - 4, 0.8);
-    ctx.fillRect(sx + 2, sy + scrollH * 0.5,  scrollW - 4, 0.8);
-    ctx.fillRect(sx + 2, sy + scrollH * 0.75, scrollW - 4, 0.8);
+
+    // 手書き風の縞線（Path2D でまとめて描く）
+    const lines = new Path2D();
+    for (let li = 0; li < 4; li++) {
+      const ly = sy + 3 + li * ((scrollH - 6) / 4);
+      const wob = Math.sin(li * 1.7 + i) * 0.6;
+      lines.moveTo(sx + 2, ly + wob);
+      // 途中に1点だけわずかに波打たせる
+      lines.quadraticCurveTo(
+        sx + scrollW / 2, ly + wob + 0.8,
+        sx + scrollW - 2, ly + wob,
+      );
+    }
+    ctx.strokeStyle = 'rgba(120,53,15,0.7)';
+    ctx.lineWidth   = 0.6;
+    ctx.stroke(lines);
+
+    // 画鋲（上端中央に小さな赤丸＋ハイライト）
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.arc(sx + scrollW / 2, sy + 1.5, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(sx + scrollW / 2 - 0.4, sy + 1.1, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 完了可能な紙にはキラッとしたハイライトを重ねる
+    if (claimable > i) {
+      const sparkle = 0.4 + 0.6 * Math.abs(Math.sin(now * 3 + i * 1.1));
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(253,224,71,${0.25 * sparkle})`;
+      roundRect(ctx, sx, sy, scrollW, scrollH, 1.5);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
   }
 
   // 受取可能バッジ

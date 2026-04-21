@@ -2,15 +2,17 @@
 // quests.ts  デイリークエスト（掲示板）
 //
 // 1日1回ランダムに 3件の依頼を生成し、進捗を localStorage に保存する。
-// 種類: 討伐（kill）/ 収集（collect）/ 到達（reach）
+// 種類: 討伐（kill）/ 収集（collect）/ 到達（reach）/ 連続撃破（streak）/ 累計ゴールド（gold）
 // 報酬: ゴールド + 魂 +（任意の）アイテム
 // ─────────────────────────────────────────────
 
-const QUEST_KEY = 'quests_v1';
-const SEED_KEY  = 'quests_seed_v1'; // 何日のクエストか
+// v2 で streak / gold カテゴリを追加。旧 v1 データは読み込み時にマイグレーションする。
+const QUEST_KEY     = 'quests_v2';
+const QUEST_KEY_OLD = 'quests_v1';
+const SEED_KEY      = 'quests_seed_v1'; // 何日のクエストか（旧互換のまま）
 
 // ── 種別と難度 ────────────────────────────
-export type QuestKind = 'kill' | 'collect' | 'reach';
+export type QuestKind = 'kill' | 'collect' | 'reach' | 'streak' | 'gold';
 
 export interface QuestDef {
   id:         string;
@@ -38,23 +40,59 @@ interface QuestSave {
 }
 
 // ── 候補テンプレ ──────────────────────────
-const KILL_TEMPLATES = [
-  { id: 'kill_any_5',  title: 'モンスター討伐',  desc: '敵を {n} 体倒す', total: 5,  reward: { gold: 60,  souls: 1 } },
-  { id: 'kill_any_15', title: '討伐の任務',       desc: '敵を {n} 体倒す', total: 15, reward: { gold: 180, souls: 2 } },
-  { id: 'kill_any_30', title: '熟練の討伐',       desc: '敵を {n} 体倒す', total: 30, reward: { gold: 360, souls: 3 } },
+// id から種別を引くために `kind` も埋めておく（将来の追加で分岐ミスを防ぐ）
+interface QuestTemplate {
+  id:    string;
+  kind:  QuestKind;
+  title: string;
+  desc:  string;
+  total: number;
+  reward: { gold: number; souls: number };
+}
+
+const KILL_TEMPLATES: QuestTemplate[] = [
+  { id: 'kill_any_5',  kind: 'kill', title: 'モンスター討伐',  desc: '敵を {n} 体倒す', total: 5,  reward: { gold: 60,  souls: 1 } },
+  { id: 'kill_any_15', kind: 'kill', title: '討伐の任務',       desc: '敵を {n} 体倒す', total: 15, reward: { gold: 180, souls: 2 } },
+  { id: 'kill_any_30', kind: 'kill', title: '熟練の討伐',       desc: '敵を {n} 体倒す', total: 30, reward: { gold: 360, souls: 3 } },
 ];
 
-const COLLECT_TEMPLATES = [
-  { id: 'collect_any_4',  title: '物資調達',       desc: '床のアイテムを {n} 個拾う', total: 4,  reward: { gold: 80,  souls: 1 } },
-  { id: 'collect_any_10', title: '大規模な調達',    desc: '床のアイテムを {n} 個拾う', total: 10, reward: { gold: 200, souls: 2 } },
-  { id: 'collect_gold_500',title: '金策',           desc: '累計で {n}G を稼ぐ',       total: 500, reward: { gold: 0, souls: 3 } },
+const COLLECT_TEMPLATES: QuestTemplate[] = [
+  { id: 'collect_any_4',  kind: 'collect', title: '物資調達',    desc: '床のアイテムを {n} 個拾う', total: 4,  reward: { gold: 80,  souls: 1 } },
+  { id: 'collect_any_10', kind: 'collect', title: '大規模な調達', desc: '床のアイテムを {n} 個拾う', total: 10, reward: { gold: 200, souls: 2 } },
 ];
 
-const REACH_TEMPLATES = [
-  { id: 'reach_5',  title: '5階到達',  desc: 'いずれかのダンジョンで {n}F まで進む',  total: 5,  reward: { gold: 100, souls: 1 } },
-  { id: 'reach_10', title: '10階到達', desc: 'いずれかのダンジョンで {n}F まで進む',  total: 10, reward: { gold: 250, souls: 2 } },
-  { id: 'reach_20', title: '20階到達', desc: 'いずれかのダンジョンで {n}F まで進む',  total: 20, reward: { gold: 500, souls: 4 } },
+const REACH_TEMPLATES: QuestTemplate[] = [
+  { id: 'reach_5',  kind: 'reach', title: '5階到達',  desc: 'いずれかのダンジョンで {n}F まで進む',  total: 5,  reward: { gold: 100, souls: 1 } },
+  { id: 'reach_10', kind: 'reach', title: '10階到達', desc: 'いずれかのダンジョンで {n}F まで進む',  total: 10, reward: { gold: 250, souls: 2 } },
+  { id: 'reach_20', kind: 'reach', title: '20階到達', desc: 'いずれかのダンジョンで {n}F まで進む',  total: 20, reward: { gold: 500, souls: 4 } },
 ];
+
+// 連続撃破（1フロア内で被ダメージに関わらず N 体倒す）
+const STREAK_TEMPLATES: QuestTemplate[] = [
+  { id: 'streak_5',  kind: 'streak', title: '連撃の証',   desc: '1フロアで連続 {n} 体倒す', total: 5,  reward: { gold: 120, souls: 1 } },
+  { id: 'streak_10', kind: 'streak', title: '連撃の覇者', desc: '1フロアで連続 {n} 体倒す', total: 10, reward: { gold: 280, souls: 2 } },
+];
+
+// 累計ゴールド（旧 collect_gold_500 も gold に引っ越す）
+const GOLD_TEMPLATES: QuestTemplate[] = [
+  { id: 'collect_gold_500', kind: 'gold', title: '金策',     desc: '累計で {n}G を稼ぐ',  total: 500,  reward: { gold: 0, souls: 3 } },
+  { id: 'gold_300',         kind: 'gold', title: '小口の金策', desc: '累計で {n}G を稼ぐ',  total: 300,  reward: { gold: 0, souls: 2 } },
+  { id: 'gold_1000',        kind: 'gold', title: '大口の金策', desc: '累計で {n}G を稼ぐ',  total: 1000, reward: { gold: 0, souls: 4 } },
+];
+
+// 全テンプレ集合（3件重複無し抽選に使う）
+const ALL_TEMPLATES: QuestTemplate[] = [
+  ...KILL_TEMPLATES,
+  ...COLLECT_TEMPLATES,
+  ...REACH_TEMPLATES,
+  ...STREAK_TEMPLATES,
+  ...GOLD_TEMPLATES,
+];
+
+// id → kind の逆引き（旧データ復元で使う）
+const ID_TO_KIND: Record<string, QuestKind> = Object.fromEntries(
+  ALL_TEMPLATES.map(t => [t.id, t.kind]),
+);
 
 // ── 簡易シード PRNG（mulberry32）────────
 function mulberry32(seed: number): () => number {
@@ -84,11 +122,31 @@ function _todayKey(): string {
 // ── 保存 / 復元 ───────────────────────────
 function _load(): QuestSave | null {
   try {
+    // まず v2 を試す
     const raw = localStorage.getItem(QUEST_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.quests)) return null;
-    return parsed as QuestSave;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.quests)) {
+        return parsed as QuestSave;
+      }
+    }
+    // v1 からのマイグレーション（kind の再割当てのみ）
+    const oldRaw = localStorage.getItem(QUEST_KEY_OLD);
+    if (oldRaw) {
+      const parsed = JSON.parse(oldRaw);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.quests)) {
+        const migrated: QuestSave = {
+          date: String(parsed.date ?? ''),
+          quests: parsed.quests.map((q: QuestDef) => ({
+            ...q,
+            kind: ID_TO_KIND[q.id] ?? q.kind ?? 'kill',
+          })),
+        };
+        _save(migrated);
+        return migrated;
+      }
+    }
+    return null;
   } catch { return null; }
 }
 function _save(s: QuestSave): void {
@@ -98,15 +156,17 @@ function _save(s: QuestSave): void {
 // ── 生成 ──────────────────────────────────
 function _generate(date: string): QuestDef[] {
   const rng = mulberry32(djb2('quests:' + date));
-  const pickN = <T>(arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)];
+  // 全テンプレから 3 件を重複無しで抽選（Fisher–Yates）
+  const pool = ALL_TEMPLATES.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picks = pool.slice(0, 3);
 
-  const k = pickN(KILL_TEMPLATES);
-  const c = pickN(COLLECT_TEMPLATES);
-  const r = pickN(REACH_TEMPLATES);
-
-  return [k, c, r].map(t => ({
+  return picks.map(t => ({
     id:        t.id,
-    kind:      (t.id.startsWith('kill') ? 'kill' : t.id.startsWith('collect') || t.id === 'collect_gold_500' ? 'collect' : 'reach') as QuestKind,
+    kind:      t.kind,
     title:     t.title,
     desc:      t.desc.replace('{n}', String(t.total)),
     total:     t.total,
@@ -151,7 +211,8 @@ export function reportPickup(): void {
   const qs = getDailyQuests();
   let dirty = false;
   for (const q of qs) {
-    if (q.kind === 'collect' && q.id !== 'collect_gold_500' && !q.claimed && q.progress < q.total) {
+    // collect カテゴリのみ進行（旧 collect_gold_500 は gold カテゴリに移動済み）
+    if (q.kind === 'collect' && !q.claimed && q.progress < q.total) {
       q.progress = Math.min(q.total, q.progress + 1);
       dirty = true;
     }
@@ -164,7 +225,7 @@ export function reportGold(amount: number): void {
   const qs = getDailyQuests();
   let dirty = false;
   for (const q of qs) {
-    if (q.kind === 'collect' && q.id === 'collect_gold_500' && !q.claimed && q.progress < q.total) {
+    if (q.kind === 'gold' && !q.claimed && q.progress < q.total) {
       q.progress = Math.min(q.total, q.progress + amount);
       dirty = true;
     }
@@ -179,6 +240,26 @@ export function reportFloorReached(floor: number): void {
   for (const q of qs) {
     if (q.kind === 'reach' && !q.claimed && q.progress < floor) {
       q.progress = Math.min(q.total, floor);
+      dirty = true;
+    }
+  }
+  if (dirty) _persist(qs);
+}
+
+/**
+ * 連続撃破の進捗を更新する。
+ * 呼び出し側で「1フロア内の連続撃破カウンタ」を管理し、その値をそのまま渡す。
+ * フロア開始時は 0、キル時にインクリメントしてから呼ぶ想定。
+ * 連続撃破は「最大記録」で更新するため、途中でカウンタが 0 にリセットされても
+ * 進捗が減ることはない（被ダメージでリセットする仕様は今回入れない）。
+ */
+export function reportStreak(current: number): void {
+  if (current <= 0) return;
+  const qs = getDailyQuests();
+  let dirty = false;
+  for (const q of qs) {
+    if (q.kind === 'streak' && !q.claimed && q.progress < current) {
+      q.progress = Math.min(q.total, current);
       dirty = true;
     }
   }

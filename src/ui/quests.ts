@@ -7,10 +7,24 @@
 
 import type { QuestDef } from '../systems/quests.js';
 
+// 種別ごとのアイコン（streak は剣、gold はコイン）
 function _kindIcon(kind: QuestDef['kind']): string {
   if (kind === 'kill')    return '⚔';
   if (kind === 'collect') return '📦';
+  if (kind === 'reach')   return '🏁';
+  if (kind === 'streak')  return '⚔';
+  if (kind === 'gold')    return '💰';
   return '🏁';
+}
+
+// 種別ごとのアクセント色（タイトル色に使う。claimed/未選択時は別色で上書き）
+function _kindColor(kind: QuestDef['kind']): string {
+  if (kind === 'kill')    return '#fbbf24'; // 黄金（既存）
+  if (kind === 'collect') return '#fbbf24';
+  if (kind === 'reach')   return '#fbbf24';
+  if (kind === 'streak')  return '#ef4444'; // 赤系
+  if (kind === 'gold')    return '#fbbf24'; // 黄金系
+  return '#fbbf24';
 }
 
 export interface QuestBoardState {
@@ -87,10 +101,10 @@ export function drawQuestBoard(
       ctx.strokeRect(px + 16, y, panelW - 32, rowH - 10);
     }
 
-    // タイトル＋アイコン
+    // タイトル＋アイコン（種別色を反映）
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.font = 'bold 14px monospace';
-    ctx.fillStyle = q.claimed ? '#78716c' : (sel ? '#fde68a' : '#fbbf24');
+    ctx.fillStyle = q.claimed ? '#78716c' : (sel ? '#fde68a' : _kindColor(q.kind));
     ctx.fillText(`${_kindIcon(q.kind)} ${q.title}`, px + 28, y + 8);
 
     // 説明

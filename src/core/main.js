@@ -45,6 +45,7 @@ import { drawChatTicker } from '../ui/chat-ticker.js';
 import {
   getDailyQuests, reportKill as _questReportKill,
   reportFloorReached as _questReportFloor,
+  reportStreak as _questReportStreak,
   claimQuest as _questClaim, isComplete as _questIsComplete,
   activeCount as _questActiveCount, completedClaimableCount as _questClaimableCount,
 } from '../systems/quests.js';
@@ -92,6 +93,9 @@ let saveSlotMode   = 'load'; // 'load' | 'save'
 let saveSlotFrom   = 'TITLE'; // 戻り先のgameState
 let floorNumber       = 1;
 let isMonsterHouseFloor = false; // 現フロアがMHかどうか
+// 1フロア内の連続撃破カウンタ（クエスト streak 系の計測用）
+// 被ダメージではリセットせず、フロア開始/プレイヤー死亡でリセットする。
+let streakCount       = 0;
 let clearedDungeons   = new Set(); // クリア済みダンジョンID
 let infiniteEscapePrompt = false;  // 無限ダンジョン脱出確認UI
 let infiniteEscapeCursor = 0;      // 0=続ける 1=脱出
@@ -521,6 +525,8 @@ function _buildBase() {
 
 
 function _buildFloor(entryDir) {
+  // フロア入場時に連続撃破カウンタをリセット（クエスト streak 系の計測）
+  streakCount = 0;
   const maxFloors   = currentDungeon?.maxFloors ?? 99;
   // 無限ダンジョン：10フロアごとにボス戦
   const isBossFloor = currentDungeon?.bossRush
@@ -885,7 +891,7 @@ function _makePACtx() {
     onSpellVfx:       (type, params, life) => spawnMagicVfx(type, params, life),
     onShake:          (intensity, duration) => triggerShake(intensity, duration),
     onHitStop:        seconds => triggerHitStop(seconds),
-    onGameOver:       () => { gameState = 'GAME_OVER'; gameOverTimer = 2.0; ctx.gameState = 'GAME_OVER'; },
+    onGameOver:       () => { gameState = 'GAME_OVER'; gameOverTimer = 2.0; ctx.gameState = 'GAME_OVER'; streakCount = 0; },
     onTransition:     () => { _startTransition(); ctx.gameState = gameState; },
     onUpdateExplored: () => _updateExplored(),
     onOpenChest:      (tx, ty) => _openChest(tx, ty),
@@ -3185,6 +3191,9 @@ function _attack(attacker, defender, rawAtk) {
   // プレイヤーが敵を倒した時のみクエスト討伐カウント & 称号統計
   if (attacker === player && defender !== player && !defender.alive) {
     _questReportKill();
+    // 1フロア内の連続撃破をインクリメントしてクエストへ通知
+    streakCount += 1;
+    _questReportStreak(streakCount);
     _titleReportKill(!!defender.isBoss);
   }
   return result;
