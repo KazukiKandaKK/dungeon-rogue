@@ -14,6 +14,7 @@ import type { SaveSlotMode }      from '../core/game-context.js';
 import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
 import { todayKey, getDailyBest } from '../systems/daily.js';
 import { PETS, PET_KINDS, type PetKind } from '../entities/pet.js';
+import type { SpriteLoader } from '../core/sprites.js';
 
 // ── TitleContext / drawTitle ──────────────────────────────
 
@@ -463,8 +464,10 @@ export interface CharCreateContext {
   dailyMode?:    boolean;
   /** デイリー日付（YYYYMMDD） */
   dailyDateKey?: string;
-  /** ペット選択（null=なし） */
-  petCursor?:   number;     // 0..PET_KINDS.length（0=なし、1..=PETS）
+  /** ペット選択（0..PET_KINDS.length-1、常に 1 匹） */
+  petCursor?:   number;
+  /** SVG プレビュー用（あれば描画に利用） */
+  sprites?:     SpriteLoader;
 }
 
 export function drawCharCreate(
@@ -654,16 +657,35 @@ export function drawCharCreate(
   }
   ctx.restore();
 
-  // ペット選択（フッター上） — Pキーで切り替え
-  const petCur = c.petCursor ?? 0;
-  const petLabel = petCur === 0
-    ? 'なし'
-    : (PETS[PET_KINDS[(petCur - 1) % PET_KINDS.length] as PetKind]?.name ?? 'なし');
+  // ペット選択（フッター上） — Pキーで切り替え。デフォルトで先頭が選ばれている。
+  const petCur    = ((c.petCursor ?? 0) % PET_KINDS.length + PET_KINDS.length) % PET_KINDS.length;
+  const petKind   = PET_KINDS[petCur] as PetKind;
+  const petDef    = PETS[petKind];
+  const petLabel  = petDef?.name ?? 'ペット';
+  const petDesc   = petDef?.desc ?? '';
   ctx.save();
-  ctx.font = 'bold 12px monospace';
-  ctx.fillStyle = petCur > 0 ? '#86efac' : 'rgba(156,163,175,0.7)';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText(`🐾 ペット: ${petLabel}（[P] で切替）`, W / 2, H - 32);
+  // SVG プレビュー（キャンバス下部中央の左寄り）
+  const prevY = H - 74;
+  if (c.sprites && petDef) {
+    const img = c.sprites.get(petDef.spriteName);
+    if (img) {
+      const sz = 48;
+      c.sprites.draw(ctx, petDef.spriteName, W / 2 - 92, prevY, sz, sz);
+    }
+  }
+  // 名前と説明
+  ctx.font = 'bold 13px monospace';
+  ctx.fillStyle = '#86efac';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`🐾 ${petLabel}`, W / 2 - 56, prevY - 6);
+  ctx.font = '10.5px monospace';
+  ctx.fillStyle = 'rgba(200,200,220,0.75)';
+  ctx.fillText(petDesc, W / 2 - 56, prevY + 10);
+  // 切り替えヒント
+  ctx.font = 'bold 11px monospace';
+  ctx.fillStyle = 'rgba(251,191,36,0.85)';
+  ctx.textAlign = 'center';
+  ctx.fillText(`[P] で切替 （${petCur + 1}/${PET_KINDS.length}）`, W / 2, H - 32);
   ctx.restore();
 
   // フッター

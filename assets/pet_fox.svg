@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <radialGradient id="fx_body" cx="45%" cy="35%" r="70%">
+      <stop offset="0%"  stop-color="#ffc080"/>
+      <stop offset="55%" stop-color="#e87020"/>
+      <stop offset="100%" stop-color="#8a3008"/>
+    </radialGradient>
+    <radialGradient id="fx_face" cx="50%" cy="40%" r="65%">
+      <stop offset="0%"  stop-color="#ffd0a0"/>
+      <stop offset="70%" stop-color="#ec8a28"/>
+      <stop offset="100%" stop-color="#9a3808"/>
+    </radialGradient>
+    <linearGradient id="fx_white" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0d4c0"/>
+    </linearGradient>
+    <linearGradient id="fx_eartip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#4a2a10"/>
+      <stop offset="100%" stop-color="#1a0a00"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 影 -->
+  <ellipse cx="24" cy="45" rx="14" ry="3" fill="rgba(0,0,0,0.30)"/>
+
+  <!-- しっぽ（ふさふさ、白先） -->
+  <path d="M36,38 Q46,34 44,24 Q42,20 38,22 Q38,30 34,34 Q34,38 36,38 Z"
+        fill="url(#fx_body)" stroke="#6a2000" stroke-width="0.9"/>
+  <path d="M42,22 Q46,22 44,26 Q42,26 41,24 Z" fill="url(#fx_white)" stroke="#8a7060" stroke-width="0.5"/>
+
+  <!-- 体 -->
+  <ellipse cx="22" cy="36" rx="11" ry="7.5" fill="url(#fx_body)" stroke="#6a2000" stroke-width="1"/>
+
+  <!-- 胸の白 -->
+  <path d="M18,34 Q22,42 26,34 Q24,40 22,42 Q20,40 18,34 Z" fill="url(#fx_white)" opacity="0.95"/>
+
+  <!-- 足 -->
+  <ellipse cx="16" cy="42" rx="2.6" ry="2" fill="#c05810" stroke="#4a1800" stroke-width="0.6"/>
+  <ellipse cx="28" cy="42" rx="2.6" ry="2" fill="#c05810" stroke="#4a1800" stroke-width="0.6"/>
+
+  <!-- 耳（三角、黒先端） -->
+  <path d="M13,16 L10,5 L19,12 Z" fill="url(#fx_body)" stroke="#6a2000" stroke-width="0.8"/>
+  <path d="M35,16 L38,5 L29,12 Z" fill="url(#fx_body)" stroke="#6a2000" stroke-width="0.8"/>
+  <!-- 耳の先端（黒） -->
+  <path d="M10,5 L13,9 L11.5,10 Z" fill="url(#fx_eartip)"/>
+  <path d="M38,5 L35,9 L36.5,10 Z" fill="url(#fx_eartip)"/>
+  <!-- 耳の内側 -->
+  <path d="M14,14 L12,8 L17,12 Z" fill="#ffc8a0" opacity="0.7"/>
+  <path d="M34,14 L36,8 L31,12 Z" fill="#ffc8a0" opacity="0.7"/>
+
+  <!-- 頭 -->
+  <path d="M13,20 Q12,12 24,10 Q36,12 35,20 Q34,28 24,30 Q14,28 13,20 Z"
+        fill="url(#fx_face)" stroke="#6a2000" stroke-width="1"/>
+
+  <!-- マズル（白） -->
+  <path d="M19,23 Q24,32 29,23 Q27,28 24,30 Q21,28 19,23 Z" fill="url(#fx_white)" stroke="#8a7060" stroke-width="0.5"/>
+
+  <!-- 鼻 -->
+  <ellipse cx="24" cy="25.5" rx="1.4" ry="1" fill="#2a1008"/>
+  <ellipse cx="23.6" cy="25.2" rx="0.4" ry="0.3" fill="#ffffff" opacity="0.7"/>
+
+  <!-- 口 -->
+  <path d="M24,26.5 Q22.5,28 21.5,27.3" stroke="#4a1800" stroke-width="0.6" fill="none"/>
+  <path d="M24,26.5 Q25.5,28 26.5,27.3" stroke="#4a1800" stroke-width="0.6" fill="none"/>
+
+  <!-- 目（アーモンド） -->
+  <ellipse cx="19" cy="20.5" rx="2" ry="2.6" fill="#1a0a00"/>
+  <ellipse cx="29" cy="20.5" rx="2" ry="2.6" fill="#1a0a00"/>
+  <ellipse cx="19" cy="20.7" rx="1.4" ry="2" fill="#3a2010"/>
+  <ellipse cx="29" cy="20.7" rx="1.4" ry="2" fill="#3a2010"/>
+  <ellipse cx="19.6" cy="19.5" rx="0.7" ry="0.9" fill="#ffffff"/>
+  <ellipse cx="29.6" cy="19.5" rx="0.7" ry="0.9" fill="#ffffff"/>
+  <circle cx="18.4" cy="21.5" r="0.3" fill="rgba(255,255,255,0.6)"/>
+  <circle cx="28.4" cy="21.5" r="0.3" fill="rgba(255,255,255,0.6)"/>
+
+  <!-- ハイライト -->
+  <ellipse cx="20" cy="14" rx="3" ry="1.3" fill="rgba(255,255,255,0.35)"/>
+</svg>

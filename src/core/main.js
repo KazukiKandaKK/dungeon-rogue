@@ -38,7 +38,7 @@ import { lightenColor as _lightenC, darkenColor as _darkenC, hexRgb as _hexRgb }
 import { getSlotData, hasAnySave, formatSavedAt } from '../systems/saves.js';
 import { applyMetaUpgrades, addSouls, calcSoulsReward, getSouls, META_UPGRADES, getUpgrades, purchaseUpgrade } from '../systems/meta.js';
 import { todayKey, dailySeedFor, installSeededRandom, restoreRandom, recordDailyResult } from '../systems/daily.js';
-import { Pet, PETS, PET_KINDS } from '../entities/pet.js';
+import { Pet, PETS, PET_KINDS, petSpriteEntries } from '../entities/pet.js';
 import { BaseNpc } from '../entities/base-npc.js';
 import { tickChatTicker, toggleChat, pushPlayerEvent } from '../systems/chat-ticker.js';
 import { drawChatTicker } from '../ui/chat-ticker.js';
@@ -112,8 +112,8 @@ let baseCursor     = 0;
 let charSpeciesCursor = 0;
 let charTintCursor    = 0;
 let charFocusGroup    = 'species'; // 'species' | 'tint'
-let charPetCursor     = 0;         // 0=なし, 1..=PET_KINDS
-let playerPetKind     = null;      // 選択されたペット種類（'slime'|'mush'|'rock'）|null
+let charPetCursor     = 0;         // 0..PET_KINDS.length-1 （デフォルトで先頭を選択）
+let playerPetKind     = PET_KINDS[0]; // 選択されたペット種類（常に有効）
 let pet               = null;      // 現在の Pet インスタンス
 let baseNpcs          = [];        // 拠点を歩く冒険者NPC（BaseNpc[]）
 let lastWorldEventId  = null;      // ワールドイベント切替検知用
@@ -375,6 +375,8 @@ async function init(canvas, logEl) {
       ['player_front',      'assets/player_front.svg?v=1'],
       ['player_back',       'assets/player_back.svg?v=1'],
       ['player_side',       'assets/player_side.svg?v=1'],
+      // ペット用 SVG（pet.ts の PETS 定義と連動）
+      ...petSpriteEntries(),
       ['slime',             'assets/slime.svg?v=6'],
       ['goblin',            'assets/goblin.svg?v=6'],
       ['boss',              'assets/boss.svg?v=1'],
@@ -811,7 +813,8 @@ function _doPetBaseStep() {
 }
 
 function _spawnOrMovePet() {
-  if (!playerPetKind || !player || !map) { return; }
+  if (!player || !map) { return; }
+  if (!playerPetKind || !PETS[playerPetKind]) playerPetKind = PET_KINDS[0];
   const candidates = [
     [player.tx - 1, player.ty],
     [player.tx + 1, player.ty],
@@ -3068,7 +3071,8 @@ function _loadFromSlot(slot) {
     if (s.appearance && APPEARANCES[s.appearance.species]) {
       playerAppearance = { species: s.appearance.species, tint: s.appearance.tint };
     }
-    playerPetKind = (s.pet && PETS[s.pet]) ? s.pet : null;
+    // 旧セーブ互換：'mush'/'rock' など既に存在しない種類や null はデフォルト（先頭）に戻す
+    playerPetKind = (s.pet && PETS[s.pet]) ? s.pet : PET_KINDS[0];
     pet           = null; // 再配置は _placePlayer で行う
     floorNumber     = Math.max(1, s.floor ?? 1);
     clearedDungeons = new Set(s.clearedDungeons ?? []);
@@ -3296,6 +3300,7 @@ function _draw(ctx, W, H, now) {
       dailyMode:     dailyMode,
       dailyDateKey:  dailyDateKey,
       petCursor:     charPetCursor,
+      sprites,
     });
     return;
   }
@@ -3409,7 +3414,7 @@ function _draw(ctx, W, H, now) {
       const facing = (player && player.tx > pet.tx) ? 'side' : (player && player.tx < pet.tx ? 'side' : 'front');
       const walking = pet.moveT < 1;
       ctx.save();
-      pet.draw(ctx, pet._sx, pet._sy, TILE_SIZE * 0.78, facing, walking);
+      pet.draw(ctx, sprites, pet._sx, pet._sy, TILE_SIZE * 0.78, facing, walking);
       ctx.restore();
       // HPバー（小さく）
       if (pet.hp < pet.maxHp) {
@@ -3734,8 +3739,8 @@ function _handleCharCreateInput() {
     charFocusGroup = 'tint';
   }
   if (input.justPressed('KeyP')) {
-    // 0=なし → 1..PET_KINDS.length をループ
-    charPetCursor = (charPetCursor + 1) % (PET_KINDS.length + 1);
+    // 0..PET_KINDS.length-1 を循環。常に 1 匹はペットがいる。
+    charPetCursor = (charPetCursor + 1) % PET_KINDS.length;
   }
   if (input.justPressed('Escape') || input.justPressed('Backspace')) {
     gameState = 'TITLE';
@@ -3746,7 +3751,7 @@ function _handleCharCreateInput() {
       species: APPEARANCE_IDS[charSpeciesCursor],
       tint:    TINTS[charTintCursor].color,
     };
-    playerPetKind = charPetCursor === 0 ? null : PET_KINDS[charPetCursor - 1];
+    playerPetKind = PET_KINDS[charPetCursor % PET_KINDS.length];
     gameState   = 'CLASS_SELECT';
     classCursor = 0;
   }

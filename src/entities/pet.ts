@@ -5,32 +5,47 @@
 // 自分のターンに：
 //   1) 隣接する敵がいれば atk ぶんダメージを与える
 //   2) いなければプレイヤーへ1マス近づく
+//
+// 描画は `assets/pet_*.svg` をスプライトとして読み込み、sprite キャッシュ経由で描く。
 // ─────────────────────────────────────────────
 
-import { APPEARANCES } from '../data/appearances.js';
-import type { AppearanceDef } from '../data/appearances.js';
 import type { GameMap } from '../types.js';
+import type { SpriteLoader } from '../core/sprites.js';
 
-export type PetKind = 'slime' | 'mush' | 'rock' | 'cat';
+export type PetKind =
+  | 'dog' | 'cat' | 'gorilla' | 'rabbit' | 'bird' | 'fox' | 'slime';
 
 export interface PetDef {
-  kind:    PetKind;
-  name:    string;
-  species: string; // APPEARANCE id
-  tint:    string;
-  hp:      number;
-  atk:     number;
-  desc:    string;
+  kind:       PetKind;
+  name:       string;
+  spriteName: string;  // sprites に登録するキー
+  assetUrl:   string;  // ロード時の URL（バージョン付き）
+  hp:         number;
+  atk:        number;
+  desc:       string;
 }
 
+/**
+ * ペット定義。
+ * spriteName は sprites.loadAll に渡すキー、assetUrl は実ファイルへのパス。
+ * HP/ATK はバランス調整用のシンプルな数値（追従の戦闘力）。
+ */
 export const PETS: Record<PetKind, PetDef> = {
-  slime: { kind: 'slime', name: 'スライムの友',  species: 'slimeling', tint: '#86efac', hp: 6, atk: 2, desc: '柔軟・素早く隣接の敵を打つ' },
-  mush:  { kind: 'mush',  name: 'マッシュの友',  species: 'mushroom',  tint: '#fbcfe8', hp: 8, atk: 1, desc: 'タフで地味に削る' },
-  rock:  { kind: 'rock',  name: 'ロックの友',    species: 'rockling',  tint: '#a8a29e', hp: 12, atk: 3, desc: '硬く重く、強く殴る' },
-  cat:   { kind: 'cat',   name: 'ねこの友',      species: 'catling',   tint: '#fcd34d', hp: 7, atk: 2, desc: '軽やかに駆け、爪で引っ掻く' },
+  dog:     { kind: 'dog',     name: 'こいぬ',   spriteName: 'pet_dog',     assetUrl: 'assets/pet_dog.svg?v=1',     hp: 8,  atk: 2, desc: '元気よく追従 / 隣接の敵を噛む' },
+  cat:     { kind: 'cat',     name: 'こねこ',   spriteName: 'pet_cat',     assetUrl: 'assets/pet_cat.svg?v=1',     hp: 6,  atk: 3, desc: '軽やか・爪で引っ掻く' },
+  gorilla: { kind: 'gorilla', name: 'ゴリラ',   spriteName: 'pet_gorilla', assetUrl: 'assets/pet_gorilla.svg?v=1', hp: 14, atk: 4, desc: '重い一撃 / タフ' },
+  rabbit:  { kind: 'rabbit',  name: 'うさぎ',   spriteName: 'pet_rabbit',  assetUrl: 'assets/pet_rabbit.svg?v=1',  hp: 5,  atk: 2, desc: 'すばしこく蹴りを入れる' },
+  bird:    { kind: 'bird',    name: 'ことり',   spriteName: 'pet_bird',    assetUrl: 'assets/pet_bird.svg?v=1',    hp: 4,  atk: 2, desc: '素早くつつく' },
+  fox:     { kind: 'fox',     name: 'きつね',   spriteName: 'pet_fox',     assetUrl: 'assets/pet_fox.svg?v=1',     hp: 7,  atk: 3, desc: 'しなやかに噛みつく' },
+  slime:   { kind: 'slime',   name: 'スライム', spriteName: 'pet_slime',   assetUrl: 'assets/slime.svg?v=6',       hp: 6,  atk: 2, desc: 'ぷるぷる・無害でかわいい' },
 };
 
-export const PET_KINDS: ReadonlyArray<PetKind> = ['slime', 'mush', 'rock', 'cat'];
+export const PET_KINDS: ReadonlyArray<PetKind> = ['dog', 'cat', 'gorilla', 'rabbit', 'bird', 'fox', 'slime'];
+
+/** `sprites.loadAll()` にそのまま渡せる [name, url] 配列を返す */
+export function petSpriteEntries(): Array<[string, string]> {
+  return PET_KINDS.map((k) => [PETS[k].spriteName, PETS[k].assetUrl] as [string, string]);
+}
 
 export interface PetActor {
   hp: number;
@@ -44,7 +59,6 @@ export interface PetActor {
 export class Pet implements PetActor {
   readonly kind: PetKind;
   readonly def:  PetDef;
-  readonly appearance: AppearanceDef;
   hp:    number;
   maxHp: number;
   atk:   number;
@@ -62,7 +76,6 @@ export class Pet implements PetActor {
   constructor(kind: PetKind, tx: number, ty: number) {
     this.kind  = kind;
     this.def   = PETS[kind];
-    this.appearance = APPEARANCES[this.def.species];
     this.maxHp = this.def.hp;
     this.hp    = this.def.hp;
     this.atk   = this.def.atk;
@@ -146,16 +159,45 @@ export class Pet implements PetActor {
     if (this.moveT < 1) this.moveT = Math.min(1, this.moveT + dt * 8);
   }
 
-  /** 拠点／ダンジョンで使う描画。プレイヤーと同じ APPEARANCES.draw を流用 */
+  /**
+   * ペット描画（SVG スプライトベース）。
+   * facing/walking は呼び出し元からの情報で歩行中のバウンス表現に使う。
+   */
   draw(
     ctx:     CanvasRenderingContext2D,
+    sprites: SpriteLoader,
     cx:      number,
     cy:      number,
     sizePx:  number,
-    facing:  'front' | 'back' | 'side',
+    _facing: 'front' | 'back' | 'side',
     walking: boolean,
   ): void {
-    const phase = walking ? (performance.now() / 200) % 1 : 0;
-    this.appearance.draw(ctx, cx, cy, sizePx, facing, this.def.tint, phase, this.alive ? 1 : 0.4);
+    // 足元の影（スプライト側にもあるが、タイル統一感のためもう一枚）
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + sizePx * 0.38, sizePx * 0.28, sizePx * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 歩行中の軽い上下バウンス
+    const bob = walking ? Math.sin((performance.now() / 120)) * sizePx * 0.03 : 0;
+
+    const img = sprites.get(this.def.spriteName);
+    if (img) {
+      const a = this.alive ? 1 : 0.4;
+      ctx.save();
+      ctx.globalAlpha = a;
+      sprites.draw(ctx, this.def.spriteName, cx, cy + bob, sizePx, sizePx);
+      ctx.restore();
+    } else {
+      // スプライト未ロード時のフォールバック
+      ctx.save();
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.arc(cx, cy + bob, sizePx * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
