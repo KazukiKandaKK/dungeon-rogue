@@ -11,7 +11,7 @@ import { APPEARANCES } from '../data/appearances.js';
 import type { AppearanceDef } from '../data/appearances.js';
 import type { GameMap } from '../types.js';
 
-export type PetKind = 'slime' | 'mush' | 'rock';
+export type PetKind = 'slime' | 'mush' | 'rock' | 'cat';
 
 export interface PetDef {
   kind:    PetKind;
@@ -27,9 +27,10 @@ export const PETS: Record<PetKind, PetDef> = {
   slime: { kind: 'slime', name: 'スライムの友',  species: 'slimeling', tint: '#86efac', hp: 6, atk: 2, desc: '柔軟・素早く隣接の敵を打つ' },
   mush:  { kind: 'mush',  name: 'マッシュの友',  species: 'mushroom',  tint: '#fbcfe8', hp: 8, atk: 1, desc: 'タフで地味に削る' },
   rock:  { kind: 'rock',  name: 'ロックの友',    species: 'rockling',  tint: '#a8a29e', hp: 12, atk: 3, desc: '硬く重く、強く殴る' },
+  cat:   { kind: 'cat',   name: 'ねこの友',      species: 'catling',   tint: '#fcd34d', hp: 7, atk: 2, desc: '軽やかに駆け、爪で引っ掻く' },
 };
 
-export const PET_KINDS: ReadonlyArray<PetKind> = ['slime', 'mush', 'rock'];
+export const PET_KINDS: ReadonlyArray<PetKind> = ['slime', 'mush', 'rock', 'cat'];
 
 export interface PetActor {
   hp: number;

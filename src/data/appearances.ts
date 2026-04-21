@@ -489,6 +489,138 @@ function drawBotling(
   ctx.restore();
 }
 
+// 7) ねこっこ：三角耳とひげ、揺れる尻尾
+function drawCatling(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, s: number,
+  facing: FacingKind, tint: string, phase: number, dirX = 1,
+): void {
+  drawShadow(ctx, cx, cy, s);
+  const body  = tint;
+  const bodyD = darken(body, 0.2);
+  const bodyL = lighten(body, 0.2);
+  const bob   = Math.sin(phase * Math.PI * 2) * s * 0.012;
+  const tailW = Math.sin(phase * Math.PI * 2 + 1.0) * s * 0.05;
+
+  ctx.save();
+
+  // 尻尾（背後寄り・正面は右側、背面は左側、横向きは後方）
+  ctx.strokeStyle = bodyD;
+  ctx.lineWidth   = Math.max(2, s * 0.04);
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  if (facing === 'side') {
+    const sign = dirX >= 0 ? -1 : 1;
+    const bx = cx + sign * s * 0.18;
+    const by = cy + s * 0.06 + bob;
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(bx + sign * s * 0.12, by - s * 0.1 - tailW, bx + sign * s * 0.06, by - s * 0.22 - tailW);
+  } else {
+    const sign = facing === 'front' ? 1 : -1;
+    const bx = cx + sign * s * 0.18;
+    const by = cy + s * 0.1 + bob;
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(bx + sign * s * 0.1, by - s * 0.06 + tailW, bx + sign * s * 0.04, by - s * 0.22 + tailW);
+  }
+  ctx.stroke();
+
+  // 胴体（お座り）
+  ctx.fillStyle   = body;
+  ctx.strokeStyle = bodyD;
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + s * 0.16 + bob, s * 0.18, s * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // 前足
+  ctx.fillStyle = bodyD;
+  ctx.beginPath();
+  ctx.ellipse(cx - s * 0.08, cy + s * 0.28 + bob, s * 0.04, s * 0.03, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + s * 0.08, cy + s * 0.28 + bob, s * 0.04, s * 0.03, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 頭
+  const hy = cy - s * 0.06 + bob;
+  ctx.fillStyle   = bodyL;
+  ctx.strokeStyle = bodyD;
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, hy, s * 0.16, s * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // 三角耳（二枚）
+  ctx.fillStyle   = body;
+  ctx.strokeStyle = bodyD;
+  ctx.lineWidth   = 1;
+  // 左耳
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.13, hy - s * 0.06);
+  ctx.lineTo(cx - s * 0.06, hy - s * 0.2);
+  ctx.lineTo(cx - s * 0.02, hy - s * 0.08);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // 右耳
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.13, hy - s * 0.06);
+  ctx.lineTo(cx + s * 0.06, hy - s * 0.2);
+  ctx.lineTo(cx + s * 0.02, hy - s * 0.08);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // 耳の内側（ピンク）
+  ctx.fillStyle = '#fca5a5';
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.1, hy - s * 0.08);
+  ctx.lineTo(cx - s * 0.065, hy - s * 0.16);
+  ctx.lineTo(cx - s * 0.045, hy - s * 0.09);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.1, hy - s * 0.08);
+  ctx.lineTo(cx + s * 0.065, hy - s * 0.16);
+  ctx.lineTo(cx + s * 0.045, hy - s * 0.09);
+  ctx.closePath(); ctx.fill();
+
+  // 目
+  drawEyes(ctx, cx, hy, s, facing, dirX, { spread: 0.07, dotR: 2.1, sparkle: true });
+
+  // 顔（正面・横）
+  if (facing !== 'back') {
+    // 鼻（小さなピンク三角）
+    ctx.fillStyle = '#f472b6';
+    const nx = facing === 'side' ? cx + (dirX >= 0 ? s * 0.03 : -s * 0.03) : cx;
+    ctx.beginPath();
+    ctx.moveTo(nx - s * 0.015, hy + s * 0.04);
+    ctx.lineTo(nx + s * 0.015, hy + s * 0.04);
+    ctx.lineTo(nx, hy + s * 0.06);
+    ctx.closePath(); ctx.fill();
+
+    // 口（にこっ）
+    ctx.strokeStyle = '#1f2937';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.arc(nx - s * 0.02, hy + s * 0.075, s * 0.02, 0.1, Math.PI - 0.1);
+    ctx.arc(nx + s * 0.02, hy + s * 0.075, s * 0.02, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+
+    // ひげ（左右各2本、正面のみ目立たせる）
+    ctx.strokeStyle = 'rgba(31,41,55,0.7)';
+    ctx.lineWidth   = 0.8;
+    if (facing === 'front') {
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.06, hy + s * 0.05); ctx.lineTo(cx - s * 0.18, hy + s * 0.03);
+      ctx.moveTo(cx - s * 0.06, hy + s * 0.07); ctx.lineTo(cx - s * 0.18, hy + s * 0.08);
+      ctx.moveTo(cx + s * 0.06, hy + s * 0.05); ctx.lineTo(cx + s * 0.18, hy + s * 0.03);
+      ctx.moveTo(cx + s * 0.06, hy + s * 0.07); ctx.lineTo(cx + s * 0.18, hy + s * 0.08);
+      ctx.stroke();
+    } else {
+      const sign = dirX >= 0 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(cx + sign * s * 0.05, hy + s * 0.05); ctx.lineTo(cx + sign * s * 0.18, hy + s * 0.03);
+      ctx.moveTo(cx + sign * s * 0.05, hy + s * 0.07); ctx.lineTo(cx + sign * s * 0.18, hy + s * 0.08);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 // ── レジストリ ──────────────────────────────────
 
 export const APPEARANCES: Record<string, AppearanceDef> = {
@@ -549,6 +681,16 @@ export const APPEARANCES: Record<string, AppearanceDef> = {
       durMul: 1.5,
       hpHealMul: 0.5,
       label: 'ATK+1 DEF+1／装備消耗大・回復半減',
+    },
+  },
+  catling: {
+    id: 'catling', name: 'ねこっこ',    desc: 'しなやか\n毛玉の民',
+    base: '#fcd34d', draw: drawCatling,
+    traits: {
+      spdBonus: 1,
+      atkBonus: 1,
+      hpBonus: -2,
+      label: 'SPD+1 ATK+1／HP-2',
     },
   },
 };
