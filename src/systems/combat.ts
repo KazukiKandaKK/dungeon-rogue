@@ -113,6 +113,12 @@ export function attack(
   const def    = defender.def ?? 0;
   let damage   = Math.max(1, rawAtk - def);
 
+  // ── 種族特性：物理被ダメ倍率（防御者がプレイヤーのとき） ──
+  if (isPlayerDefending) {
+    const mul = player.damageRecvMul('phys');
+    if (mul !== 1) damage = Math.max(1, Math.round(damage * mul));
+  }
+
   // ── クリティカル（攻撃者がプレイヤーのとき） ──────────
   let isCrit = false;
   if (isPlayerAttacking) {
@@ -144,7 +150,10 @@ export function attack(
   if (isPlayerAttacking) {
     const w = player.equip?.weapon;
     if (w?.durability !== undefined) {
-      w.durability--;
+      const durMul = player.traits.durMul ?? 1;
+      let dec = 1;
+      if (durMul > 1 && Math.random() < (durMul - 1)) dec += 1;
+      w.durability -= dec;
       if (w.durability <= 0) {
         logger.add(`${w.icon}${w.name} が壊れた！`, 'warn');
         player.equip.weapon = null;
@@ -189,7 +198,10 @@ export function attack(
       const slot = candidates[Math.floor(Math.random() * candidates.length)];
       const a    = player.equip[slot];
       if (a && a.durability !== undefined) {
-        a.durability--;
+        const durMul = player.traits.durMul ?? 1;
+        let dec = 1;
+        if (durMul > 1 && Math.random() < (durMul - 1)) dec += 1;
+        a.durability -= dec;
         if (a.durability <= 0) {
           logger.add(`${a.icon}${a.name} が壊れた！`, 'warn');
           player.equip[slot] = null;

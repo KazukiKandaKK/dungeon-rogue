@@ -629,6 +629,28 @@ export function drawInventory(
         const tint = itemCategoryTint(item);
         if (tint) paintSlotTint(ctx, sx, sy, S, tint, sel);
 
+        // 呪い・祝福・未鑑定の枠装飾
+        if (item.slot !== 'consumable' && item.identified === false) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(168,85,247,0.85)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(sx + 1, sy + 1, S - 2, S - 2);
+          ctx.restore();
+        } else if (item.cursed) {
+          ctx.save();
+          ctx.shadowColor = 'rgba(124,58,237,0.9)'; ctx.shadowBlur = 8;
+          ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2;
+          ctx.strokeRect(sx + 1, sy + 1, S - 2, S - 2);
+          ctx.restore();
+        } else if (item.blessed) {
+          ctx.save();
+          ctx.shadowColor = 'rgba(253,224,71,0.9)'; ctx.shadowBlur = 8;
+          ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2;
+          ctx.strokeRect(sx + 1, sy + 1, S - 2, S - 2);
+          ctx.restore();
+        }
+
         // アイテムアイコン（中央）
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -685,14 +707,28 @@ export function drawInventory(
 
   if (tipTarget) {
     ctx.font = 'bold 12px monospace';
-    ctx.fillStyle = '#fffccc';
+    // 鑑定状況に応じて表示を変える
+    const unident = tipTarget.slot !== 'consumable' && tipTarget.identified === false;
+    let displayName = tipTarget.name;
+    let nameColor: string = '#fffccc';
+    if (unident) {
+      displayName = `??? ${SLOT_LABEL[tipTarget.slot] ?? ''}`;
+      nameColor = '#c4b5fd';
+    } else if (tipTarget.cursed) {
+      displayName = `呪われた ${tipTarget.name}`;
+      nameColor = '#c084fc';
+    } else if (tipTarget.blessed) {
+      displayName = `祝福された ${tipTarget.name}`;
+      nameColor = '#fde047';
+    }
+    ctx.fillStyle = nameColor;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(`${tipTarget.icon} ${tipTarget.name}`, GX + 4, TY + 8);
+    ctx.fillText(`${tipTarget.icon} ${displayName}`, GX + 4, TY + 8);
 
     ctx.font = '10px monospace';
     ctx.fillStyle = '#a5b4fc';
-    ctx.fillText(itemStatText(tipTarget), GX + 4, TY + 24);
+    ctx.fillText(unident ? '（鑑定の巻物で正体を暴ける）' : itemStatText(tipTarget), GX + 4, TY + 24);
 
     ctx.font = '9px monospace';
     ctx.fillStyle = '#666';

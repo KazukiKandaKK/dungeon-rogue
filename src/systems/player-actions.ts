@@ -9,6 +9,9 @@ import type { ItemDef } from '../data/equipment.js';
 import { SPELLS, resolveSpell } from '../data/magic.js';
 import { TILE, TILE_SIZE }      from '../world/tiles.js';
 import { LOAN_QUEST_FLOORS }    from '../core/game-constants.js';
+import { reportPickup as _questReportPickup, reportGold as _questReportGold } from './quests.js';
+import { goldMul as _weGoldMul, expMul as _weExpMul } from './world-events.js';
+import { reportGoldEarned as _titleReportGold } from './titles.js';
 
 // ── 共通型 ────────────────────────────────────
 
@@ -260,7 +263,7 @@ function advanceWorldTurn(ctx: PlayerActionContext): void {
   ctx.onProcessDeathTraits(dead);
 
   for (const e of dead) {
-    const expGained = e.expValue;
+    const expGained = Math.max(1, Math.floor(e.expValue * _weExpMul()));
     const levels    = ctx.player.gainExp(expGained);
     const ex = e.renderX + ctx.camOffX;
     const ey = e.renderY + ctx.camOffY;
@@ -310,6 +313,10 @@ export function applyGoldWithQuest(
   floatY:  number | null,
   ctx:     PlayerActionContext,
 ): void {
+  // ワールドイベントによる倍率（正の値のみ適用）
+  if (amount > 0) amount = Math.max(1, Math.floor(amount * _weGoldMul()));
+  if (amount > 0) _questReportGold(amount);
+  if (amount > 0) _titleReportGold(amount);
   if (!ctx.loanQuestActive || ctx.loanDebt <= 0 || ctx.floorNumber > LOAN_QUEST_FLOORS) {
     ctx.player.gold += amount;
     return;
@@ -372,6 +379,7 @@ export function pickupItem(ntx: number, nty: number, ctx: PlayerActionContext): 
     } else if (ctx.player.addToInventory(item)) {
       ctx.floorItems.splice(itemIdx, 1);
       ctx.logger.add(`${item.icon}${item.name} を拾った！`);
+      _questReportPickup();
     }
   }
 
@@ -601,7 +609,11 @@ export function doPlayerAction(
     if (landTile === TILE.TRAP && !ctx.map.revealedTraps.has(`${ctx.player.tx},${ctx.player.ty}`)) {
       ctx.map.revealedTraps.add(`${ctx.player.tx},${ctx.player.ty}`);
       const trapType = ctx.map.trapTypes.get(`${ctx.player.tx},${ctx.player.ty}`) ?? 'damage';
-      ctx.onTriggerTrap(trapType);
+      if (ctx.player.traits.trapImmune) {
+        ctx.logger.add('罠を踏んだが、ぷるんとすり抜けた！', 'warn');
+      } else {
+        ctx.onTriggerTrap(trapType);
+      }
     }
 
     applyTileEffect(landTile, ctx);
@@ -673,8 +685,12 @@ function processDashTurn(
     if (nextTile === TILE.TRAP && !ctx.map.revealedTraps.has(`${ntx},${nty}`)) {
       ctx.map.revealedTraps.add(`${ntx},${nty}`);
       const trapType = ctx.map.trapTypes.get(`${ntx},${nty}`) ?? 'damage';
-      ctx.onTriggerTrap(trapType);
-      trapTriggered = true;
+      if (ctx.player.traits.trapImmune) {
+        ctx.logger.add('罠を踏んだが、ぷるんとすり抜けた！', 'warn');
+      } else {
+        ctx.onTriggerTrap(trapType);
+        trapTriggered = true;
+      }
     }
 
     applyTileEffect(nextTile, ctx);
@@ -797,7 +813,7 @@ export function castPlayerSpell(spellId: string, ctx: PlayerActionContext): void
     ctx.onProcessDeathTraits(justDied);
 
     for (const e of justDied) {
-      const expGained = e.expValue;
+      const expGained = Math.max(1, Math.floor(e.expValue * _weExpMul()));
       const levels    = ctx.player.gainExp(expGained);
       const ex = e.renderX + ctx.camOffX;
       const ey = e.renderY + ctx.camOffY;

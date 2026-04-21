@@ -11,6 +11,7 @@ import type { DungeonDef }  from '../world/dungeon_defs.js';
 import { SPELLS }           from '../data/magic.js';
 import { drawItemSvg, drawItemIcon } from './item-renderer.js';
 import type { SpriteLoader } from '../core/sprites.js';
+import { getActiveTitle } from '../systems/titles.js';
 import type { FloatingText, GamePhase } from '../core/game-context.js';
 import { TILE }             from '../world/tiles.js';
 
@@ -123,6 +124,23 @@ export function drawHUD(
   ctx.strokeStyle = 'rgba(250,204,21,0.6)';
   ctx.lineWidth   = 1.5;
   ctx.stroke();
+
+  // 称号バナー（パネル上部に重ねる）
+  const activeTitle = getActiveTitle();
+  if (activeTitle) {
+    const banner = `${activeTitle.icon} ${activeTitle.name}`;
+    ctx.font = 'bold 10px monospace';
+    const tw = ctx.measureText(banner).width + 12;
+    const bx = px + pw / 2 - tw / 2;
+    const by = py - 9;
+    roundRect(ctx, bx, by, tw, 14, 4);
+    ctx.fillStyle = 'rgba(30,8,60,0.95)'; ctx.fill();
+    ctx.strokeStyle = activeTitle.color; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = activeTitle.color;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(banner, px + pw / 2, by + 8);
+  }
 
   ctx.font = 'bold 11px monospace'; ctx.fillStyle = '#fde68a';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';

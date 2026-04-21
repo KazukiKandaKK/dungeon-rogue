@@ -12,6 +12,8 @@ import { DUNGEONS }               from '../world/dungeon_defs.js';
 import { getSlotData, hasAnySave } from '../systems/saves.js';
 import type { SaveSlotMode }      from '../core/game-context.js';
 import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
+import { todayKey, getDailyBest } from '../systems/daily.js';
+import { PETS, PET_KINDS, type PetKind } from '../entities/pet.js';
 
 // ── TitleContext / drawTitle ──────────────────────────────
 
@@ -66,6 +68,7 @@ export function drawTitle(
   const hasAny = hasAnySave();
   const menuItems = ['▶  はじめから'];
   if (hasAny) menuItems.push('▶  続きから');
+  menuItems.push('▶  デイリー挑戦');
 
   const itemH    = 52;
   const menuTop  = H / 2 + 10;
@@ -89,6 +92,20 @@ export function drawTitle(
     ctx.fillText(label, W / 2, y);
     ctx.restore();
   });
+
+  // デイリー本日のベスト
+  const tk   = todayKey();
+  const best = getDailyBest(tk);
+  if (best) {
+    ctx.save();
+    ctx.font         = '11px monospace';
+    ctx.fillStyle    = 'rgba(253,224,71,0.65)';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    const ds = `${tk.slice(0,4)}-${tk.slice(4,6)}-${tk.slice(6,8)}`;
+    ctx.fillText(`☀ ${ds} デイリー Best: ${best.score}（F${best.floor}${best.cleared ? ' 制覇' : ''}）`, W / 2, H - 36);
+    ctx.restore();
+  }
 
   // Footer
   ctx.font         = '10px monospace';
@@ -442,6 +459,12 @@ export interface CharCreateContext {
   tintCursor:    number;
   /** 'species' | 'tint' のどちらを選んでいるか */
   focusGroup:    'species' | 'tint';
+  /** デイリー挑戦モード中か */
+  dailyMode?:    boolean;
+  /** デイリー日付（YYYYMMDD） */
+  dailyDateKey?: string;
+  /** ペット選択（null=なし） */
+  petCursor?:   number;     // 0..PET_KINDS.length（0=なし、1..=PETS）
 }
 
 export function drawCharCreate(
@@ -474,6 +497,26 @@ export function drawCharCreate(
   ctx.fillStyle = '#a5b4fc';
   ctx.fillText('← → で種族　　↑ ↓ で色　　Enter で決定', W / 2, 92);
   ctx.restore();
+
+  // デイリー挑戦バッジ
+  if (c.dailyMode) {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 12px monospace';
+    const dk = c.dailyDateKey ?? '';
+    const ds = dk.length === 8 ? `${dk.slice(0,4)}-${dk.slice(4,6)}-${dk.slice(6,8)}` : '';
+    const label = `☀ デイリー挑戦 ${ds}（共通シード）`;
+    const tw = ctx.measureText(label).width + 24;
+    roundRect(ctx, W / 2 - tw / 2, 108, tw, 22, 8);
+    ctx.fillStyle = 'rgba(253,224,71,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(253,224,71,0.55)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(label, W / 2, 119);
+    ctx.restore();
+  }
 
   // ── 中央の大きなプレビュー ─────────────
   const previewCX = W / 2;
@@ -598,15 +641,36 @@ export function drawCharCreate(
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const lines = species.desc.split('\n');
   lines.forEach((line, i) => {
-    ctx.fillText(line, W / 2, tintY - 42 + i * 14);
+    ctx.fillText(line, W / 2, tintY - 56 + i * 14);
   });
+  // 種族特性ラベル（黄色で強調）
+  if (species.traits?.label) {
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = 'rgba(251,191,36,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(`◆ ${species.traits.label}`, W / 2, tintY - 24);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+
+  // ペット選択（フッター上） — Pキーで切り替え
+  const petCur = c.petCursor ?? 0;
+  const petLabel = petCur === 0
+    ? 'なし'
+    : (PETS[PET_KINDS[(petCur - 1) % PET_KINDS.length] as PetKind]?.name ?? 'なし');
+  ctx.save();
+  ctx.font = 'bold 12px monospace';
+  ctx.fillStyle = petCur > 0 ? '#86efac' : 'rgba(156,163,175,0.7)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(`🐾 ペット: ${petLabel}（[P] で切替）`, W / 2, H - 32);
   ctx.restore();
 
   // フッター
   ctx.font = '10px monospace';
   ctx.fillStyle = 'rgba(148,130,220,0.55)';
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('← → ↑ ↓ で選択   Enter で決定   Backspace で戻る', W / 2, H - 16);
+  ctx.fillText('← → ↑ ↓ で選択   P でペット   Enter で決定   Backspace で戻る', W / 2, H - 16);
 }
 
 // ── GameOverContext / drawGameOver ────────────────────────

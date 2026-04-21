@@ -9,6 +9,39 @@
 
 export type FacingKind = 'front' | 'back' | 'side';
 
+/**
+ * 種族特性。ステータス補正と挙動フラグの両方を持つ。
+ * 数値補正は Player の getter / 戦闘計算 / 移動処理から参照される。
+ */
+export interface SpeciesTraits {
+  /** 基礎 ATK 補正 */
+  atkBonus?:  number;
+  /** 基礎 DEF 補正 */
+  defBonus?:  number;
+  /** 基礎 SPD 補正（負も可） */
+  spdBonus?:  number;
+  /** 基礎 HP 補正 */
+  hpBonus?:   number;
+  /** 物理被ダメ倍率（0.75 で 25% 軽減） */
+  physRecv?:  number;
+  /** 火炎被ダメ倍率 */
+  fireRecv?:  number;
+  /** 罠を踏んでも発動しない */
+  trapImmune?: boolean;
+  /** 毒状態にならない */
+  poisonImmune?: boolean;
+  /** 毎ターン HP +1 */
+  passiveRegen?: boolean;
+  /** MP 自動回復の歩数（既定 5） */
+  mpRegenSteps?: number;
+  /** 装備耐久消費倍率（2 で倍速消耗） */
+  durMul?:    number;
+  /** HP回復アイテムの効果倍率（0.5 で半減） */
+  hpHealMul?: number;
+  /** 短いラベル（カードに表示） */
+  label?:     string;
+}
+
 export interface AppearanceDef {
   id:   string;
   /** カード表示名 */
@@ -17,6 +50,8 @@ export interface AppearanceDef {
   desc: string;
   /** キャラの固有色（tint と混ぜられる） */
   base: string;
+  /** 種族特性 */
+  traits: SpeciesTraits;
   /**
    * procedural 描画。cx/cy を足元やや上の中心として、サイズ s のボックスに収める。
    * facing: 正面・背面・横向き。
@@ -460,26 +495,61 @@ export const APPEARANCES: Record<string, AppearanceDef> = {
   snowman: {
     id: 'snowman', name: 'ゆきだるま', desc: '3段雪玉の\nほっこり担当',
     base: '#f1f5f9', draw: drawSnowman,
+    traits: {
+      passiveRegen: true,
+      fireRecv: 1.2,
+      label: 'HP自動回復／火炎弱点',
+    },
   },
   slimeling: {
     id: 'slimeling', name: 'すらりん',   desc: 'ぷるぷる\n水っぽい民',
     base: '#7dd3fc', draw: drawSlimeling,
+    traits: {
+      trapImmune: true,
+      poisonImmune: true,
+      defBonus: -1,
+      label: '罠無効・毒無効／DEF-1',
+    },
   },
   mushroom: {
     id: 'mushroom', name: 'きのこん',   desc: '傘をかぶった\nほだ木の民',
     base: '#f87171', draw: drawMushroom,
+    traits: {
+      mpRegenSteps: 2,
+      atkBonus: -1,
+      label: 'MP回復が早い／ATK-1',
+    },
   },
   rockling: {
     id: 'rockling', name: 'いわっこ',   desc: 'ごつごつ\n岩石の民',
     base: '#a8a29e', draw: drawRockling,
+    traits: {
+      defBonus: 2,
+      spdBonus: -1,
+      hpBonus: 4,
+      label: 'DEF+2 HP+4／SPD-1',
+    },
   },
   ghostling: {
     id: 'ghostling', name: 'おばっち',  desc: 'ふわふわ\n半透明の民',
     base: '#c084fc', draw: drawGhostling,
+    traits: {
+      physRecv: 0.75,
+      fireRecv: 1.25,
+      hpBonus: -2,
+      label: '物理-25%／火炎弱点',
+    },
   },
   botling: {
     id: 'botling', name: 'ちびロボ',    desc: 'ピコピコ\n金属の民',
     base: '#fbbf24', draw: drawBotling,
+    traits: {
+      atkBonus: 1,
+      defBonus: 1,
+      durMul: 1.5,
+      hpHealMul: 0.5,
+      label: 'ATK+1 DEF+1／装備消耗大・回復半減',
+    },
   },
 };
 

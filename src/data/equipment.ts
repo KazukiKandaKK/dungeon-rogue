@@ -31,6 +31,8 @@ export interface ItemDef {
   revive?:    boolean;
   tempAtk?:   number;
   tempTurns?: number;
+  /** ツルハシ系：向いている方向に最大N枚の壁を掘る消費アイテム */
+  breakWallRange?: number;
   // ── 装備共通 ──
   atk?:          number;
   def?:          number;
@@ -48,6 +50,18 @@ export interface ItemDef {
   maxDurability?: number;
   /** インベントリ上のスタック個数。消耗品のみスタック可（未指定は 1 扱い）。 */
   count?: number;
+
+  // ── 呪い・祝福・未鑑定 ─────────────────────────
+  /** 鑑定済みか。未鑑定の装備は名前/性能が「???」表示になる。 */
+  identified?: boolean;
+  /** 呪い装備：鑑定後は外せなくなる。 */
+  cursed?: boolean;
+  /** 祝福装備：見た目が金色に光り、装備中ターンごとの恩恵あり。 */
+  blessed?: boolean;
+  /** 鑑定の巻物（消耗品 spec） */
+  identifyScroll?: boolean;
+  /** 浄化の巻物（消耗品 spec） */
+  uncurseScroll?: boolean;
 }
 
 export interface ShopEntry {
@@ -85,6 +99,8 @@ const HANDCRAFTED: Record<string, ItemDef> = {
   scroll_chain:   { id: 'scroll_chain', spriteName: 'item_scroll_chain',   name: '連鎖の巻物',   slot: 'consumable', spellId: 'chain_bolt', icon: '📜', color: '#fbbf24', tier: 1 },
   scroll_wind:    { id: 'scroll_wind', spriteName: 'item_scroll_wind',    name: '風刃の巻物',   slot: 'consumable', spellId: 'wind_cross', icon: '📜', color: '#d1fae5', tier: 1 },
   scroll_gravity: { id: 'scroll_gravity', spriteName: 'item_scroll_gravity', name: '重力の巻物',   slot: 'consumable', spellId: 'gravity',    icon: '📜', color: '#6366f1', tier: 2 },
+  scroll_identify:{ id: 'scroll_identify',                                 name: '鑑定の巻物',   slot: 'consumable', identifyScroll: true,   icon: '📜', color: '#fde68a', tier: 0 },
+  scroll_uncurse: { id: 'scroll_uncurse',                                  name: '浄化の巻物',   slot: 'consumable', uncurseScroll: true,    icon: '📜', color: '#86efac', tier: 1 },
 
   // ── 武器（近接） ─────────────────────────────────
   dagger:       { id: 'dagger', spriteName: 'item_dagger',       name: '短剣',       slot: 'weapon', atk: 2, icon: '🗡', color: '#94a3b8', tier: 0, maxDurability: 20, durability: 20 },
@@ -158,6 +174,9 @@ const HANDCRAFTED: Record<string, ItemDef> = {
 
   // ── 消耗品（tier3） ──────────────────────────────
   bomb:           { id: 'bomb', spriteName: 'item_bomb',           name: '爆弾',         slot: 'consumable', bombDmg: 30,  icon: '💣', color: '#dc2626', tier: 2 },
+  pickaxe_copper: { id: 'pickaxe_copper', name: '銅のツルハシ', slot: 'consumable', breakWallRange: 1, icon: '⛏', color: '#b45309', tier: 1 },
+  pickaxe_iron:   { id: 'pickaxe_iron',   name: '鉄のツルハシ', slot: 'consumable', breakWallRange: 2, icon: '⛏', color: '#94a3b8', tier: 2 },
+  pickaxe_mithril:{ id: 'pickaxe_mithril',name: '魔晶のツルハシ', slot: 'consumable', breakWallRange: 3, icon: '⛏', color: '#67e8f9', tier: 3 },
   revival_gem:    { id: 'revival_gem', spriteName: 'item_revival_gem',    name: '蘇生の宝玉',   slot: 'consumable', revive: true, icon: '💎', color: '#34d399', tier: 3 },
   power_potion:   { id: 'power_potion', spriteName: 'item_power_potion',   name: '力の秘薬',     slot: 'consumable', tempAtk: 5, tempTurns: 15, icon: '💪', color: '#f97316', tier: 2 },
   full_ether:     { id: 'full_ether', spriteName: 'item_full_ether',     name: '完全マナ薬',   slot: 'consumable', healMp: 'full', icon: '🌀', color: '#818cf8', tier: 3 },
@@ -187,18 +206,47 @@ const EQUIP_POOL: ReadonlyArray<readonly string[]> = [
 
 // 消費アイテムプール（tier別）
 const CONSUM_POOL: ReadonlyArray<readonly string[]> = [
-  ['herb', 'herb', 'potion_sm', 'antidote', 'ether_sm', 'scroll_teleport', 'scroll_poison'],
+  ['herb', 'herb', 'potion_sm', 'antidote', 'ether_sm', 'scroll_teleport', 'scroll_poison', 'scroll_identify'],
   ['potion_sm', 'potion_md', 'herb', 'ether_sm', 'ether_md', 'scroll_fire', 'scroll_thunder',
-   'scroll_dark', 'scroll_frost', 'scroll_drain', 'scroll_sleep', 'scroll_chain', 'scroll_wind'],
+   'scroll_dark', 'scroll_frost', 'scroll_drain', 'scroll_sleep', 'scroll_chain', 'scroll_wind',
+   'scroll_identify', 'scroll_uncurse', 'pickaxe_copper'],
   ['potion_md', 'potion_lg', 'elixir', 'ether_md', 'ether_lg', 'scroll_blizzard', 'scroll_meteor',
-   'scroll_holy', 'scroll_quake', 'scroll_gravity', 'bomb', 'power_potion'],
-  ['revival_gem', 'full_ether', 'elixir', 'bomb', 'power_potion'],
+   'scroll_holy', 'scroll_quake', 'scroll_gravity', 'bomb', 'power_potion', 'scroll_uncurse',
+   'pickaxe_iron'],
+  ['revival_gem', 'full_ether', 'elixir', 'bomb', 'power_potion', 'pickaxe_mithril'],
 ];
 
 function _pickFromPool(pool: ReadonlyArray<readonly string[]>, maxTier: number): string {
   const merged: string[] = [];
   for (let t = 0; t <= maxTier; t++) merged.push(...pool[t]);
   return merged[Math.floor(Math.random() * merged.length)];
+}
+
+/**
+ * 装備に呪い・祝福・未鑑定の付与。消費系には何もしない。
+ *  - 25%: 呪い（cursed）
+ *  - 12%: 祝福（blessed）
+ *  - 残り: 通常
+ *  - 装備系はすべて identified=false でドロップする
+ */
+export function applyEnchant(item: ItemDef): ItemDef {
+  if (item.slot === 'consumable') return item;
+  item.identified = false;
+  const r = Math.random();
+  if (r < 0.25) {
+    item.cursed = true;
+    // 呪い：主要ステ -1（ATK / DEF / maxHP のうち持っているもの）
+    if (item.atk !== undefined) item.atk = Math.max(0, item.atk - 1);
+    else if (item.def !== undefined) item.def = Math.max(0, item.def - 1);
+    else if (item.maxHp !== undefined) item.maxHp = Math.max(0, item.maxHp - 2);
+  } else if (r < 0.37) {
+    item.blessed = true;
+    // 祝福：主要ステ +1
+    if (item.atk !== undefined) item.atk += 1;
+    else if (item.def !== undefined) item.def += 1;
+    else if (item.maxHp !== undefined) item.maxHp += 2;
+  }
+  return item;
 }
 
 /**
@@ -210,7 +258,7 @@ export function randomDrop(floorNum: number, lukBonus = 0): ItemDef | null {
   const id = Math.random() < 0.5
     ? _pickFromPool(CONSUM_POOL, maxTier)
     : _pickFromPool(EQUIP_POOL, maxTier);
-  return { ...ITEMS[id] };
+  return applyEnchant({ ...ITEMS[id] });
 }
 
 /**
@@ -227,7 +275,7 @@ export function chestDrop(floorNum: number): ItemDef {
   const pool    = Math.random() < 0.55 ? EQUIP_POOL : CONSUM_POOL;
   const tierPool = pool[tier] ?? pool[0];
   const id = tierPool[Math.floor(Math.random() * tierPool.length)];
-  return { ...ITEMS[id] };
+  return applyEnchant({ ...ITEMS[id] });
 }
 
 /**
@@ -238,7 +286,7 @@ export function treasureDrop(floorNum: number): ItemDef {
   const id = Math.random() < 0.6
     ? _pickFromPool(CONSUM_POOL, maxTier)
     : _pickFromPool(EQUIP_POOL, maxTier);
-  return { ...ITEMS[id] };
+  return applyEnchant({ ...ITEMS[id] });
 }
 
 /** 露店カタログ（tier 別）：手作り + 生成武器 tier0-2 */
@@ -311,6 +359,8 @@ export const SHOP_CATALOG: ShopEntry[] = [
   { itemId: 'brooch_mana',    price: 88,  tier: 2 },
   { itemId: 'bomb',           price: 60,  tier: 2 },
   { itemId: 'power_potion',   price: 70,  tier: 2 },
+  { itemId: 'pickaxe_copper', price: 35,  tier: 1 },
+  { itemId: 'pickaxe_iron',   price: 80,  tier: 2 },
   // ── tier 3 は露店では売らない（チート級アイテムは特定敵からのレアドロップのみ）
   // ── 生成武器（tier0-2、atk × 12 の価格） ──
   ..._shopGenerated,

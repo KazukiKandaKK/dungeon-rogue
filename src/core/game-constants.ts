@@ -16,12 +16,17 @@ export const MIN_SPAWN_DIST = 5;
 export const ITEM_PER_FLOOR = 4;
 export const SAVE_SLOT_KEYS = ['dungeon_slot_0', 'dungeon_slot_1', 'dungeon_slot_2'] as const;
 
-// ── 拠点マップ ────────────────────────────────
+// ── 拠点マップ（統合フィールド 36×28） ─────────
+//
+// 北部：ダンジョン区（6ポータル）
+// 中部：広場（モニュメント・噴水・酒場・行商人）
+// 南部：商業/工房地区、裏路地、スポーン
+// BASE と前線街を同一マップに統合したファンタジーシティ。
 
-export const BASE_COLS  = 28;
-export const BASE_ROWS  = 20;
-export const BASE_SPAWN = { tx: 14, ty: 17 } as const;
-export const BASE_CHEST_POS = { tx: 14, ty: 14 } as const;
+export const BASE_COLS  = 36;
+export const BASE_ROWS  = 28;
+export const BASE_SPAWN = { tx: 18, ty: 25 } as const;
+export const BASE_CHEST_POS = { tx: 18, ty: 22 } as const;
 
 export interface PortalDef {
   tx:        number;
@@ -30,34 +35,46 @@ export interface PortalDef {
 }
 
 /**
- * ポータル配置：
- *   上段（y=3）… 通常ダンジョン4つ
- *   下段（y=5）… 特殊ポータル（ボスラッシュ／無限回廊）を中央寄りに配置
+ * ダンジョン入口 6 基：
+ *   北列 (y=3) … 通常4ダンジョン
+ *   中列 (y=6) … 特殊2ポータル（ボスラッシュ／無限回廊）
  */
 export const BASE_PORTALS: PortalDef[] = [
-  { tx:  5, ty: 3, dungeonId: 'cave' },
-  { tx: 10, ty: 3, dungeonId: 'goblin_nest' },
-  { tx: 17, ty: 3, dungeonId: 'cursed_forest' },
-  { tx: 22, ty: 3, dungeonId: 'abyss' },
-  { tx: 10, ty: 5, dungeonId: 'boss_rush' },
-  { tx: 17, ty: 5, dungeonId: 'infinite_abyss' },
+  { tx:  6, ty: 3, dungeonId: 'cave' },
+  { tx: 13, ty: 3, dungeonId: 'goblin_nest' },
+  { tx: 22, ty: 3, dungeonId: 'cursed_forest' },
+  { tx: 29, ty: 3, dungeonId: 'abyss' },
+  { tx: 13, ty: 6, dungeonId: 'boss_rush' },
+  { tx: 22, ty: 6, dungeonId: 'infinite_abyss' },
 ];
 
-/**
- * 拠点内施設の座標（地区ごとに配置）
- *   西地区（商業）   : ショップ・委託露店
- *   東地区（工房）   : クラフト（鍛冶）・転職の祭壇
- *   裏路地（南角）   : 金貸し（南西）・カジノ（南東）
- */
-export const BASE_SHOP_POS    = { tx:  4, ty: 12 } as const; // 拠点ショップ（西）
-export const BASE_STALL_POS   = { tx:  8, ty: 12 } as const; // 委託露店（西）
-export const BASE_CRAFT_POS   = { tx: 19, ty: 12 } as const; // 鍛冶屋（東）
-export const BASE_RECLASS_POS = { tx: 23, ty: 12 } as const; // 転職の祭壇（東）
-export const BASE_LOAN_POS    = { tx:  3, ty: 15 } as const; // 金貸し（南西角）
-export const BASE_CASINO_POS  = { tx: 24, ty: 15 } as const; // カジノ（南東角）
+/** 中央広場のモニュメント（装飾のみ） */
+export const BASE_MONUMENT_POS = { tx: 17, ty: 10 } as const;
 
-/** 中央広場の噴水（装飾かつ通行不可の 2×2 ブロック） */
-export const BASE_FOUNTAIN_POS = { tx: 13, ty: 8 } as const;
+/** 酒場（中部西） */
+export const BASE_TAVERN_POS = { tx:  5, ty: 10 } as const;
+/** 流浪の行商人（中部東） */
+export const BASE_TRADER_POS = { tx: 30, ty: 10 } as const;
+
+/**
+ * 施設（地区ごとに配置）:
+ *   広場（中央 y=14-15）  : 冒険者ギルド受付・クエスト掲示板・魂の祠
+ *   商業地区（西 y=18）    : ショップ・委託露店
+ *   工房地区（東 y=18）    : 鍛冶屋・転職の祭壇
+ *   裏路地（y=21）         : 金貸し・カジノ
+ */
+export const BASE_SHOP_POS      = { tx:  5, ty: 18 } as const;
+export const BASE_STALL_POS     = { tx: 10, ty: 18 } as const;
+export const BASE_CRAFT_POS     = { tx: 25, ty: 18 } as const;
+export const BASE_RECLASS_POS   = { tx: 30, ty: 18 } as const;
+export const BASE_LOAN_POS      = { tx:  4, ty: 21 } as const;
+export const BASE_CASINO_POS    = { tx: 31, ty: 21 } as const;
+export const BASE_SHRINE_POS    = { tx: 17, ty: 15 } as const;
+export const BASE_QUEST_POS     = { tx: 13, ty: 15 } as const;
+export const BASE_RECEPTION_POS = { tx: 21, ty: 15 } as const;
+
+/** 中央噴水（2×2、通行不可） */
+export const BASE_FOUNTAIN_POS = { tx: 17, ty: 12 } as const;
 
 /** クラフト（武器合成）コスト：基礎 + 合成元合計 tier に比例 */
 export const CRAFT_BASE_COST     = 120;

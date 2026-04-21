@@ -10,6 +10,9 @@ import type { ItemDef }      from '../data/equipment.js';
 import { ARMOR_SLOTS }        from '../data/equipment.js';
 import type { StatusEffectEntry, SpriteManager } from '../types.js';
 import { APPEARANCES, APPEARANCE_IDS } from '../data/appearances.js';
+import type { SpeciesTraits } from '../data/appearances.js';
+
+const EMPTY_TRAITS: SpeciesTraits = {};
 
 // ── 型定義 ────────────────────────────────────
 
@@ -127,13 +130,20 @@ export class Player extends Actor {
 
   // ── 計算済みステータス ─────────────────────────
 
+  /** 種族特性。appearance 未指定なら空オブジェクトを返す。 */
+  get traits(): SpeciesTraits {
+    if (!this.appearance) return EMPTY_TRAITS;
+    return APPEARANCES[this.appearance.species]?.traits ?? EMPTY_TRAITS;
+  }
+
   get atk(): number {
     const atkBuff = (this.statusEffects.find(e => e.type === 'war_cry')?.power  ?? 0)
                   + (this.statusEffects.find(e => e.type === 'berserk')?.power  ?? 0);
     return this.baseAtk
       + (this.equip.weapon?.atk    ?? 0)
       + (this.equip.accessory?.atk ?? 0)
-      + atkBuff;
+      + atkBuff
+      + (this.traits.atkBonus ?? 0);
   }
 
   get def(): number {
@@ -147,12 +157,13 @@ export class Player extends Actor {
       + (this.equip.accessory?.def ?? 0)
       + barrierBonus
       + ironSkinBonus
-      - berserkPenalty;
+      - berserkPenalty
+      + (this.traits.defBonus ?? 0);
   }
 
   get spd(): number {
     const hasteBonus = this.statusEffects.find(e => e.type === 'haste')?.power ?? 0;
-    return this.baseSpd + hasteBonus;
+    return this.baseSpd + hasteBonus + (this.traits.spdBonus ?? 0);
   }
 
   get luk(): number { return this.baseLuk; }
@@ -163,7 +174,15 @@ export class Player extends Actor {
     return this.baseMaxHP
       + (this.lv - 1) * (this.hpPerLv + (this.buildBonus?.hpPerLv ?? 0))
       + armorHp
-      + (this.equip.accessory?.maxHp ?? 0);
+      + (this.equip.accessory?.maxHp ?? 0)
+      + (this.traits.hpBonus ?? 0);
+  }
+
+  /** 被ダメ倍率を取得する（属性ごとの種族耐性／弱点を反映）。 */
+  damageRecvMul(kind: 'phys' | 'fire' = 'phys'): number {
+    const t = this.traits;
+    if (kind === 'fire') return t.fireRecv ?? 1;
+    return t.physRecv ?? 1;
   }
 
   get totalMaxMp(): number {
@@ -175,7 +194,11 @@ export class Player extends Actor {
   equipItem(item: ItemDef): ItemDef | null {
     const slot = item.slot;
     if (slot === 'consumable') return null;
+    // 装備した瞬間に自動鑑定（呪いの存在も判明する）
+    item.identified = true;
     const old = this.equip[slot as EquipSlotName];
+    // 既存装備が呪いだったら外れない
+    if (old && old.cursed) return null;
     this.equip[slot as EquipSlotName] = item;
     this.hp    = Math.min(this.hp, this.totalMaxHP);
     this.maxHP = this.totalMaxHP;
@@ -185,10 +208,36 @@ export class Player extends Actor {
   unequipSlot(slot: EquipSlotName): ItemDef | null {
     const old = this.equip[slot];
     if (!old) return null;
+    if (old.cursed) return null;  // 呪いは外せない
     this.equip[slot] = null;
     this.hp    = Math.min(this.hp, this.totalMaxHP);
     this.maxHP = this.totalMaxHP;
     return old;
+  }
+
+  /** 全装備の呪いを解く（浄化の巻物） */
+  uncurseAll(): number {
+    let n = 0;
+    for (const s of ['weapon', ...ARMOR_SLOTS, 'accessory'] as EquipSlotName[]) {
+      const it = this.equip[s];
+      if (it && it.cursed) {
+        it.cursed = false;
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /** インベントリ全体を鑑定する（鑑定の巻物） */
+  identifyAll(): number {
+    let n = 0;
+    for (const it of this.inventory) {
+      if (it.slot !== 'consumable' && !it.identified) {
+        it.identified = true;
+        n++;
+      }
+    }
+    return n;
   }
 
   /**
@@ -229,6 +278,9 @@ export class Player extends Actor {
 
   useItem(item: ItemDef): number {
     if (item.slot !== 'consumable') return 0;
+    // 鑑定 / 浄化の巻物（戻り値は対象数）
+    if (item.identifyScroll) return this.identifyAll();
+    if (item.uncurseScroll)  return this.uncurseAll();
     const maxH   = this.maxHP;
     const before = this.hp;
     if (item.heal === 'full') {
@@ -241,7 +293,11 @@ export class Player extends Actor {
       this.mp = Math.min(this.totalMaxMp, this.mp + (item.healMp as number));
       return item.healMp as number;
     } else {
-      this.hp = Math.min(maxH, this.hp + ((item.heal as number | undefined) ?? 0));
+      // ちびロボ：HP回復薬の効果半減
+      const heal0 = (item.heal as number | undefined) ?? 0;
+      const mul   = this.traits.hpHealMul ?? 1;
+      const heal  = Math.max(0, Math.floor(heal0 * mul));
+      this.hp = Math.min(maxH, this.hp + heal);
     }
     return this.hp - before;
   }
@@ -250,7 +306,8 @@ export class Player extends Actor {
 
   onStep(): boolean {
     this._stepsSinceMpRegen++;
-    if (this._stepsSinceMpRegen >= 5) {
+    const stepsNeeded = this.traits.mpRegenSteps ?? 5;
+    if (this._stepsSinceMpRegen >= stepsNeeded) {
       this._stepsSinceMpRegen = 0;
       const maxMp = this.totalMaxMp;
       if (this.mp < maxMp) {
@@ -267,12 +324,14 @@ export class Player extends Actor {
     onHeal?:   (amount: number) => void,
     onPoison?: (amount: number) => void,
   ): void {
+    const t = this.traits;
     for (const ef of this.statusEffects) {
       if (ef.type === 'regen') {
         const healed = Math.min(ef.power ?? 0, this.totalMaxHP - this.hp);
         if (healed > 0) { this.hp += healed; onHeal?.(healed); }
       }
       if (ef.type === 'poison') {
+        if (t.poisonImmune) continue;
         const dmg = ef.power ?? 1;
         this.hp = Math.max(1, this.hp - dmg);
         onPoison?.(dmg);
@@ -285,6 +344,13 @@ export class Player extends Actor {
       ef.turnsLeft = (ef.turnsLeft ?? 1) - 1;
     }
     this.statusEffects = this.statusEffects.filter(e => (e.turnsLeft ?? 0) > 0);
+    if (t.poisonImmune) {
+      this.statusEffects = this.statusEffects.filter(e => e.type !== 'poison');
+    }
+    if (t.passiveRegen && this.hp < this.totalMaxHP) {
+      this.hp += 1;
+      onHeal?.(1);
+    }
   }
 
   // ── 魔法習得 ────────────────────────────────────

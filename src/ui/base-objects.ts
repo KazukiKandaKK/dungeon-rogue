@@ -19,8 +19,21 @@ import {
   BASE_CRAFT_POS,
   BASE_FOUNTAIN_POS,
   BASE_PORTALS,
+  BASE_SHRINE_POS,
+  BASE_QUEST_POS,
+  BASE_RECEPTION_POS,
+  BASE_TAVERN_POS,
+  BASE_TRADER_POS,
+  BASE_MONUMENT_POS,
 } from '../core/game-constants.js';
 import { DUNGEONS } from '../world/dungeon_defs.js';
+import {
+  drawDungeonPortal as drawGrandDungeonPortal,
+  drawTavern as drawGrandTavern,
+  drawTrader as drawGrandTrader,
+  drawMonument as drawGrandMonument,
+  drawAmbientMotes as drawGrandAmbientMotes,
+} from './town-objects.js';
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
@@ -34,6 +47,9 @@ export interface BaseObjectsContext {
   loanDebt:        number;
   sprites:         SpriteLoader;
   clearedDungeons: Set<string>;
+  /** 今日のクエスト件数（undefined なら未実装扱いで掲示板を出さない） */
+  questActive?:     number;
+  questClaimable?:  number;
 }
 
 // ─── 内部純粋関数 ──────────────────────────────
@@ -1203,7 +1219,642 @@ function drawReclassShrine(
   ctx.restore();
 }
 
+// ─── 魂の祠（小さな浮遊結晶） ───────────────────
+function drawSoulShrine(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, ts: number,
+  now: number, on: boolean,
+): void {
+  const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now * 1.4));
+  const float = Math.sin(now * 1.6) * 4;
+  ctx.save();
+  // 台座
+  ctx.shadowColor = `rgba(168,85,247,${(on ? 0.9 : 0.5) * pulse + 0.2})`;
+  ctx.shadowBlur = on ? 24 : 14;
+  ctx.fillStyle = '#1e1b4b';
+  ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + ts * 0.25, ts * 0.35, ts * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#312e81';
+  ctx.fillRect(cx - ts * 0.28, cy + ts * 0.05, ts * 0.56, ts * 0.18);
+  ctx.strokeRect(cx - ts * 0.28, cy + ts * 0.05, ts * 0.56, ts * 0.18);
+
+  // 浮遊する魂結晶
+  const sy = cy - ts * 0.05 + float;
+  ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 18 * pulse;
+  ctx.fillStyle = '#c084fc';
+  ctx.beginPath();
+  ctx.moveTo(cx,             sy - ts * 0.28);
+  ctx.lineTo(cx + ts * 0.16, sy - ts * 0.04);
+  ctx.lineTo(cx + ts * 0.10, sy + ts * 0.18);
+  ctx.lineTo(cx - ts * 0.10, sy + ts * 0.18);
+  ctx.lineTo(cx - ts * 0.16, sy - ts * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#f0abfc'; ctx.lineWidth = 1; ctx.stroke();
+  // ハイライト
+  ctx.fillStyle = 'rgba(253,224,255,0.7)';
+  ctx.beginPath();
+  ctx.moveTo(cx - ts * 0.05, sy - ts * 0.20);
+  ctx.lineTo(cx + ts * 0.02, sy - ts * 0.05);
+  ctx.lineTo(cx - ts * 0.06, sy + ts * 0.05);
+  ctx.closePath(); ctx.fill();
+
+  // 周囲を回るオーブ（魂の粒）
+  ctx.shadowBlur = 8;
+  for (let i = 0; i < 4; i++) {
+    const ang = now * 1.0 + i * (Math.PI * 2 / 4);
+    const ox = cx + Math.cos(ang) * ts * 0.32;
+    const oy = sy + Math.sin(ang) * ts * 0.12;
+    ctx.fillStyle = '#e9d5ff';
+    ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawQuestSignboard(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, ts: number,
+  now: number, on: boolean,
+  claimable: number,
+): void {
+  ctx.save();
+  const sway = Math.sin(now * 1.8) * 1.4;
+
+  // 土に刺さった木の杭（左右2本）
+  const postW = ts * 0.08;
+  const postH = ts * 0.58;
+  const postY = cy - ts * 0.04;
+  ctx.fillStyle = '#78350f';
+  ctx.fillRect(cx - ts * 0.30 - postW / 2, postY, postW, postH);
+  ctx.fillRect(cx + ts * 0.30 - postW / 2, postY, postW, postH);
+
+  // 掲示板本体
+  const bw = ts * 0.82;
+  const bh = ts * 0.52;
+  const bx = cx - bw / 2;
+  const by = cy - ts * 0.34 + sway * 0.3;
+  const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
+  grad.addColorStop(0, '#a16207'); grad.addColorStop(1, '#713f12');
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = '#451a03';
+  ctx.lineWidth = 1.5;
+  if (on) { ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 12; }
+  roundRect(ctx, bx, by, bw, bh, 4);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 木目
+  ctx.strokeStyle = 'rgba(68,26,3,0.45)';
+  ctx.lineWidth = 0.8;
+  for (let i = 1; i < 3; i++) {
+    const ly = by + (bh * i) / 3;
+    ctx.beginPath();
+    ctx.moveTo(bx + 4, ly); ctx.lineTo(bx + bw - 4, ly);
+    ctx.stroke();
+  }
+
+  // 巻物3枚
+  const scrollW = bw * 0.22;
+  const scrollH = bh * 0.6;
+  for (let i = 0; i < 3; i++) {
+    const sx = bx + bw * 0.12 + i * (scrollW + bw * 0.05);
+    const sy = by + bh * 0.18 + Math.sin(now * 2 + i) * 0.8;
+    ctx.fillStyle = '#fef3c7';
+    roundRect(ctx, sx, sy, scrollW, scrollH, 1.5);
+    ctx.fill();
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(180,83,9,0.7)';
+    ctx.fillRect(sx + 2, sy + scrollH * 0.25, scrollW - 4, 0.8);
+    ctx.fillRect(sx + 2, sy + scrollH * 0.5,  scrollW - 4, 0.8);
+    ctx.fillRect(sx + 2, sy + scrollH * 0.75, scrollW - 4, 0.8);
+  }
+
+  // 受取可能バッジ
+  if (claimable > 0) {
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now * 4));
+    const badgeX = bx + bw - 4;
+    const badgeY = by + 4;
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 10 * pulse;
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath();
+    ctx.arc(badgeX, badgeY, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(claimable), badgeX, badgeY + 0.5);
+  }
+  ctx.restore();
+}
+
+function drawReception(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, ts: number,
+  now: number, on: boolean,
+): void {
+  ctx.save();
+  // 受付カウンター（木の台）
+  const cw = ts * 0.72;
+  const ch = ts * 0.28;
+  const bx = cx - cw / 2;
+  const by = cy + ts * 0.06;
+  const grad = ctx.createLinearGradient(bx, by, bx, by + ch);
+  grad.addColorStop(0, '#92400e'); grad.addColorStop(1, '#451a03');
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = '#1c0a01'; ctx.lineWidth = 1;
+  if (on) { ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 10; }
+  roundRect(ctx, bx, by, cw, ch, 3);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 台の模様（仕切り）
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.moveTo(bx + cw / 3, by); ctx.lineTo(bx + cw / 3, by + ch);
+  ctx.moveTo(bx + cw * 2 / 3, by); ctx.lineTo(bx + cw * 2 / 3, by + ch);
+  ctx.stroke();
+
+  // 受付嬢（小さめキャラクター）
+  const headY = cy - ts * 0.16;
+  // 髪の毛（赤いポニーテール）
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.arc(cx - ts * 0.04, headY - ts * 0.04, ts * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  // 顔
+  ctx.fillStyle = '#fde68a';
+  ctx.beginPath();
+  ctx.arc(cx, headY, ts * 0.10, 0, Math.PI * 2);
+  ctx.fill();
+  // 目
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(cx - ts * 0.04, headY - ts * 0.01, 2, 2);
+  ctx.fillRect(cx + ts * 0.02, headY - ts * 0.01, 2, 2);
+  // 笑顔
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx - ts * 0.01, headY + ts * 0.03, ts * 0.025, 0, Math.PI);
+  ctx.stroke();
+  // 上半身（制服）
+  ctx.fillStyle = '#1e3a8a';
+  ctx.fillRect(cx - ts * 0.10, headY + ts * 0.08, ts * 0.20, ts * 0.12);
+  ctx.fillStyle = '#fde68a';
+  ctx.fillRect(cx - ts * 0.02, headY + ts * 0.10, ts * 0.04, ts * 0.08); // ネクタイ
+
+  // 台の上に小さいトロフィー
+  const trophyPulse = 0.7 + 0.3 * Math.abs(Math.sin(now * 2));
+  ctx.shadowColor = '#fbbf24';
+  ctx.shadowBlur = 8 * trophyPulse;
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.moveTo(cx + ts * 0.22, by + 4);
+  ctx.lineTo(cx + ts * 0.30, by + 4);
+  ctx.lineTo(cx + ts * 0.28, by + 14);
+  ctx.lineTo(cx + ts * 0.24, by + 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(cx + ts * 0.23, by + 14, ts * 0.08, 3);
+  ctx.restore();
+}
+
 // ─── エクスポート関数 ──────────────────────────
+
+// ─── 街の装飾：石畳・街灯・ベンチ・街路樹・市場の荷車 ───
+
+/** 石畳の大通り（タイル群をまとめて暖色の石床として塗る） */
+function drawCobblestoneStrip(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number,
+): void {
+  ctx.save();
+  const g = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  g.addColorStop(0, '#3f3a32');
+  g.addColorStop(0.5, '#4a433a');
+  g.addColorStop(1, '#322d27');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+  // 石目（千鳥）
+  ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+  ctx.lineWidth = 1;
+  const cell = 18;
+  for (let py = 0; py < h; py += cell) {
+    const offset = ((py / cell) | 0) % 2 === 0 ? 0 : cell / 2;
+    for (let px = -cell; px < w + cell; px += cell) {
+      const rx = x0 + px + offset;
+      const ry = y0 + py;
+      ctx.strokeRect(rx, ry, cell - 1, cell - 1);
+    }
+  }
+  // ハイライト（縁石）
+  ctx.strokeStyle = 'rgba(251,191,36,0.12)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 1, y0); ctx.lineTo(x0 + 1, y0 + h);
+  ctx.moveTo(x0 + w - 1, y0); ctx.lineTo(x0 + w - 1, y0 + h);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 装飾の街灯（ランタン付き鉄柱） */
+function drawStreetLamp(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+): void {
+  const flick = 0.8 + 0.2 * Math.sin(now * 6 + seed * 1.7);
+  ctx.save();
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 8, 14, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 台座
+  ctx.fillStyle = '#1f1d1b';
+  ctx.fillRect(cx - 6, cy + 2, 12, 8);
+  ctx.fillStyle = '#3a3631';
+  ctx.fillRect(cx - 5, cy + 3, 10, 6);
+  // 柱
+  ctx.fillStyle = '#2a2724';
+  ctx.fillRect(cx - 2, cy - 30, 4, 34);
+  // 装飾のリング
+  ctx.fillStyle = '#5a4024';
+  ctx.fillRect(cx - 4, cy - 14, 8, 2);
+  // 吊り下げ腕
+  ctx.strokeStyle = '#2a2724';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 30);
+  ctx.quadraticCurveTo(cx + 4, cy - 34, cx + 6, cy - 30);
+  ctx.stroke();
+  // ランタン枠
+  ctx.fillStyle = '#2a2724';
+  ctx.fillRect(cx + 3, cy - 30, 6, 10);
+  // ランタン光
+  ctx.shadowColor = '#fbbf24';
+  ctx.shadowBlur = 18 * flick;
+  const lg = ctx.createRadialGradient(cx + 6, cy - 25, 1, cx + 6, cy - 25, 8);
+  lg.addColorStop(0, `rgba(254,240,138,${0.95 * flick})`);
+  lg.addColorStop(0.6, `rgba(251,191,36,${0.6 * flick})`);
+  lg.addColorStop(1, 'rgba(251,191,36,0)');
+  ctx.fillStyle = lg;
+  ctx.beginPath();
+  ctx.arc(cx + 6, cy - 25, 8, 0, Math.PI * 2);
+  ctx.fill();
+  // 地面の光だまり
+  ctx.shadowBlur = 0;
+  ctx.globalCompositeOperation = 'lighter';
+  const gg = ctx.createRadialGradient(cx + 2, cy + 4, 2, cx + 2, cy + 4, 38);
+  gg.addColorStop(0, `rgba(253,224,71,${0.28 * flick})`);
+  gg.addColorStop(1, 'rgba(253,224,71,0)');
+  ctx.fillStyle = gg;
+  ctx.beginPath();
+  ctx.ellipse(cx + 2, cy + 4, 38, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 石のベンチ（噴水や広場の縁に置く） */
+function drawStoneBench(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, horizontal: boolean,
+): void {
+  ctx.save();
+  if (!horizontal) {
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 2);
+    ctx.translate(-cx, -cy);
+  }
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 8, 28, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 脚
+  ctx.fillStyle = '#3a3631';
+  ctx.fillRect(cx - 22, cy, 6, 8);
+  ctx.fillRect(cx + 16, cy, 6, 8);
+  // 座面
+  const sg = ctx.createLinearGradient(cx, cy - 3, cx, cy + 4);
+  sg.addColorStop(0, '#6b625a');
+  sg.addColorStop(1, '#3a3631');
+  ctx.fillStyle = sg;
+  roundRect(ctx, cx - 26, cy - 3, 52, 7, 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy - 2); ctx.lineTo(cx - 10, cy + 3);
+  ctx.moveTo(cx + 10, cy - 2); ctx.lineTo(cx + 10, cy + 3);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 街路樹（シルエット） */
+function drawStreetTree(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+): void {
+  const sway = Math.sin(now * 1.2 + seed) * 2;
+  ctx.save();
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 12, 22, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 幹
+  const tg = ctx.createLinearGradient(cx, cy - 10, cx, cy + 12);
+  tg.addColorStop(0, '#5a3d1e');
+  tg.addColorStop(1, '#2d1c0c');
+  ctx.fillStyle = tg;
+  ctx.beginPath();
+  ctx.moveTo(cx - 3, cy + 10);
+  ctx.lineTo(cx - 2, cy - 8);
+  ctx.lineTo(cx + 2, cy - 8);
+  ctx.lineTo(cx + 3, cy + 10);
+  ctx.closePath();
+  ctx.fill();
+  // 樹冠（3層）
+  const cg = ctx.createRadialGradient(cx + sway, cy - 18, 2, cx + sway, cy - 16, 24);
+  cg.addColorStop(0, '#4ade80');
+  cg.addColorStop(0.6, '#166534');
+  cg.addColorStop(1, '#14532d');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.arc(cx + sway, cy - 20, 14, 0, Math.PI * 2);
+  ctx.arc(cx + sway - 10, cy - 14, 11, 0, Math.PI * 2);
+  ctx.arc(cx + sway + 10, cy - 14, 11, 0, Math.PI * 2);
+  ctx.arc(cx + sway, cy - 10, 12, 0, Math.PI * 2);
+  ctx.fill();
+  // ハイライト
+  ctx.fillStyle = 'rgba(134,239,172,0.35)';
+  ctx.beginPath();
+  ctx.arc(cx + sway - 4, cy - 22, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 市場の荷車（樽と木箱を積む） */
+function drawMarketCart(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, flipX: boolean,
+): void {
+  ctx.save();
+  if (flipX) {
+    ctx.translate(cx, cy); ctx.scale(-1, 1); ctx.translate(-cx, -cy);
+  }
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 14, 26, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 車輪
+  ctx.fillStyle = '#1c1917';
+  ctx.beginPath(); ctx.arc(cx - 16, cy + 10, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 16, cy + 10, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#78350f';
+  ctx.beginPath(); ctx.arc(cx - 16, cy + 10, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 16, cy + 10, 4.5, 0, Math.PI * 2); ctx.fill();
+  // スポーク
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 0.8;
+  for (const wx of [-16, 16]) {
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx + wx, cy + 10);
+      ctx.lineTo(cx + wx + Math.cos(a) * 4, cy + 10 + Math.sin(a) * 4);
+      ctx.stroke();
+    }
+  }
+  // 荷台
+  const bg = ctx.createLinearGradient(cx, cy - 2, cx, cy + 10);
+  bg.addColorStop(0, '#a16207');
+  bg.addColorStop(1, '#78350f');
+  ctx.fillStyle = bg;
+  roundRect(ctx, cx - 22, cy - 2, 44, 12, 2);
+  ctx.fill();
+  ctx.strokeStyle = '#451a03';
+  ctx.lineWidth = 0.8;
+  for (let i = -18; i <= 18; i += 6) {
+    ctx.beginPath(); ctx.moveTo(cx + i, cy - 1); ctx.lineTo(cx + i, cy + 9); ctx.stroke();
+  }
+  // 樽
+  const barG = ctx.createLinearGradient(cx - 16, cy - 16, cx - 16, cy - 2);
+  barG.addColorStop(0, '#92400e');
+  barG.addColorStop(1, '#451a03');
+  ctx.fillStyle = barG;
+  roundRect(ctx, cx - 22, cy - 16, 12, 14, 2); ctx.fill();
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(cx - 22, cy - 12); ctx.lineTo(cx - 10, cy - 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 22, cy - 6); ctx.lineTo(cx - 10, cy - 6); ctx.stroke();
+  // 木箱
+  ctx.fillStyle = '#b45309';
+  roundRect(ctx, cx - 6, cy - 14, 14, 12, 2); ctx.fill();
+  ctx.strokeStyle = '#451a03'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(cx - 6, cy - 14, 14, 12);
+  // りんご
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath(); ctx.arc(cx + 12, cy - 5, 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 16, cy - 4, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 14, cy - 7, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#166534';
+  ctx.beginPath(); ctx.arc(cx + 12, cy - 7, 0.8, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/** 樽・木箱のクラスタ（裏路地用） */
+function drawAlleyClutter(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, seed: number,
+): void {
+  ctx.save();
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 10, 22, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 木箱（奥）
+  ctx.fillStyle = '#854d0e';
+  roundRect(ctx, cx - 16, cy - 8, 14, 16, 2); ctx.fill();
+  ctx.strokeStyle = '#451a03'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(cx - 16, cy - 8, 14, 16);
+  ctx.beginPath(); ctx.moveTo(cx - 16, cy); ctx.lineTo(cx - 2, cy); ctx.stroke();
+  // 樽（手前）
+  const bg = ctx.createLinearGradient(cx, cy - 6, cx, cy + 10);
+  bg.addColorStop(0, '#92400e');
+  bg.addColorStop(1, '#3f1f04');
+  ctx.fillStyle = bg;
+  roundRect(ctx, cx - 2, cy - 8, 16, 18, 3); ctx.fill();
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - 2, cy - 3); ctx.lineTo(cx + 14, cy - 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 2, cy + 3); ctx.lineTo(cx + 14, cy + 3); ctx.stroke();
+  // フタ
+  ctx.fillStyle = '#78350f';
+  roundRect(ctx, cx - 2, cy - 9, 16, 3, 1); ctx.fill();
+  // 猫目の光（雰囲気）
+  if ((seed | 0) % 3 === 0) {
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 4;
+    ctx.beginPath(); ctx.arc(cx + 18, cy + 4, 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 21, cy + 4, 0.9, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 建物間に渡す吊り旗 */
+function drawBuntingLine(
+  ctx: CanvasRenderingContext2D,
+  x0: number, x1: number, y: number, now: number, color: string,
+): void {
+  ctx.save();
+  const flags = 7;
+  // ロープ
+  ctx.strokeStyle = '#44403c';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y);
+  ctx.quadraticCurveTo((x0 + x1) / 2, y + 6, x1, y);
+  ctx.stroke();
+  // 三角旗
+  for (let i = 0; i < flags; i++) {
+    const t = (i + 0.5) / flags;
+    const px = x0 + (x1 - x0) * t;
+    const py = y + 6 * (1 - Math.pow(2 * t - 1, 2));
+    const sway = Math.sin(now * 2 + i) * 1.5;
+    ctx.fillStyle = i % 2 === 0 ? color : '#fde68a';
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 2;
+    ctx.beginPath();
+    ctx.moveTo(px - 4, py);
+    ctx.lineTo(px + 4, py);
+    ctx.lineTo(px + sway, py + 10);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 道標 */
+function drawSignPost(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, labels: string[],
+): void {
+  ctx.save();
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 14, 10, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 柱
+  ctx.fillStyle = '#5a4024';
+  ctx.fillRect(cx - 2, cy - 16, 4, 30);
+  // 矢印看板
+  for (let i = 0; i < labels.length; i++) {
+    const py = cy - 10 + i * 10;
+    const dir = i % 2 === 0 ? 1 : -1;
+    ctx.fillStyle = i % 2 === 0 ? '#a16207' : '#854d0e';
+    ctx.beginPath();
+    const bx = cx + (dir > 0 ? 0 : -28);
+    ctx.moveTo(bx, py);
+    ctx.lineTo(bx + 24 * dir, py);
+    ctx.lineTo(bx + 28 * dir, py + 3);
+    ctx.lineTo(bx + 24 * dir, py + 6);
+    ctx.lineTo(bx, py + 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#3f1f04'; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 7px "Noto Sans JP", monospace';
+    ctx.textAlign = dir > 0 ? 'center' : 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labels[i], bx + 12 * dir, py + 3);
+  }
+  ctx.restore();
+}
+
+/** 街全体の装飾レイヤ（石畳・街灯・ベンチ・街路樹・市場・裏路地のゴミ） */
+function drawCityDecor(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+  const px = (tx: number): number => tx * ts + camOffX;
+  const py = (ty: number): number => ty * ts + camOffY;
+  const cx = (tx: number): number => (tx + 0.5) * ts + camOffX;
+  const cy = (ty: number): number => (ty + 0.5) * ts + camOffY;
+
+  // ── 石畳の道（建物の下に敷く） ──
+  // メインストリート：スポーン(18,25) → 噴水(17-18,12-13) → ポータル(y=3-6)
+  drawCobblestoneStrip(ctx, px(16) + ts * 0.1, py(2), ts * 2 - ts * 0.2, ts * 24);
+  // プラザ東西通り（y=15 のギルド受付・掲示板・祠を繋ぐ）
+  drawCobblestoneStrip(ctx, px(10), py(14) + ts * 0.2, ts * 14, ts - ts * 0.4);
+  // 商業地区の大通り（y=19 の建物南側）
+  drawCobblestoneStrip(ctx, px(2), py(19) + ts * 0.1, ts * 32, ts * 0.8);
+  // 酒場〜行商人の東西通り（y=11）
+  drawCobblestoneStrip(ctx, px(6), py(10) + ts * 0.25, ts * 24, ts * 0.5);
+
+  // ── 街灯（大通りに沿って） ──
+  const lamps: [number, number, number][] = [
+    // メイン通り沿い（左右交互）
+    [15.5, 8, 0], [19.5, 8, 1],
+    [15.5, 15, 2], [19.5, 15, 3],
+    [15.5, 20, 4], [19.5, 20, 5],
+    [15.5, 24, 6], [19.5, 24, 7],
+    // 商業通り
+    [3, 19, 8], [8, 19, 9], [13, 19, 10], [23, 19, 11], [28, 19, 12], [33, 19, 13],
+    // 酒場・行商人の前
+    [4, 11, 14], [31, 11, 15],
+  ];
+  for (const [tx, ty, seed] of lamps) {
+    drawStreetLamp(ctx, cx(tx) - ts * 0.5, cy(ty), now, seed);
+  }
+
+  // ── 噴水まわりのベンチ ──
+  drawStoneBench(ctx, cx(15), cy(13) + ts * 0.05, true);
+  drawStoneBench(ctx, cx(20), cy(13) + ts * 0.05, true);
+  drawStoneBench(ctx, cx(16) + ts * 0.2, cy(11) + ts * 0.3, true);
+  drawStoneBench(ctx, cx(19) - ts * 0.2, cy(11) + ts * 0.3, true);
+
+  // ── 街路樹 ──
+  const trees: [number, number, number][] = [
+    [2, 11, 0], [33, 11, 1],
+    [2, 14, 2], [33, 14, 3],
+    [8, 14, 4], [27, 14, 5],
+    [12, 23, 6], [23, 23, 7],
+    [2, 24, 8], [33, 24, 9],
+    [14, 8, 10], [21, 8, 11],
+  ];
+  for (const [tx, ty, s] of trees) {
+    drawStreetTree(ctx, cx(tx), cy(ty) + ts * 0.15, now, s);
+  }
+
+  // ── 市場の荷車（商業地区） ──
+  drawMarketCart(ctx, cx(7), cy(19) + ts * 0.15, false);
+  drawMarketCart(ctx, cx(12), cy(19) + ts * 0.15, true);
+  drawMarketCart(ctx, cx(23), cy(19) + ts * 0.15, false);
+  drawMarketCart(ctx, cx(28), cy(19) + ts * 0.15, true);
+
+  // ── 裏路地の樽・木箱 ──
+  drawAlleyClutter(ctx, cx(7), cy(21) + ts * 0.15, 1);
+  drawAlleyClutter(ctx, cx(15), cy(21) + ts * 0.15, 2);
+  drawAlleyClutter(ctx, cx(20), cy(21) + ts * 0.15, 3);
+  drawAlleyClutter(ctx, cx(28), cy(21) + ts * 0.15, 4);
+
+  // ── 吊り旗（建物間に渡す） ──
+  drawBuntingLine(ctx, cx(5), cx(10), cy(16) - ts * 0.35, now, '#ef4444');
+  drawBuntingLine(ctx, cx(25), cx(30), cy(16) - ts * 0.35, now, '#3b82f6');
+  drawBuntingLine(ctx, cx(13), cx(21), cy(13) - ts * 0.35, now, '#a855f7');
+
+  // ── 道標 ──
+  drawSignPost(ctx, cx(17.5), cy(23) - ts * 0.1, ['ダンジョン↑', 'カジノ↓']);
+}
 
 export function drawBaseObjects(
   ctx: CanvasRenderingContext2D,
@@ -1220,6 +1871,19 @@ export function drawBaseObjects(
     ctx.fillText(text, x, y);
   };
   const _prompt = (text: string, x: number, y: number) => _label(text, x, y, '#ffffff', 11);
+
+  // ── アンビエント：街全体に舞う光の粒 ──
+  drawGrandAmbientMotes(ctx, camOffX, camOffY, now);
+
+  // ── 街の装飾レイヤ（石畳・街灯・ベンチ・街路樹・市場・裏路地） ──
+  drawCityDecor(ctx, camOffX, camOffY, now);
+
+  // ── 装飾：中央モニュメント（オベリスク＋浮遊クリスタル） ──
+  {
+    const cx = (BASE_MONUMENT_POS.tx + 0.5) * ts + camOffX;
+    const cy = (BASE_MONUMENT_POS.ty + 0.5) * ts + camOffY;
+    drawGrandMonument(ctx, cx, cy, ts, now);
+  }
 
   // ── 装飾：中央噴水（2×2 ブロックの中心は BASE_FOUNTAIN_POS の右下角） ──
   {
@@ -1341,61 +2005,61 @@ export function drawBaseObjects(
     if (on) _prompt('[E] 武器を合成する', fx, fy + ts / 2 + 14);
   }
 
-  // ポータル
-  for (const portal of BASE_PORTALS) {
-    const dungeon = DUNGEONS.find(d => d.id === portal.dungeonId);
-    if (!dungeon) continue;
-    const px = portal.tx * ts + ts / 2 + camOffX;
-    const py = portal.ty * ts + ts / 2 + camOffY;
-    const unlocked = isDungeonUnlocked(portal.dungeonId, c.clearedDungeons);
-    const pulse = unlocked
-      ? 0.5 + 0.5 * Math.abs(Math.sin((now / (dungeon.bossRush ? 0.7 : 1.2)) * Math.PI))
-      : 0.3;
-    const on = c.player.tx === portal.tx && c.player.ty === portal.ty;
-
-    // ポータル足元の祭壇＋魔法陣
-    drawPortalPedestal(ctx, px, py, ts, dungeon.color, pulse, unlocked, now);
-
-    ctx.save();
-    if (!unlocked) ctx.globalAlpha = 0.4;
-    objPortal(ctx, px, py, ts, dungeon, pulse, on);
-    ctx.restore();
-
-    if (!unlocked) {
-      ctx.font = `${ts * 0.55}px serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🔒', px, py);
-    }
-
-    ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = unlocked ? dungeon.color : 'rgba(160,160,160,0.7)';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(dungeon.name, px, py - ts * 0.75);
-    ctx.font = '8px monospace'; ctx.fillStyle = 'rgba(200,200,200,0.65)';
-    ctx.fillText(dungeon.bossRush ? `全${dungeon.maxFloors}波` : dungeon.infinite ? '∞階' : `${dungeon.maxFloors}階`, px, py - ts * 0.55);
-
-    if (!dungeon.bossRush && unlocked) {
-      const bw = ts - 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(px - bw / 2, py + ts * 0.42, bw, 3);
-      ctx.fillStyle = dungeon.color;
-      ctx.fillRect(px - bw / 2, py + ts * 0.42, bw * Math.min(1, dungeon.diffMult / 2.5), 3);
-    }
-
-    if (on) {
-      if (unlocked) {
-        const msg = dungeon.bossRush ? '[E] 挑戦する！' : `[E] ${dungeon.name}へ`;
-        ctx.font = 'bold 11px monospace';
-        ctx.fillStyle = dungeon.bossRush ? '#ff6b6b' : '#ffffff';
-        ctx.fillText(msg, px, py + ts * 0.72);
-      } else {
-        const idx = DUNGEONS.findIndex(d => d.id === portal.dungeonId);
-        const prev = DUNGEONS[idx - 1];
-        ctx.font = 'bold 9px monospace';
-        ctx.fillStyle = '#f59e0b';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(`${prev.emoji}${prev.name}をクリアで解放`, px, py + ts * 0.72);
-      }
-    }
+  // 魂の祠（1×1 タイル）
+  {
+    const sx = BASE_SHRINE_POS.tx * ts + ts / 2 + camOffX;
+    const sy = BASE_SHRINE_POS.ty * ts + ts / 2 + camOffY;
+    const on = c.player.tx === BASE_SHRINE_POS.tx && c.player.ty === BASE_SHRINE_POS.ty;
+    drawSoulShrine(ctx, sx, sy, ts, now, on);
+    _label('魂の祠', sx, sy - ts * 0.85, '#c084fc');
+    if (on) _prompt('[E] 魂を捧げる', sx, sy + ts * 0.55);
   }
+
+  // クエスト掲示板（1×1 タイル）
+  if (typeof c.questActive === 'number') {
+    const qx = BASE_QUEST_POS.tx * ts + ts / 2 + camOffX;
+    const qy = BASE_QUEST_POS.ty * ts + ts / 2 + camOffY;
+    const on = c.player.tx === BASE_QUEST_POS.tx && c.player.ty === BASE_QUEST_POS.ty;
+    const claimable = c.questClaimable ?? 0;
+    drawQuestSignboard(ctx, qx, qy, ts, now, on, claimable);
+    _label(`掲示板 (${c.questActive}件)`, qx, qy - ts * 0.85, '#fbbf24');
+    if (on) _prompt('[E] 依頼を確認', qx, qy + ts * 0.55);
+  }
+
+  // 冒険者ギルド受付（1×1 タイル）
+  {
+    const rx = BASE_RECEPTION_POS.tx * ts + ts / 2 + camOffX;
+    const ry = BASE_RECEPTION_POS.ty * ts + ts / 2 + camOffY;
+    const on = c.player.tx === BASE_RECEPTION_POS.tx && c.player.ty === BASE_RECEPTION_POS.ty;
+    drawReception(ctx, rx, ry, ts, now, on);
+    _label('ギルド受付', rx, ry - ts * 0.85, '#fde68a');
+    if (on) _prompt('[E] ランキングを見る', rx, ry + ts * 0.55);
+  }
+
+  // 酒場（壮大版・2階建て＋煙突＋看板）
+  {
+    const tx = (BASE_TAVERN_POS.tx + 0.5) * ts + camOffX;
+    const ty = (BASE_TAVERN_POS.ty + 0.5) * ts + camOffY;
+    const on = c.player.tx === BASE_TAVERN_POS.tx && c.player.ty === BASE_TAVERN_POS.ty;
+    drawGrandTavern(ctx, tx, ty, ts, now, on);
+  }
+
+  // 流浪の行商人（壮大版・キャラバン＋焚き火）
+  {
+    const tx = (BASE_TRADER_POS.tx + 0.5) * ts + camOffX;
+    const ty = (BASE_TRADER_POS.ty + 0.5) * ts + camOffY;
+    const on = c.player.tx === BASE_TRADER_POS.tx && c.player.ty === BASE_TRADER_POS.ty;
+    drawGrandTrader(ctx, tx, ty, ts, now, on);
+  }
+
+  // ダンジョンポータル（壮大版・3タイル高の大聖堂門）
+  BASE_PORTALS.forEach((portal, i) => {
+    const dungeon = DUNGEONS.find(d => d.id === portal.dungeonId);
+    if (!dungeon) return;
+    const px = (portal.tx + 0.5) * ts + camOffX;
+    const py = (portal.ty + 0.5) * ts + camOffY;
+    const unlocked = isDungeonUnlocked(portal.dungeonId, c.clearedDungeons);
+    const on = c.player.tx === portal.tx && c.player.ty === portal.ty;
+    drawGrandDungeonPortal(ctx, px, py, ts, now, dungeon, unlocked, on, i * 1.7);
+  });
 }

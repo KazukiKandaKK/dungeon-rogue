@@ -20,8 +20,9 @@ import {
   CANVAS_W, CANVAS_H, MAP_COLS, MAP_ROWS, ENEMY_COUNT, MIN_SPAWN_DIST,
   ITEM_PER_FLOOR, SAVE_SLOT_KEYS,
   BASE_COLS, BASE_ROWS, BASE_SPAWN, BASE_CHEST_POS, BASE_PORTALS,
-  BASE_SHOP_POS, BASE_CASINO_POS, BASE_STALL_POS, BASE_LOAN_POS, BASE_RECLASS_POS,
-  BASE_CRAFT_POS,
+  BASE_SHOP_POS, BASE_CASINO_POS, BASE_STALL_POS, BASE_LOAN_POS, BASE_RECLASS_POS, BASE_SHRINE_POS,
+  BASE_CRAFT_POS, BASE_QUEST_POS, BASE_RECEPTION_POS,
+  BASE_TAVERN_POS, BASE_TRADER_POS,
   RECLASS_COST_PER_LV, RECLASS_COST_MIN,
   BUILDS, BUILD_IDS,
   LOAN_AMOUNTS, REPAY_AMOUNTS, LOAN_INTEREST, LOAN_QUEST_FLOORS,
@@ -35,6 +36,30 @@ import {
 import { drawItemSvg } from '../ui/item-renderer.js';
 import { lightenColor as _lightenC, darkenColor as _darkenC, hexRgb as _hexRgb } from './colors.js';
 import { getSlotData, hasAnySave, formatSavedAt } from '../systems/saves.js';
+import { applyMetaUpgrades, addSouls, calcSoulsReward, getSouls, META_UPGRADES, getUpgrades, purchaseUpgrade } from '../systems/meta.js';
+import { todayKey, dailySeedFor, installSeededRandom, restoreRandom, recordDailyResult } from '../systems/daily.js';
+import { Pet, PETS, PET_KINDS } from '../entities/pet.js';
+import { BaseNpc } from '../entities/base-npc.js';
+import { tickChatTicker, toggleChat, pushPlayerEvent } from '../systems/chat-ticker.js';
+import { drawChatTicker } from '../ui/chat-ticker.js';
+import {
+  getDailyQuests, reportKill as _questReportKill,
+  reportFloorReached as _questReportFloor,
+  claimQuest as _questClaim, isComplete as _questIsComplete,
+  activeCount as _questActiveCount, completedClaimableCount as _questClaimableCount,
+} from '../systems/quests.js';
+import { drawQuestBoard } from '../ui/quests.js';
+import { getDailyRanking } from '../systems/ranking.js';
+import { drawRanking } from '../ui/ranking.js';
+import { drawServerInfo } from '../ui/server-info.js';
+import { drawTitleMenu } from '../ui/titles.js';
+import { getActiveEvent, soulsMul as _weSoulsMul } from '../systems/world-events.js';
+import {
+  reportKill as _titleReportKill, reportFloor as _titleReportFloor,
+  reportSoulsEarned as _titleReportSouls, getActiveTitle as _titleActive,
+  getUnlockedTitles as _titleUnlocked, setActiveTitle as _titleSet,
+  TITLES as _TITLES,
+} from '../systems/titles.js';
 import { attack as _attackFn }                                       from '../systems/combat.js';
 import { hasLOS, isActorOnLine }                                      from '../systems/fov.js';
 import { tickTransition }                                             from '../systems/transitions.js';
@@ -71,7 +96,7 @@ let clearedDungeons   = new Set(); // クリア済みダンジョンID
 let infiniteEscapePrompt = false;  // 無限ダンジョン脱出確認UI
 let infiniteEscapeCursor = 0;      // 0=続ける 1=脱出
 
-// 拠点・ダンジョン管理
+// 拠点・ダンジョン管理（拠点とダンジョン区は同一フィールド）
 let gamePhase      = 'BASE';  // 'BASE' | 'DUNGEON'
 let currentDungeon = null;    // DUNGEONS[i] | null
 let baseChest      = [];      // 預かりアイテム
@@ -83,6 +108,11 @@ let baseCursor     = 0;
 let charSpeciesCursor = 0;
 let charTintCursor    = 0;
 let charFocusGroup    = 'species'; // 'species' | 'tint'
+let charPetCursor     = 0;         // 0=なし, 1..=PET_KINDS
+let playerPetKind     = null;      // 選択されたペット種類（'slime'|'mush'|'rock'）|null
+let pet               = null;      // 現在の Pet インスタンス
+let baseNpcs          = [];        // 拠点を歩く冒険者NPC（BaseNpc[]）
+let lastWorldEventId  = null;      // ワールドイベント切替検知用
 let playerAppearance  = null;      // { species, tint } | null
 
 // 職業選択
@@ -155,6 +185,24 @@ let craftSide  = 'A'; // 'A' | 'B'
 
 // 不思議ダンジョン
 let mysteryMode = false;
+let dailyMode    = false;     // デイリー挑戦中
+let dailyDateKey = '';        // YYYYMMDD
+
+// ── 魂の祠（メタ進行） ──────────────────────────
+let shrineOpen   = false;
+let shrineCursor = 0;
+
+// ── クエスト掲示板（デイリー依頼） ───────────────
+let questOpen   = false;
+let questCursor = 0;
+
+// ── ランキング掲示板（ギルド受付） ───────────────
+let rankingOpen   = false;
+let rankingCursor = 0;
+
+// ── 称号メニュー（Y キー） ──────────────────────
+let titleMenuOpen   = false;
+let titleMenuCursor = 0;
 
 // ── 拠点ショップ ───────────────────────────────
 let baseShopOpen   = false;
@@ -458,6 +506,9 @@ function _buildBase() {
   baseShopItems = buildBaseShopItems();
   _placePlayer(BASE_SPAWN.tx, BASE_SPAWN.ty);
 
+  // 拠点NPC（冒険者風）を配置 — 統合フィールドは広いので 7〜10 体
+  baseNpcs = _spawnBaseNpcs(7 + Math.floor(Math.random() * 4));
+
   // 拠点は全タイル探索済みにする
   exploredTiles = new Set();
   for (let ty = 0; ty < BASE_ROWS; ty++)
@@ -465,7 +516,7 @@ function _buildBase() {
       exploredTiles.add(`${tx},${ty}`);
 
   gameState = 'PLAYER_TURN';
-  logger.add('🏠 拠点に戻った。ポータルに近づいてダンジョンへ挑もう！', 'warn');
+  logger.add('🏠 王都アストラルに帰還。北のダンジョン門から出撃できる。', 'warn');
 }
 
 
@@ -560,6 +611,11 @@ function _buildFloor(entryDir) {
 function _placePlayer(tx, ty) {
   if (!player) {
     player = new Player(tx, ty, playerClass, BUILDS[playerBuild]?.bonus ?? null, playerAppearance);
+    // メタ進行：恒久強化 + 開始時アイテム
+    const meta = applyMetaUpgrades(player);
+    for (let i = 0; i < meta.starterPotions; i++) {
+      player.addToInventory({ ...ITEMS['herb'] });
+    }
   } else {
     player.tx      = tx;
     player.ty      = ty;
@@ -568,12 +624,118 @@ function _placePlayer(tx, ty) {
     player.bumpX   = 0;
     player.bumpY   = 0;
     player.alive   = true; // 死亡状態のままにならないようリセット
-    // 拠点帰還時は全回復、フロア移動時は少し回復
+    // 拠点/前線街は全回復、ダンジョン内のフロア移動時は少し回復
     if (gamePhase === 'BASE') {
       player.hp = player.maxHP;
     } else {
       player.hp = Math.min(player.hp + 2, player.maxHP);
     }
+  }
+  // ペット同行：プレイヤーの隣のマスへ召喚（毎フロア / 拠点帰還時）
+  _spawnOrMovePet();
+}
+
+// 現在のワールドイベントを監視し、切り替わったらチャットに流す。
+function _tickWorldEvent() {
+  const evt = getActiveEvent();
+  if (lastWorldEventId === null) {
+    lastWorldEventId = evt.id;
+    return; // 初回は通知しない
+  }
+  if (evt.id !== lastWorldEventId) {
+    lastWorldEventId = evt.id;
+    if (logger) logger.add(`🌐 ワールドイベント『${evt.name}』が始まった！（${evt.hint}）`, 'warn');
+    pushPlayerEvent(`『${evt.name}』開始！`, 'achieve');
+  }
+}
+
+// 拠点に置かれている設備タイル（NPCが上に乗らないように予約）
+function _baseReservedTiles() {
+  const list = [
+    BASE_SPAWN, BASE_CHEST_POS, BASE_SHOP_POS, BASE_CASINO_POS,
+    BASE_STALL_POS, BASE_LOAN_POS, BASE_RECLASS_POS, BASE_SHRINE_POS,
+    BASE_CRAFT_POS, BASE_QUEST_POS, BASE_RECEPTION_POS,
+    BASE_TAVERN_POS, BASE_TRADER_POS,
+  ];
+  for (const p of BASE_PORTALS) list.push({ tx: p.tx, ty: p.ty });
+  return list;
+}
+
+function _spawnBaseNpcs(count) {
+  const npcs = [];
+  if (!map) return npcs;
+  const reserved = _baseReservedTiles();
+  const occupied = new Set(reserved.map(p => `${p.tx},${p.ty}`));
+  if (player) occupied.add(`${player.tx},${player.ty}`);
+  let tries = 0;
+  while (npcs.length < count && tries < 200) {
+    tries++;
+    const tx = Math.floor(Math.random() * BASE_COLS);
+    const ty = Math.floor(Math.random() * BASE_ROWS);
+    if (!map.isWalkable(tx, ty)) continue;
+    const key = `${tx},${ty}`;
+    if (occupied.has(key)) continue;
+    // プレイヤーの初期スポーン半径3以内には湧かせない
+    if (Math.abs(tx - BASE_SPAWN.tx) + Math.abs(ty - BASE_SPAWN.ty) < 3) continue;
+    occupied.add(key);
+    npcs.push(new BaseNpc(tx, ty));
+  }
+  return npcs;
+}
+
+function _doPetTurn() {
+  if (!pet || !pet.alive || !player || !map || gamePhase !== 'DUNGEON') return;
+  pet.takeTurn(
+    map,
+    player,
+    enemies,
+    (tx, ty) => {
+      if (player.tx === tx && player.ty === ty) return true;
+      return enemies.some(e => e.alive && e.tx === tx && e.ty === ty);
+    },
+    (target, dmg) => {
+      const sx = (target.tx + 0.5) * TILE_SIZE + camOffX;
+      const sy = (target.ty + 0.5) * TILE_SIZE + camOffY;
+      floatingTexts.push({
+        text: `🐾${dmg}`, x: sx, y: sy - 30,
+        alpha: 1, scale: 1, color: '#86efac', life: 1.0, maxLife: 1.0,
+      });
+      particles.burst(sx, sy, '#86efac', 8);
+      logger.add(`🐾 ${pet.def.name}が ${target.name ?? '敵'}に ${dmg} ダメージ`, 'info');
+    },
+  );
+}
+
+function _spawnOrMovePet() {
+  if (!playerPetKind || !player || !map) { return; }
+  const candidates = [
+    [player.tx - 1, player.ty],
+    [player.tx + 1, player.ty],
+    [player.tx, player.ty - 1],
+    [player.tx, player.ty + 1],
+    [player.tx - 1, player.ty - 1],
+    [player.tx + 1, player.ty + 1],
+    [player.tx - 1, player.ty + 1],
+    [player.tx + 1, player.ty - 1],
+  ];
+  let spot = null;
+  for (const [cx, cy] of candidates) {
+    if (cx < 0 || cy < 0 || cx >= map.cols || cy >= map.rows) continue;
+    if (!map.isWalkable(cx, cy)) continue;
+    if (enemies.some(e => e.alive && e.tx === cx && e.ty === cy)) continue;
+    spot = [cx, cy]; break;
+  }
+  if (!spot) spot = [player.tx, player.ty];
+  if (!pet || pet.kind !== playerPetKind) {
+    pet = new Pet(playerPetKind, spot[0], spot[1]);
+  } else {
+    pet.fromTx = pet.tx;
+    pet.fromTy = pet.ty;
+    pet.tx = spot[0];
+    pet.ty = spot[1];
+    pet.moveT = 1;
+    pet.alive = true;
+    if (pet.hp < pet.maxHp) pet.hp = pet.maxHp; // フロア／拠点で回復
   }
 }
 
@@ -606,6 +768,7 @@ function _onLevelUps(levels) {
   const cls = CLASSES[player.classType];
   for (const lv of levels) {
     logger.add(`⭐ レベルアップ！ LV ${lv} になった！`, 'warn');
+    pushPlayerEvent(`Lv ${lv} になった！`, 'achieve');
     flashColor = 'rgba(250,204,21,0.3)';
     flashAlpha = 1;
     triggerShake(6, 0.35);
@@ -703,12 +866,15 @@ function _makePACtx() {
     onLevelUps:       levels => _onLevelUps(levels),
     onEnemyTurn:      e => doEnemyTurn(e, _makeEnemyAICtx()),
     onProcessDeathTraits: dead => processEnemyDeathTraits(dead, _makeEnemyAICtx()),
-    onTickWaveSpawn:  () => tickWaveSpawn({
-      gamePhase, currentDungeon, floorNumber, turnCount: ctx.turnCount,
-      map, player, enemies, logger,
-      onFlash:        color => { flashColor = color; flashAlpha = 1; },
-      onFloatingText: t     => floatingTexts.push(t),
-    }),
+    onTickWaveSpawn:  () => {
+      tickWaveSpawn({
+        gamePhase, currentDungeon, floorNumber, turnCount: ctx.turnCount,
+        map, player, enemies, logger,
+        onFlash:        color => { flashColor = color; flashAlpha = 1; },
+        onFloatingText: t     => floatingTexts.push(t),
+      });
+      _doPetTurn();
+    },
     particles,
     hasLOS:        _hasLOS,
     isEnemyOnLine: _isEnemyOnLine,
@@ -910,6 +1076,15 @@ function startLoop(canvas) {
     }
     particles.update(dt);
     _updateDust(dt);
+    tickChatTicker();
+    _tickWorldEvent();
+    if (gamePhase === 'BASE' && baseNpcs.length > 0) {
+      const blockers = _baseReservedTiles().concat(player ? [{ tx: player.tx, ty: player.ty }] : []);
+      for (const n of baseNpcs) {
+        const others = baseNpcs.filter(o => o !== n);
+        n.update(dt, map, blockers.concat(others));
+      }
+    }
     flashAlpha = Math.max(0, flashAlpha - dt * 6);
 
     // 矢アニメ更新
@@ -1026,7 +1201,7 @@ function startLoop(canvas) {
       // メニュー切り替え
       if (input.justPressed('Escape')) {
         showInventory = false; showMagic = false; shopOpen = false;
-        baseChestOpen = false; baseShopOpen = false; casinoOpen = false; stallOpen = false; loanOpen = false; reclassOpen = false; craftOpen = false;
+        baseChestOpen = false; baseShopOpen = false; casinoOpen = false; stallOpen = false; loanOpen = false; reclassOpen = false; craftOpen = false; questOpen = false; titleMenuOpen = false; rankingOpen = false;
       }
 
       if (input.justPressed('KeyP')) {
@@ -1036,8 +1211,23 @@ function startLoop(canvas) {
         gameState      = 'SAVE_SLOT';
       }
 
+      // チャット表示切替（T）
+      if (input.justPressed('KeyT')) {
+        const on = toggleChat();
+        logger.add(on ? '🌐 ﾜｰﾙﾄﾞﾁｬｯﾄを表示' : '🌐 ﾜｰﾙﾄﾞﾁｬｯﾄを非表示', 'info');
+      }
+
+      // 称号メニュー切替（Y）— どこからでも開ける
+      if (input.justPressed('KeyY')
+          && !showInventory && !showMagic && !shopOpen
+          && !baseChestOpen && !baseShopOpen && !casinoOpen && !stallOpen
+          && !loanOpen && !reclassOpen && !craftOpen && !shrineOpen && !questOpen && !rankingOpen) {
+        titleMenuOpen = !titleMenuOpen;
+        titleMenuCursor = 0;
+      }
+
       if (gamePhase === 'BASE') {
-        if (input.justPressed('KeyI') && !baseChestOpen && !baseShopOpen && !casinoOpen && !stallOpen && !reclassOpen && !craftOpen) {
+        if (input.justPressed('KeyI') && !baseChestOpen && !baseShopOpen && !casinoOpen && !stallOpen && !reclassOpen && !craftOpen && !shrineOpen && !questOpen && !rankingOpen) {
           showInventory = !showInventory; invCursor = 0;
         }
         if (baseChestOpen)     { _handleBaseChestInput(); }
@@ -1047,6 +1237,10 @@ function startLoop(canvas) {
         else if (loanOpen)     { _handleLoanInput(); }
         else if (reclassOpen)  { _handleReclassInput(); }
         else if (craftOpen)    { _handleCraftInput(); }
+        else if (shrineOpen)   { _handleShrineInput(); }
+        else if (questOpen)    { _handleQuestInput(); }
+        else if (rankingOpen)  { _handleRankingInput(); }
+        else if (titleMenuOpen){ _handleTitleMenuInput(); }
         else if (showInventory){ _handleInventoryInput(); }
         else                   { _handleBaseInput(); }
       } else {
@@ -1064,6 +1258,8 @@ function startLoop(canvas) {
           _handleInventoryInput();
         } else if (showMagic) {
           _handleMagicInput();
+        } else if (titleMenuOpen) {
+          _handleTitleMenuInput();
         } else {
           // ─ ホットバー（1〜6キー）によるスキル発動 ─
           let hotbarUsed = false;
@@ -1284,6 +1480,11 @@ function _handleBaseInput() {
   const onLoan   = player.tx === BASE_LOAN_POS.tx   && player.ty === BASE_LOAN_POS.ty;
   const onReclass = player.tx === BASE_RECLASS_POS.tx && player.ty === BASE_RECLASS_POS.ty;
   const onCraft   = player.tx === BASE_CRAFT_POS.tx   && player.ty === BASE_CRAFT_POS.ty;
+  const onShrine  = player.tx === BASE_SHRINE_POS.tx  && player.ty === BASE_SHRINE_POS.ty;
+  const onQuest   = player.tx === BASE_QUEST_POS.tx   && player.ty === BASE_QUEST_POS.ty;
+  const onReception = player.tx === BASE_RECEPTION_POS.tx && player.ty === BASE_RECEPTION_POS.ty;
+  const onTavern    = player.tx === BASE_TAVERN_POS.tx    && player.ty === BASE_TAVERN_POS.ty;
+  const onTrader    = player.tx === BASE_TRADER_POS.tx    && player.ty === BASE_TRADER_POS.ty;
 
   if (input.justPressed('Enter') || input.justPressed('KeyE')) {
     if (portal) {
@@ -1295,6 +1496,8 @@ function _handleBaseInput() {
       }
       _startDungeon(portal.dungeonId); return;
     }
+    if (onTavern) { logger.add('🍺 酒場の喧騒。冒険者たちが武勇を語り合っている。', 'info'); return; }
+    if (onTrader) { logger.add('🛒 行商人：「街道を旅する者に必要な物が揃っているぜ」（準備中）', 'info'); return; }
     if (onChest)  { baseChestOpen = true; baseCursor = 0; baseChestSide = 'chest'; return; }
     if (onShop)   { baseShopOpen = true; baseShopCursor = 0; return; }
     if (onStall)  { stallOpen = true; stallCursor = 0; return; }
@@ -1323,6 +1526,21 @@ function _handleBaseInput() {
       craftSide = 'A';
       return;
     }
+    if (onShrine) {
+      shrineOpen   = true;
+      shrineCursor = 0;
+      return;
+    }
+    if (onQuest) {
+      questOpen   = true;
+      questCursor = 0;
+      return;
+    }
+    if (onReception) {
+      rankingOpen   = true;
+      rankingCursor = 0;
+      return;
+    }
   }
 
   const action = _readAction();
@@ -1338,6 +1556,7 @@ function _handleBaseInput() {
       for (let i = 0; i < 30; i++) {
         const nx = cx + dx, ny = cy + dy;
         if (!map.isWalkable(nx, ny)) break;
+        if (baseNpcs.some(n => n.tx === nx && n.ty === ny)) break;
         cx = nx; cy = ny;
         if (BASE_PORTALS.some(p => p.tx === cx && p.ty === cy)) break;
         if (cx === BASE_CHEST_POS.tx  && cy === BASE_CHEST_POS.ty)  break;
@@ -1347,10 +1566,21 @@ function _handleBaseInput() {
         if (cx === BASE_LOAN_POS.tx   && cy === BASE_LOAN_POS.ty)   break;
         if (cx === BASE_RECLASS_POS.tx && cy === BASE_RECLASS_POS.ty) break;
         if (cx === BASE_CRAFT_POS.tx   && cy === BASE_CRAFT_POS.ty)   break;
+        if (cx === BASE_SHRINE_POS.tx  && cy === BASE_SHRINE_POS.ty)  break;
+        if (cx === BASE_QUEST_POS.tx   && cy === BASE_QUEST_POS.ty)   break;
+        if (cx === BASE_RECEPTION_POS.tx && cy === BASE_RECEPTION_POS.ty) break;
+        if (cx === BASE_TAVERN_POS.tx    && cy === BASE_TAVERN_POS.ty)    break;
+        if (cx === BASE_TRADER_POS.tx    && cy === BASE_TRADER_POS.ty)    break;
       }
       player.moveTo(cx, cy);
     } else {
       const ntx = player.tx + dx, nty = player.ty + dy;
+      // NPC に向かって踏み込んだ＝話しかけ（移動はキャンセル）
+      const npc = baseNpcs.find(n => n.tx === ntx && n.ty === nty);
+      if (npc) {
+        npc.speak(npc.randomGreeting());
+        return;
+      }
       if (map.isWalkable(ntx, nty)) player.moveTo(ntx, nty);
     }
     _updateExplored();
@@ -1362,6 +1592,193 @@ function _stallPrice(item) {
   const cat = SHOP_CATALOG.find(c => c.itemId === item.id);
   if (cat) return Math.max(1, Math.floor(cat.price * 0.5));
   return Math.max(5, (item.atk ?? 0) * 5 + (item.def ?? 0) * 4 + 8);
+}
+
+// ── 魂の祠 入力 ────────────────────────────────
+function _handleShrineInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB')) {
+    shrineOpen = false;
+    return;
+  }
+  const n = META_UPGRADES.length;
+  if (input.justPressed('ArrowUp')   || input.justPressed('KeyW'))
+    shrineCursor = (shrineCursor - 1 + n) % n;
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
+    shrineCursor = (shrineCursor + 1) % n;
+  if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+    const def = META_UPGRADES[shrineCursor];
+    const ups = getUpgrades();
+    const cur = ups[def.id] ?? 0;
+    if (cur >= def.costs.length) {
+      logger.add(`✦ ${def.name} はもう極めている。`, 'warn');
+      return;
+    }
+    const cost = def.costs[cur];
+    if (getSouls() < cost) {
+      logger.add(`👻 魂が足りない（必要: ${cost}）`, 'warn');
+      return;
+    }
+    if (purchaseUpgrade(def.id)) {
+      logger.add(`✦ ${def.name} を Lv${cur + 1} に強化した！`, 'heal');
+      flashColor = 'rgba(192,132,252,0.25)';
+      flashAlpha = 1;
+    }
+  }
+}
+
+// ── クエスト掲示板 入力 ────────────────────────
+function _handleQuestInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB')) {
+    questOpen = false;
+    return;
+  }
+  const quests = getDailyQuests();
+  const n = quests.length;
+  if (n === 0) { questOpen = false; return; }
+  if (input.justPressed('ArrowUp')   || input.justPressed('KeyW'))
+    questCursor = (questCursor - 1 + n) % n;
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
+    questCursor = (questCursor + 1) % n;
+  if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+    const q = quests[questCursor];
+    if (!q) return;
+    if (q.claimed) {
+      logger.add('この依頼は受領済み。', 'warn');
+      return;
+    }
+    if (!_questIsComplete(q)) {
+      logger.add('まだ条件を満たしていない。', 'warn');
+      return;
+    }
+    const reward = _questClaim(q.id);
+    if (!reward) return;
+    player.gold += reward.gold;
+    if (reward.souls > 0) addSouls(reward.souls);
+    logger.add(`📜 「${q.title}」完了！ +${reward.gold}G / 魂+${reward.souls}`, 'heal');
+    pushPlayerEvent(`${q.title} 達成！`, 'achieve');
+    flashColor = 'rgba(251,191,36,0.25)';
+    flashAlpha = 1;
+  }
+}
+
+// ── ランキング掲示板 入力 ─────────────────────────
+function _handleRankingInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB')) {
+    rankingOpen = false;
+    return;
+  }
+  const list = getDailyRanking();
+  const n = list.length;
+  if (n === 0) { rankingOpen = false; return; }
+  if (input.justPressed('ArrowUp')   || input.justPressed('KeyW'))
+    rankingCursor = (rankingCursor - 1 + n) % n;
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
+    rankingCursor = (rankingCursor + 1) % n;
+}
+
+// ── 称号メニュー 入力 ────────────────────────────
+function _handleTitleMenuInput() {
+  if (input.justPressed('Escape') || input.justPressed('KeyB') || input.justPressed('KeyY')) {
+    titleMenuOpen = false;
+    return;
+  }
+  const n = _TITLES.length;
+  if (input.justPressed('ArrowUp')   || input.justPressed('KeyW'))
+    titleMenuCursor = (titleMenuCursor - 1 + n) % n;
+  if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
+    titleMenuCursor = (titleMenuCursor + 1) % n;
+  if (input.justPressed('Enter') || input.justPressed('KeyE')) {
+    const t = _TITLES[titleMenuCursor];
+    if (!t) return;
+    const unlocked = _titleUnlocked().some(u => u.id === t.id);
+    if (!unlocked) {
+      logger.add(`🎖 「${t.name}」はまだ解放されていない（${t.desc}）`, 'warn');
+      return;
+    }
+    _titleSet(t.id);
+    logger.add(`🎖 称号「${t.name}」を装備した！`, 'heal');
+  }
+  if (input.justPressed('KeyX')) {
+    _titleSet(null);
+    logger.add('🎖 称号を外した。', 'info');
+  }
+}
+
+// ── 魂の祠 描画 ────────────────────────────────
+function _drawShrine(ctx, W, H) {
+  ctx.save();
+  // 暗幕
+  ctx.fillStyle = 'rgba(5,0,20,0.85)';
+  ctx.fillRect(0, 0, W, H);
+
+  const panelW = 540, panelH = 420;
+  const px = (W - panelW) / 2;
+  const py = (H - panelH) / 2;
+  ctx.fillStyle = 'rgba(20,8,40,0.95)';
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 16;
+  ctx.beginPath();
+  ctx.roundRect(px, py, panelW, panelH, 10);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // タイトル
+  ctx.fillStyle = '#fde68a';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('✦ 魂の祠 ✦', W / 2, py + 14);
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#c084fc';
+  ctx.fillText(`所持魂: ${getSouls()}`, W / 2, py + 40);
+
+  // 一覧
+  const ups = getUpgrades();
+  const startY = py + 70;
+  const rowH   = 56;
+  META_UPGRADES.forEach((def, i) => {
+    const y    = startY + i * rowH;
+    const sel  = i === shrineCursor;
+    const cur  = ups[def.id] ?? 0;
+    const max  = def.costs.length;
+    const done = cur >= max;
+    const cost = done ? null : def.costs[cur];
+
+    ctx.fillStyle = sel ? 'rgba(192,132,252,0.18)' : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(px + 16, y, panelW - 32, rowH - 6);
+    if (sel) {
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px + 16, y, panelW - 32, rowH - 6);
+    }
+
+    // 名称 + lv
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillStyle = sel ? '#fde68a' : '#e9d5ff';
+    ctx.fillText(`${def.name}  Lv ${cur}/${max}`, px + 28, y + 6);
+    // 説明
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#c4b5fd';
+    ctx.fillText(def.desc, px + 28, y + 24);
+    // コスト or MAX
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 12px monospace';
+    if (done) {
+      ctx.fillStyle = '#fde68a';
+      ctx.fillText('★ MAX', px + panelW - 28, y + 18);
+    } else {
+      ctx.fillStyle = getSouls() >= cost ? '#86efac' : '#fca5a5';
+      ctx.fillText(`魂 ${cost}`, px + panelW - 28, y + 18);
+    }
+  });
+
+  // フッター
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(196,181,253,0.65)';
+  ctx.textAlign = 'center';
+  ctx.fillText('↑↓ 選択   Enter 強化   Esc / B で閉じる', W / 2, py + panelH - 22);
+  ctx.restore();
 }
 
 // ── 委託露店入力 ──────────────────────────────
@@ -2008,14 +2425,19 @@ function _handleInventoryInput() {
     if (invCursor < SLOTS.length) {
       // 装備スロット選択 → 外す
       const slot = SLOTS[invCursor];
-      const old  = player.unequipSlot(slot);
-      if (old) {
-        if (player.addToInventory(old)) {
-          logger.add(`${old.name} を外した。`);
-        } else {
-          // インベントリ満杯のため再装備
-          player.equipItem(old);
-          logger.add('所持品がいっぱいで外せない！', 'warn');
+      const cur  = player.equip[slot];
+      if (cur && cur.cursed) {
+        logger.add(`💜 ${cur.name} は呪われていて外せない…！（浄化の巻物が必要）`, 'warn');
+      } else {
+        const old  = player.unequipSlot(slot);
+        if (old) {
+          if (player.addToInventory(old)) {
+            logger.add(`${old.name} を外した。`);
+          } else {
+            // インベントリ満杯のため再装備
+            player.equipItem(old);
+            logger.add('所持品がいっぱいで外せない！', 'warn');
+          }
         }
       }
     } else {
@@ -2044,6 +2466,46 @@ function _handleInventoryInput() {
             logger.add(`💣 爆弾！ 周囲${hits}体に${item.bombDmg}ダメージ！`, 'warn');
             flashColor = 'rgba(239,68,68,0.3)'; flashAlpha = 1;
             _processTurnAfterCast();
+          } else if (item.breakWallRange) {
+            // ツルハシ：向いている方向に最大 breakWallRange 枚の壁を掘る
+            if (gamePhase === 'BASE') {
+              logger.add('⛏ 拠点では使えない。', 'warn');
+            } else {
+              const dx = player.dirX ?? 0;
+              const dy = player.dirY ?? 1;
+              if (dx === 0 && dy === 0) {
+                logger.add('向きを決めてからツルハシを使う。', 'warn');
+              } else {
+                let cx = player.tx, cy = player.ty;
+                let broken = 0;
+                let gotStone = 0, gotWood = 0;
+                for (let step = 0; step < item.breakWallRange; step++) {
+                  cx += dx; cy += dy;
+                  if (!map.canBreakWall || !map.canBreakWall(cx, cy)) break;
+                  const mat = map.wallMaterialAt ? map.wallMaterialAt(cx, cy) : 'stone';
+                  if (!map.breakWall(cx, cy)) break;
+                  broken++;
+                  if (mat === 'wood') { player.wood   = (player.wood   ?? 0) + 1; gotWood++; }
+                  else                { player.stones = (player.stones ?? 0) + 1; gotStone++; }
+                  const sx = (cx - player.tx) * 1 + player.renderX;
+                  const sy = (cy - player.ty) * 1 + player.renderY;
+                  particles.spawn(sx + dx * 28, sy + dy * 28, mat === 'wood' ? '#92400e' : '#a8a29e', 10);
+                }
+                if (broken === 0) {
+                  logger.add(`⛏ ${item.name}：前方に掘れる壁がない。`, 'warn');
+                } else {
+                  player.removeFromInventory(idx);
+                  showInventory = false;
+                  player.attackBump(dx, dy);
+                  const parts = [];
+                  if (gotStone > 0) parts.push(`⛏${gotStone}`);
+                  if (gotWood  > 0) parts.push(`🪵${gotWood}`);
+                  logger.add(`⛏ ${item.name}！壁${broken}枚を粉砕（${parts.join(' ')}）`, 'heal');
+                  flashColor = 'rgba(203,213,225,0.25)'; flashAlpha = 1;
+                  _processTurnAfterCast();
+                }
+              }
+            }
           } else if (item.revive) {
             // 蘇生の宝玉：蘇生バフをセット
             player.removeFromInventory(idx);
@@ -2059,6 +2521,18 @@ function _handleInventoryInput() {
             player.atk += item.tempAtk;
             logger.add(`💪 力の秘薬！ ATK+${item.tempAtk}（${item.tempTurns}ターン）`, 'warn');
             flashColor = 'rgba(249,115,22,0.3)'; flashAlpha = 1;
+          } else if (item.identifyScroll) {
+            const n = player.useItem(item);
+            player.removeFromInventory(idx);
+            if (n > 0) logger.add(`📜 鑑定の巻物！ ${n} 個の装備を鑑定した。`, 'warn');
+            else       logger.add('📜 鑑定の巻物… だが鑑定すべき装備が無い。', 'warn');
+            flashColor = 'rgba(253,224,71,0.25)'; flashAlpha = 1;
+          } else if (item.uncurseScroll) {
+            const n = player.useItem(item);
+            player.removeFromInventory(idx);
+            if (n > 0) logger.add(`📜 浄化の巻物！ ${n} 個の呪いを解いた。`, 'heal');
+            else       logger.add('📜 浄化の巻物… だが呪い装備は無い。', 'warn');
+            flashColor = 'rgba(134,239,172,0.25)'; flashAlpha = 1;
           } else {
             const healed = player.useItem(item);
             player.removeFromInventory(idx);
@@ -2139,6 +2613,8 @@ function _doSwitch() {
   const prevFloor = floorNumber;
   floorNumber++;
   turnCount = 0;
+  _questReportFloor(floorNumber);
+  _titleReportFloor(floorNumber);
   const maxFloors = currentDungeon?.maxFloors ?? 99;
   if (floorNumber > maxFloors && !currentDungeon?.infinite) {
     _dungeonClear();
@@ -2152,7 +2628,12 @@ function _doSwitch() {
     infiniteEscapeCursor = 0;
     gameState = 'PLAYER_TURN';
     logger.add(`⚠ ${prevFloor}階クリア！ このまま続けますか？`, 'warn');
+    pushPlayerEvent(`${prevFloor}F まで来た！`, 'achieve');
     return;
+  }
+  // 5フロアおきに進捗チャット
+  if (prevFloor > 0 && prevFloor % 5 === 0) {
+    pushPlayerEvent(`${prevFloor}F クリア`, 'achieve');
   }
   _buildFloor(transDir);
   gameState  = 'TRANSITIONING';
@@ -2283,6 +2764,47 @@ function _startDungeon(dungeonId) {
 }
 
 function _returnToBase(fromClear = false) {
+  // メタ進行：到達フロアに応じて魂を獲得
+  if (gamePhase === 'DUNGEON') {
+    const reached = floorNumber || 1;
+    const baseReward = calcSoulsReward(reached, fromClear);
+    const reward  = baseReward > 0
+      ? Math.max(1, Math.floor(baseReward * _weSoulsMul()))
+      : 0;
+    if (reward > 0) {
+      addSouls(reward);
+      _titleReportSouls(reward);
+      const evt = getActiveEvent();
+      const soulBonus = reward > baseReward ? `（${evt.name} +${reward - baseReward}）` : '';
+      logger.add(`👻 魂を ${reward} 獲得した${soulBonus}（所持: ${getSouls()}）`, 'warn');
+      floatingTexts.push({
+        text: `+${reward} 魂`, x: CANVAS_W / 2, y: CANVAS_H / 2 + 10,
+        alpha: 1, scale: 1, color: '#c084fc', life: 2.5, maxLife: 2.5, big: false,
+      });
+    }
+    // デイリー挑戦：スコア記録（ベスト更新時のみ表示）
+    if (dailyMode && dailyDateKey && player) {
+      const summary = {
+        floor:   reached,
+        lv:      player.lv ?? 1,
+        hp:      Math.max(0, player.hp ?? 0),
+        maxHp:   player.totalMaxHP ?? player.maxHP ?? 1,
+        gold:    player.gold ?? 0,
+        cleared: !!fromClear,
+      };
+      const { score, isBest } = recordDailyResult(dailyDateKey, summary);
+      logger.add(`☀ デイリー Score: ${score}${isBest ? '（ベスト更新！）' : ''}`, 'warn');
+      floatingTexts.push({
+        text: `☀ Score ${score}${isBest ? ' NEW' : ''}`,
+        x: CANVAS_W / 2, y: CANVAS_H / 2 + 50,
+        alpha: 1, scale: 1, color: isBest ? '#fde68a' : '#fef3c7',
+        life: 3.0, maxLife: 3.0, big: false,
+      });
+      // デイリーは1日1回のみ：終了したら通常モードへ戻す
+      dailyMode = false;
+      restoreRandom();
+    }
+  }
   if (!fromClear && player) {
     // 死亡時: 所持品を失う（装備は保持）
     player.inventory = [];
@@ -2317,7 +2839,14 @@ function _returnToBase(fromClear = false) {
       logger.add('✅ 借金を完済した！', 'info');
     }
   }
+  // 拠点フィールドへ帰還（ダンジョン入口の前にスポーン）
+  const firstPortal = BASE_PORTALS[0];
+  const returnAt = firstPortal
+    ? { tx: firstPortal.tx, ty: firstPortal.ty + 1 }
+    : BASE_SPAWN;
   _buildBase();
+  _placePlayer(returnAt.tx, returnAt.ty);
+  logger.add('🏠 王都アストラルに帰還した。', 'warn');
 }
 
 function _dungeonClear() {
@@ -2327,6 +2856,7 @@ function _dungeonClear() {
   gameState = 'DUNGEON_CLEAR';
   clearedDungeons.add(dungeon.id); // クリア記録
   logger.add(`🎉 ${dungeon.name} をクリアした！`, 'warn');
+  pushPlayerEvent(`${dungeon.name} クリア！`, 'achieve');
   floatingTexts.push({
     text: '🎉 DUNGEON CLEAR!',
     x: CANVAS_W / 2, y: CANVAS_H / 2 - 70,
@@ -2346,6 +2876,41 @@ function _dungeonClear() {
 const _getSlotData = getSlotData;
 const _hasAnySave  = hasAnySave;
 
+// 装備・インベントリのアイテムを保存形式へ。呪い・祝福・未鑑定や
+// 効果値（cursed/blessedで増減）を残す。
+function _serializeItem(item, count) {
+  if (!item) return null;
+  const out = { id: item.id };
+  if (count !== undefined) out.count = count;
+  if (item.cursed)             out.cursed     = true;
+  if (item.blessed)            out.blessed    = true;
+  if (item.identified === false) out.identified = false;
+  if (item.atk        !== undefined) out.atk        = item.atk;
+  if (item.def        !== undefined) out.def        = item.def;
+  if (item.maxHp      !== undefined) out.maxHp      = item.maxHp;
+  if (item.durability !== undefined) out.durability = item.durability;
+  return out;
+}
+
+function _deserializeItem(entry) {
+  if (!entry) return null;
+  // 旧形式: 文字列（= id）または { id, count } のみ
+  const id = typeof entry === 'string' ? entry : entry.id;
+  if (!id || !ITEMS[id]) return null;
+  const base = { ...ITEMS[id] };
+  if (typeof entry === 'object') {
+    if (entry.count      !== undefined) base.count      = entry.count;
+    if (entry.cursed)                   base.cursed     = true;
+    if (entry.blessed)                  base.blessed    = true;
+    if (entry.identified === false)     base.identified = false;
+    if (entry.atk        !== undefined) base.atk        = entry.atk;
+    if (entry.def        !== undefined) base.def        = entry.def;
+    if (entry.maxHp      !== undefined) base.maxHp      = entry.maxHp;
+    if (entry.durability !== undefined) base.durability = entry.durability;
+  }
+  return base;
+}
+
 function _saveToSlot(slot) {
   if (!player) return;
   try {
@@ -2360,15 +2925,16 @@ function _saveToSlot(slot) {
       baseLuk: player.baseLuk, baseMp: player.baseMp,
       buildBonus: player.buildBonus,
       appearance: player.appearance ?? null,
+      pet:        playerPetKind ?? null,
       equip: {
-        weapon:    player.equip.weapon?.id    ?? null,
-        head:      player.equip.head?.id      ?? null,
-        chest:     player.equip.chest?.id     ?? null,
-        waist:     player.equip.waist?.id     ?? null,
-        legs:      player.equip.legs?.id      ?? null,
-        accessory: player.equip.accessory?.id ?? null,
+        weapon:    _serializeItem(player.equip.weapon),
+        head:      _serializeItem(player.equip.head),
+        chest:     _serializeItem(player.equip.chest),
+        waist:     _serializeItem(player.equip.waist),
+        legs:      _serializeItem(player.equip.legs),
+        accessory: _serializeItem(player.equip.accessory),
       },
-      inventory: player.inventory.map(i => ({ id: i.id, count: i.count ?? 1 })),
+      inventory: player.inventory.map(i => _serializeItem(i, i.count ?? 1)),
       spells:    [...player.spells],
       baseChest: baseChest.map(i => i.id ?? i.name),
       dungeonId:       currentDungeon?.id ?? null,
@@ -2391,6 +2957,8 @@ function _loadFromSlot(slot) {
     if (s.appearance && APPEARANCES[s.appearance.species]) {
       playerAppearance = { species: s.appearance.species, tint: s.appearance.tint };
     }
+    playerPetKind = (s.pet && PETS[s.pet]) ? s.pet : null;
+    pet           = null; // 再配置は _placePlayer で行う
     floorNumber     = Math.max(1, s.floor ?? 1);
     clearedDungeons = new Set(s.clearedDungeons ?? []);
     player        = null;
@@ -2422,21 +2990,17 @@ function _loadFromSlot(slot) {
     player.mp    = Math.min(s.mp ?? player.totalMaxMp, player.totalMaxMp);
 
     for (const slot of ['weapon', 'head', 'chest', 'waist', 'legs', 'accessory']) {
-      const id = s.equip?.[slot];
-      if (id && ITEMS[id]) player.equip[slot] = { ...ITEMS[id] };
+      const item = _deserializeItem(s.equip?.[slot]);
+      if (item) player.equip[slot] = item;
     }
     // 旧フォーマット互換: v3以前の `armor` は chest へマップ
-    if (s.equip?.armor && ITEMS[s.equip.armor] && !player.equip.chest) {
-      player.equip.chest = { ...ITEMS[s.equip.armor] };
+    if (s.equip?.armor && !player.equip.chest) {
+      const armorItem = _deserializeItem(s.equip.armor);
+      if (armorItem) player.equip.chest = armorItem;
     }
     player.inventory = (s.inventory ?? [])
-      .map(entry => {
-        // 旧形式: 文字列（= id）。新形式: { id, count }
-        if (typeof entry === 'string') return { id: entry, count: 1 };
-        return { id: entry.id, count: entry.count ?? 1 };
-      })
-      .filter(e => ITEMS[e.id])
-      .map(e => ({ ...ITEMS[e.id], count: e.count }))
+      .map(_deserializeItem)
+      .filter(it => it !== null)
       .slice(0, player.maxInventory);
     player.spells = s.spells ?? player.spells;
 
@@ -2583,13 +3147,19 @@ function _processTurnAfterCast() {
 
 // ── 攻撃解決 → src/systems/combat.ts に移動済み ──────
 function _attack(attacker, defender, rawAtk) {
-  return _attackFn(attacker, defender, rawAtk, {
+  const result = _attackFn(attacker, defender, rawAtk, {
     player, logger, particles, camOffX, camOffY,
     onFlash:    color => { flashColor = color; flashAlpha = 1; },
     onShake:    (intensity, duration) => triggerShake(intensity, duration),
     onHitStop:  seconds => triggerHitStop(seconds),
     onFloatingText: t => floatingTexts.push(t),
   });
+  // プレイヤーが敵を倒した時のみクエスト討伐カウント & 称号統計
+  if (attacker === player && defender !== player && !defender.alive) {
+    _questReportKill();
+    _titleReportKill(!!defender.isBoss);
+  }
+  return result;
 }
 
 // ── 描画 ──────────────────────────────────────
@@ -2609,6 +3179,9 @@ function _draw(ctx, W, H, now) {
       speciesCursor: charSpeciesCursor,
       tintCursor:    charTintCursor,
       focusGroup:    charFocusGroup,
+      dailyMode:     dailyMode,
+      dailyDateKey:  dailyDateKey,
+      petCursor:     charPetCursor,
     });
     return;
   }
@@ -2639,9 +3212,9 @@ function _draw(ctx, W, H, now) {
     drawBaseObjects(ctx, camOffX, camOffY, now, {
       player, baseChestCount: baseChest.length, baseShopCount: baseShopItems.length,
       stallCount: stallItems.length, loanDebt, sprites, clearedDungeons,
+      questActive: _questActiveCount(), questClaimable: _questClaimableCount(),
     });
   }
-
   // 向き・攻撃範囲プレビュー
   if (gameState === 'PLAYER_TURN' && !showInventory && !showMagic && gamePhase !== 'BASE') {
     drawAttackPreview(ctx, camOffX, camOffY, { player, enemies });
@@ -2683,10 +3256,56 @@ function _draw(ctx, W, H, now) {
   for (const e of enemies) if (e.alive) e.drawShadow(ctx, camOffX, camOffY);
   if (player.alive) player.drawShadow(ctx, camOffX, camOffY);
 
-  const drawOrder = [...enemies.filter(e => e.alive), player]
-    .sort((a, b) => a.renderY - b.renderY);
-  for (const actor of drawOrder) {
-    if (actor === player) {
+  // ペットの位置補間 + Y ソート用 renderY 計算
+  let petRenderY = 0;
+  if (pet && pet.alive) {
+    pet.advanceAnim(1 / 60);
+    const t  = pet.moveT;
+    const px = ((1 - t) * pet.fromTx + t * pet.tx + 0.5) * TILE_SIZE;
+    const py = ((1 - t) * pet.fromTy + t * pet.ty + 0.5) * TILE_SIZE;
+    petRenderY = py + camOffY;
+    pet._sx = px + camOffX;
+    pet._sy = py + camOffY;
+    // 影
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(pet._sx, pet._sy + TILE_SIZE * 0.42, TILE_SIZE * 0.32, TILE_SIZE * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const sortable = [...enemies.filter(e => e.alive), player];
+  if (pet && pet.alive) sortable.push({ __isPet: true, renderY: petRenderY });
+  // 拠点NPC（BaseNpc）の Y ソート用 renderY は draw 後に更新するので、
+  // 仮の renderY をここで先に計算しておく
+  if (gamePhase === 'BASE') {
+    for (const n of baseNpcs) {
+      const t  = n.moveT;
+      const py = ((1 - t) * n.fromTy + t * n.ty + 0.5) * TILE_SIZE + camOffY;
+      sortable.push({ __isBaseNpc: true, npc: n, renderY: py });
+    }
+  }
+  sortable.sort((a, b) => a.renderY - b.renderY);
+  for (const actor of sortable) {
+    if (actor.__isBaseNpc) {
+      actor.npc.draw(ctx, camOffX, camOffY);
+    } else if (actor.__isPet) {
+      // ペット描画
+      const facing = (player && player.tx > pet.tx) ? 'side' : (player && player.tx < pet.tx ? 'side' : 'front');
+      const walking = pet.moveT < 1;
+      ctx.save();
+      pet.draw(ctx, pet._sx, pet._sy, TILE_SIZE * 0.78, facing, walking);
+      ctx.restore();
+      // HPバー（小さく）
+      if (pet.hp < pet.maxHp) {
+        const bw = 36, bh = 4;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(pet._sx - bw / 2, pet._sy - TILE_SIZE * 0.45, bw, bh);
+        ctx.fillStyle = '#86efac';
+        ctx.fillRect(pet._sx - bw / 2, pet._sy - TILE_SIZE * 0.45, bw * (pet.hp / pet.maxHp), bh);
+      }
+    } else if (actor === player) {
       player.draw(ctx, sprites, camOffX, camOffY);
     } else {
       // Floor depth tint via hue-rotate
@@ -2819,6 +3438,12 @@ function _draw(ctx, W, H, now) {
   drawMinimap(ctx, W, H, { map, player, enemies, exploredTiles, floorItems, floorChests, shopPos });
   drawFloatingTexts(ctx, floatingTexts);
 
+  // チャットティッカー（拠点では大きめ、ダンジョン中はコンパクト）
+  drawChatTicker(ctx, W, H, gamePhase === 'DUNGEON');
+
+  // サーバー情報（右上オーバーレイ）
+  drawServerInfo(ctx, W, H);
+
   if (showInventory) drawInventory(ctx, W, H, { player, invCursor, sprites });
   if (showMagic)     drawMagicMenu(ctx, W, H, { player, magicCursor });
   if (shopOpen)      drawShopMenu(ctx, W, H, { player, shopItems, shopCursor });
@@ -2838,6 +3463,10 @@ function _draw(ctx, W, H, now) {
   });
   if (reclassOpen)   drawReclassMenu(ctx, W, H, { player, reclassCursor, cost: _reclassCost() });
   if (craftOpen)     drawCraftMenu(ctx, W, H, { player, craftCurA, craftCurB, craftSide });
+  if (shrineOpen)    _drawShrine(ctx, W, H);
+  if (questOpen)     drawQuestBoard(ctx, W, H, { quests: getDailyQuests(), cursor: questCursor });
+  if (rankingOpen)   drawRanking(ctx, W, H, { list: getDailyRanking(), cursor: rankingCursor });
+  if (titleMenuOpen) drawTitleMenu(ctx, W, H, { items: _TITLES, cursor: titleMenuCursor });
 
   if (transAlpha > 0) {
     ctx.fillStyle = `rgba(0,0,0,${transAlpha.toFixed(3)})`;
@@ -2899,22 +3528,45 @@ function _draw(ctx, W, H, now) {
 
 function _handleTitleInput() {
   const hasAny = _hasAnySave();
-  const maxIdx = hasAny ? 1 : 0;
+  // メニュー: 0=はじめから, 1=続きから（あれば）, 末尾=デイリー挑戦
+  const items = ['new'];
+  if (hasAny) items.push('continue');
+  items.push('daily');
+  const maxIdx = items.length - 1;
   if (input.justPressed('ArrowUp') || input.justPressed('KeyW'))
     titleCursor = (titleCursor - 1 + maxIdx + 1) % (maxIdx + 1);
   if (input.justPressed('ArrowDown') || input.justPressed('KeyS'))
     titleCursor = (titleCursor + 1) % (maxIdx + 1);
   if (input.justPressed('Enter') || input.justPressed('Space')) {
-    if (titleCursor === 0) {
+    const sel = items[Math.min(titleCursor, maxIdx)];
+    if (sel === 'new') {
+      dailyMode = false;
+      restoreRandom();
       gameState = 'CHAR_CREATE';
       charSpeciesCursor = 0;
       charTintCursor    = 0;
       charFocusGroup    = 'species';
-    } else {
+      charPetCursor     = 0;
+      pet               = null;
+    } else if (sel === 'continue') {
+      dailyMode = false;
+      restoreRandom();
       saveSlotMode   = 'load';
       saveSlotFrom   = 'TITLE';
       saveSlotCursor = 0;
       gameState      = 'SAVE_SLOT';
+    } else if (sel === 'daily') {
+      // デイリー挑戦：今日の日付からシードを作って Math.random を上書き
+      dailyMode    = true;
+      dailyDateKey = todayKey();
+      restoreRandom();
+      installSeededRandom(dailySeedFor(dailyDateKey));
+      gameState = 'CHAR_CREATE';
+      charSpeciesCursor = 0;
+      charTintCursor    = 0;
+      charFocusGroup    = 'species';
+      charPetCursor     = 0;
+      pet               = null;
     }
   }
 }
@@ -2967,6 +3619,10 @@ function _handleCharCreateInput() {
     charTintCursor = (charTintCursor + 1) % TINTS.length;
     charFocusGroup = 'tint';
   }
+  if (input.justPressed('KeyP')) {
+    // 0=なし → 1..PET_KINDS.length をループ
+    charPetCursor = (charPetCursor + 1) % (PET_KINDS.length + 1);
+  }
   if (input.justPressed('Escape') || input.justPressed('Backspace')) {
     gameState = 'TITLE';
     return;
@@ -2976,6 +3632,7 @@ function _handleCharCreateInput() {
       species: APPEARANCE_IDS[charSpeciesCursor],
       tint:    TINTS[charTintCursor].color,
     };
+    playerPetKind = charPetCursor === 0 ? null : PET_KINDS[charPetCursor - 1];
     gameState   = 'CLASS_SELECT';
     classCursor = 0;
   }
