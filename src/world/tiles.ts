@@ -40,7 +40,7 @@ export interface Theme {
   corridor: FloorPalette;
 }
 
-export type ThemeId = 'dungeon' | 'forest' | 'town' | 'base' | 'cosmic';
+export type ThemeId = 'dungeon' | 'forest' | 'base' | 'cosmic';
 
 // テーマ別カラーパレット（描画は map.ts が使用）
 // 写実寄りの色調に調整：彩度控えめ、石・土・草の自然なトーン
@@ -59,13 +59,6 @@ export const THEMES: Record<ThemeId, Theme> = {
     floor:    { base: '#3e5a24', grid: 'rgba(40,80,16,0.28)', hi: 'rgba(180,230,120,0.06)' },
     corridor: { base: '#6a4e24', grid: 'rgba(80,56,16,0.38)', hi: 'rgba(200,160,80,0.05)' },
   },
-  town: {
-    bg:       '#12100c',
-    label:    '街',
-    wall:     { base: '#4a3a2c', lo: '#1e140a', hi: 'rgba(200,180,140,0.28)', sh: 'rgba(0,0,0,0.55)', moss: '#283020' },
-    floor:    { base: '#a8987a', grid: 'rgba(120,100,68,0.38)', hi: 'rgba(255,248,220,0.05)' },
-    corridor: { base: '#86785e', grid: 'rgba(96,80,50,0.40)', hi: 'rgba(255,248,220,0.04)' },
-  },
   base: {
     bg:       '#0a0805',
     label:    '拠点',
@@ -82,7 +75,7 @@ export const THEMES: Record<ThemeId, Theme> = {
   },
 };
 
-export const THEME_IDS: ThemeId[] = ['dungeon', 'forest', 'town', 'base', 'cosmic'];
+export const THEME_IDS: ThemeId[] = ['dungeon', 'forest', 'base', 'cosmic'];
 
 export const TILE_SIZE   = 96; // アクター lerp 用（論理単位）
 

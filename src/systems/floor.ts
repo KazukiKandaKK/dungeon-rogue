@@ -24,10 +24,9 @@ export interface SpawnMap {
 
 export function getFloorTheme(floorNum: number, currentDungeon: DungeonDef | null): string {
   if (currentDungeon) return currentDungeon.theme;
-  const cycle = (floorNum - 1) % 15;
-  if (cycle < 5)  return 'dungeon';
-  if (cycle < 10) return 'forest';
-  return 'town';
+  const cycle = (floorNum - 1) % 10;
+  if (cycle < 5) return 'dungeon';
+  return 'forest';
 }
 
 // ---------------------------------------------------------------------------

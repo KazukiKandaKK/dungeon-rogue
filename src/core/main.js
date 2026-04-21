@@ -588,7 +588,7 @@ function _buildFloor(entryDir) {
     const themeLabel = THEMES[theme]?.label ?? theme;
     const prevTheme  = getFloorTheme(floorNumber - 1, currentDungeon);
     if (theme !== prevTheme) {
-      const emoji = theme === 'forest' ? '🌲' : theme === 'town' ? '🏘️' : '🏚️';
+      const emoji = theme === 'forest' ? '🌲' : '🏚️';
       logger.add(`${emoji} ${floorNumber}層 ― ${themeLabel}エリアに入った`, 'warn');
       floatingTexts.push({
         text: `${emoji} ${themeLabel}`, x: CANVAS_W / 2, y: CANVAS_H / 2 - 60,

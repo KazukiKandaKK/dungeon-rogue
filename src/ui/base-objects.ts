@@ -33,7 +33,7 @@ import {
   drawTrader as drawGrandTrader,
   drawMonument as drawGrandMonument,
   drawAmbientMotes as drawGrandAmbientMotes,
-} from './town-objects.js';
+} from './grand-props.js';
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 

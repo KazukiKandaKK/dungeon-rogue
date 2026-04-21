@@ -4,10 +4,11 @@ import { TILE, TILE_DEF, ALL_TILE_IDS, THEMES, THEME_IDS, TILE_SIZE } from '../.
 describe('tiles', () => {
 
   describe('TILE 定数', () => {
-    it('FLOOR=0 から WATER=6 まで 7 種類ある', () => {
-      expect(Object.values(TILE)).toHaveLength(7);
+    it('FLOOR=0 から MAGMA=8 まで 9 種類ある', () => {
+      expect(Object.values(TILE)).toHaveLength(9);
       expect(TILE.FLOOR).toBe(0);
       expect(TILE.WATER).toBe(6);
+      expect(TILE.MAGMA).toBe(8);
     });
 
     it('ALL_TILE_IDS が TILE の全値を含む', () => {

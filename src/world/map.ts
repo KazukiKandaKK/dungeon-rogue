@@ -8,7 +8,6 @@ import { DungeonGenerator, BossArenaGenerator, BaseRoomGenerator } from './dunge
 import type { Room } from './dungeon.js';
 import { ForestGenerator }  from './forest.js';
 import type { ExitPos, ExitMap } from './forest.js';
-import { TownGenerator }    from './town.js';
 
 const ARROW_PERIOD = 1.4;
 const CULL_MARGIN  = TILE_SIZE * 2;
@@ -105,7 +104,6 @@ export class GameMap {
   private _makeGenerator(cols: number, rows: number, theme: ThemeId): GeneratorLike {
     if (theme === 'base')   return new BaseRoomGenerator(cols, rows);
     if (theme === 'forest') return new ForestGenerator(cols, rows);
-    if (theme === 'town')   return new TownGenerator(cols, rows);
     return new DungeonGenerator(cols, rows);
   }
 
@@ -397,8 +395,6 @@ export class GameMap {
 
     if (this.theme === 'forest') {
       this._drawForestTile(ctx, sx, sy, tileId, tx, ty, th, ts);
-    } else if (this.theme === 'town') {
-      this._drawTownTile(ctx, sx, sy, tileId, tx, ty, th, ts);
     } else if (this.theme === 'cosmic') {
       this._drawCosmicTile(ctx, sx, sy, tileId, th, ts, tx, ty);
     } else {
@@ -1058,121 +1054,6 @@ export class GameMap {
         ctx.moveTo(sx + t2, sy); ctx.lineTo(sx + t2, sy + ts);
         ctx.stroke();
       }
-    }
-  }
-
-  private _drawTownTile(
-    ctx:    CanvasRenderingContext2D,
-    sx:     number,
-    sy:     number,
-    tileId: TileType,
-    tx:     number,
-    ty:     number,
-    th:     typeof THEMES[ThemeId],
-    ts:     number,
-  ): void {
-    if (tileId === TILE.PILLAR || tileId === TILE.TRAP || tileId === TILE.WATER) {
-      tileId = TILE.FLOOR;
-    }
-    if (tileId === TILE.WALL) {
-      // ── ベース ───────────────────────────────────────────────────
-      ctx.fillStyle = th.wall.base;
-      ctx.fillRect(sx, sy, ts, ts);
-
-      // ── レンガ目地（ts比例） ──────────────────────────────────────
-      const bh = Math.round(ts / 4);  // レンガ高さ
-      const bw = Math.round(ts / 2);  // レンガ幅
-      ctx.strokeStyle = 'rgba(50,30,10,0.45)';
-      ctx.lineWidth = 1;
-      // 水平目地
-      for (let y = sy + bh; y < sy + ts; y += bh) {
-        ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx + ts, y); ctx.stroke();
-      }
-      // 垂直目地（行ごとにずらす）
-      const numRows = Math.ceil(ts / bh);
-      for (let row = 0; row < numRows; row++) {
-        const ry     = sy + row * bh;
-        const offset = (((ty * 3 + row) % 2) === 0) ? 0 : Math.round(bw / 2);
-        for (let x = sx + offset; x < sx + ts; x += bw) {
-          ctx.beginPath(); ctx.moveTo(x, ry); ctx.lineTo(x, ry + bh); ctx.stroke();
-        }
-      }
-
-      // ── ハイライト・シャドウ ──────────────────────────────────────
-      ctx.fillStyle = th.wall.hi;
-      ctx.fillRect(sx, sy, ts, 2);
-      ctx.fillRect(sx, sy, 2, ts);
-      ctx.fillStyle = th.wall.sh;
-      ctx.fillRect(sx + ts - 2, sy, 2, ts);
-      ctx.fillRect(sx, sy + ts - 2, ts, 2);
-
-      // ── 窓（比例サイズ） ──────────────────────────────────────────
-      const seed = (tx * 41 + ty * 23) % 100;
-      if (seed < 35) {
-        const ww = Math.round(ts * 0.3);
-        const wh = Math.round(ts * 0.22);
-        const wx = sx + Math.round(ts * 0.33);
-        const wy = sy + Math.round(ts * 0.2);
-        ctx.fillStyle = seed < 20 ? 'rgba(255,220,80,0.6)' : 'rgba(100,140,180,0.45)';
-        ctx.fillRect(wx, wy, ww, wh);
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(wx, wy, ww, wh);
-        ctx.beginPath();
-        ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh);
-        ctx.moveTo(wx, wy + wh / 2); ctx.lineTo(wx + ww, wy + wh / 2);
-        ctx.stroke();
-      }
-
-    } else {
-      // ── 石畳 or 道路 ─────────────────────────────────────────────
-      const isCorr = tileId === TILE.CORRIDOR;
-      ctx.fillStyle = isCorr ? th.corridor.base : th.floor.base;
-      ctx.fillRect(sx, sy, ts, ts);
-
-      const pal = isCorr ? th.corridor : th.floor;
-      const seed = (tx * 37 + ty * 59);
-
-      // 明暗ムラ
-      const mood = (seed % 5) - 2;
-      if (mood !== 0) {
-        ctx.save();
-        ctx.globalAlpha = Math.abs(mood) * 0.04;
-        ctx.fillStyle = mood > 0 ? '#ffffff' : '#000000';
-        ctx.fillRect(sx, sy, ts, ts);
-        ctx.restore();
-      }
-
-      ctx.strokeStyle = pal.grid;
-      ctx.lineWidth = 0.8;
-      ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
-
-      if (!isCorr) {
-        // 内側のハイライト（古びた石畳の中央）
-        ctx.fillStyle = pal.hi;
-        ctx.fillRect(sx + 3, sy + 3, ts - 6, ts - 6);
-        // 石畳を 2×2 分割する目地
-        ctx.save();
-        ctx.globalAlpha = 0.35;
-        ctx.strokeStyle = '#2a1e10';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(sx + ts / 2, sy); ctx.lineTo(sx + ts / 2, sy + ts);
-        ctx.moveTo(sx, sy + ts / 2); ctx.lineTo(sx + ts, sy + ts / 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // 小石・ゴミ
-      ctx.save();
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#2a1e10';
-      for (let k = 0; k < 3; k++) {
-        const rx = ((seed * (k + 1) * 7) % (ts - 12)) + 6;
-        const ry = ((seed * (k + 1) * 11) % (ts - 12)) + 6;
-        ctx.fillRect(sx + rx, sy + ry, 2, 2);
-      }
-      ctx.restore();
     }
   }
 
