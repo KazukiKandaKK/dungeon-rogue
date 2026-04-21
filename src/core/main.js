@@ -506,8 +506,8 @@ function _buildBase() {
   baseShopItems = buildBaseShopItems();
   _placePlayer(BASE_SPAWN.tx, BASE_SPAWN.ty);
 
-  // 拠点NPC（冒険者風）を配置 — 統合フィールドは広いので 7〜10 体
-  baseNpcs = _spawnBaseNpcs(7 + Math.floor(Math.random() * 4));
+  // 拠点NPC（役割持ち7名 + 徘徊者 8〜11 名）
+  baseNpcs = _spawnBaseNpcs(15 + Math.floor(Math.random() * 4));
 
   // 拠点は全タイル探索済みにする
   exploredTiles = new Set();
@@ -667,6 +667,34 @@ function _spawnBaseNpcs(count) {
   const reserved = _baseReservedTiles();
   const occupied = new Set(reserved.map(p => `${p.tx},${p.ty}`));
   if (player) occupied.add(`${player.tx},${player.ty}`);
+
+  // ── 役割別の固定 NPC を先に配置 ──
+  //  座標はいずれも壁ではなく歩行可能タイル、かつ予約タイルでないもの。
+  const roleSpawns = [
+    // 商人：市場の荷車まわり（y=19 の商業通り）
+    { role: 'merchant', tx: 6,  ty: 18, waypoints: [{ tx: 6, ty: 18 }, { tx: 12, ty: 18 }, { tx: 12, ty: 19 }, { tx: 6, ty: 19 }] },
+    { role: 'merchant', tx: 24, ty: 18, waypoints: [{ tx: 24, ty: 18 }, { tx: 28, ty: 18 }, { tx: 28, ty: 19 }, { tx: 24, ty: 19 }] },
+    // 衛兵：ダンジョン門前（y=7）と広場を往復
+    { role: 'guard',    tx: 16, ty: 7,  waypoints: [{ tx: 16, ty: 7 }, { tx: 19, ty: 7 }, { tx: 19, ty: 9 }, { tx: 16, ty: 9 }] },
+    { role: 'guard',    tx: 17, ty: 14, waypoints: [{ tx: 17, ty: 14 }, { tx: 19, ty: 14 }, { tx: 19, ty: 15 }, { tx: 17, ty: 15 }] },
+    // 触れ回し：モニュメント前（噴水の南）を練り歩く
+    { role: 'crier',    tx: 17, ty: 15, waypoints: [{ tx: 15, ty: 15 }, { tx: 20, ty: 15 }, { tx: 18, ty: 14 }, { tx: 16, ty: 14 }] },
+    // 酒飲み：酒場（tx=5,ty=10）〜裏路地の樽あたりをふらふら
+    { role: 'drunk',    tx: 6,  ty: 11, waypoints: [{ tx: 6, ty: 11 }, { tx: 7, ty: 21 }, { tx: 14, ty: 22 }, { tx: 11, ty: 22 }] },
+    { role: 'drunk',    tx: 28, ty: 11, waypoints: [{ tx: 28, ty: 11 }, { tx: 28, ty: 21 }, { tx: 22, ty: 22 }, { tx: 25, ty: 22 }] },
+    // 祈祷師：大聖堂（北中央）前を徘徊
+    { role: 'priest',   tx: 17, ty: 2,  waypoints: [{ tx: 16, ty: 2 }, { tx: 19, ty: 2 }, { tx: 18, ty: 3 }, { tx: 17, ty: 2 }] },
+  ];
+  for (const spec of roleSpawns) {
+    if (npcs.length >= count + 5) break;
+    if (!map.isWalkable(spec.tx, spec.ty)) continue;
+    const key = `${spec.tx},${spec.ty}`;
+    if (occupied.has(key)) continue;
+    occupied.add(key);
+    npcs.push(new BaseNpc(spec.tx, spec.ty, spec.role, spec.waypoints));
+  }
+
+  // ── 残りは徘徊者（wanderer）としてランダム配置 ──
   let tries = 0;
   while (npcs.length < count && tries < 200) {
     tries++;
@@ -678,7 +706,7 @@ function _spawnBaseNpcs(count) {
     // プレイヤーの初期スポーン半径3以内には湧かせない
     if (Math.abs(tx - BASE_SPAWN.tx) + Math.abs(ty - BASE_SPAWN.ty) < 3) continue;
     occupied.add(key);
-    npcs.push(new BaseNpc(tx, ty));
+    npcs.push(new BaseNpc(tx, ty, 'wanderer', []));
   }
   return npcs;
 }

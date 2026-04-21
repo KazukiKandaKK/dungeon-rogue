@@ -37,6 +37,49 @@ const GREETINGS = [
   'ﾅｲｽﾌｧｲﾄ',
 ];
 
+// ── 役割別のセリフ ─────────────────────────────────
+const ROLE_LINES: Record<NpcRole, string[]> = {
+  wanderer: GREETINGS,
+  merchant: [
+    'いらっしゃい！',
+    '掘り出し物あるよ',
+    '今日は安いよ〜',
+    '魂の剣、特価だ！',
+    '品物ご覧下さい',
+  ],
+  guard: [
+    '気をつけてな',
+    '敵が増えている…',
+    '門を護れ！',
+    '怪しい者はいないか',
+    '異常なし',
+  ],
+  drunk: [
+    'ｳﾞｪｰｯ…',
+    'もう一杯いっとく？',
+    '酒場どこだっけ',
+    'ﾌﾗﾌﾗ…',
+    'ﾎﾟｶﾎﾟｶするー',
+  ],
+  crier: [
+    '号外だ！新ダンジョン発見！',
+    'ボス討伐の報酬、倍増中！',
+    '今日の賭博、大当たり多数！',
+    '勇者に栄光あれ！',
+    '工房、新装備入荷！',
+  ],
+  priest: [
+    '神のご加護を',
+    '魂は救われる',
+    '祈りなさい',
+    '光あれ',
+  ],
+};
+
+export type NpcRole = 'wanderer' | 'merchant' | 'guard' | 'drunk' | 'crier' | 'priest';
+
+interface Waypoint { tx: number; ty: number; }
+
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -48,6 +91,12 @@ export class BaseNpc {
   readonly tint:        string;
   readonly lv:          number;
   readonly title:       TitleDef | null;
+  /** 役割（セリフと巡回経路の選択に使う） */
+  role: NpcRole = 'wanderer';
+  /** 巡回するウェイポイント列。NPC はこれらを順に目指して歩く。 */
+  waypoints: Waypoint[] = [];
+  /** 現在向かっているウェイポイントのインデックス */
+  wpIndex: number = 0;
   tx: number;
   ty: number;
   fromTx: number;
@@ -62,7 +111,7 @@ export class BaseNpc {
   /** 横向きの向き（+1=右, -1=左） */
   facingDir: 1 | -1 = 1;
 
-  constructor(tx: number, ty: number) {
+  constructor(tx: number, ty: number, role: NpcRole = 'wanderer', waypoints: Waypoint[] = []) {
     this.speciesId  = pick(APPEARANCE_IDS);
     this.appearance = APPEARANCES[this.speciesId];
     this.tint       = pick(TINTS).color;
@@ -71,7 +120,11 @@ export class BaseNpc {
     this.title      = pickNpcTitle(`${this.speciesId}:${this.name}:${this.lv}`);
     this.tx = tx; this.ty = ty;
     this.fromTx = tx; this.fromTy = ty;
-    this.nextActAt = performance.now() + 1500 + Math.random() * 2500;
+    this.role = role;
+    this.waypoints = waypoints;
+    // 触れ回し(crier)は頻繁に吹き出しを出すので初手の間隔を短く
+    const delay = role === 'crier' ? 800 : 1500 + Math.random() * 2500;
+    this.nextActAt = performance.now() + delay;
   }
 
   /**
@@ -90,21 +143,48 @@ export class BaseNpc {
     if (now < this.nextActAt) return;
     if (this.moveT < 1)        return; // 移動中は次の判断を遅らせる
 
-    // 30% の確率でその場で会話、それ以外は徒歩
+    // 役割ごとに発声頻度を変える
+    const chatProb =
+      this.role === 'crier'    ? 0.55 :
+      this.role === 'drunk'    ? 0.40 :
+      this.role === 'merchant' ? 0.40 :
+      0.30;
     const r = Math.random();
-    if (r < 0.30) {
-      this.bubbleText = pick(GREETINGS);
-      this.bubbleUntil = now + 2200;
-      this.nextActAt   = now + 2500 + Math.random() * 2500;
+    if (r < chatProb) {
+      const lines = ROLE_LINES[this.role] ?? GREETINGS;
+      this.bubbleText = pick(lines);
+      this.bubbleUntil = now + (this.role === 'crier' ? 2800 : 2200);
+      this.nextActAt   = now + 1800 + Math.random() * 2200;
       return;
     }
 
-    // 1マス移動を試みる（4方向シャッフル）
+    // ── ウェイポイント指向の4方向移動（距離が近い方向を優先） ──
+    const target = this._currentWaypoint();
     const dirs: Array<[number, number]> = [[1,0],[-1,0],[0,1],[0,-1]];
-    for (let i = dirs.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    if (target) {
+      const dx = target.tx - this.tx;
+      const dy = target.ty - this.ty;
+      // 目標に近い方向を先頭にしたバイアス付きのシャッフル
+      dirs.sort(([ax, ay], [bx, by]) => {
+        const aScore = ax * Math.sign(dx) + ay * Math.sign(dy);
+        const bScore = bx * Math.sign(dx) + by * Math.sign(dy);
+        return bScore - aScore;
+      });
+      // たまに揺らぎを入れる（同じ方向を常に選ばないように先頭2つだけランダム化）
+      if (Math.random() < 0.35 && dirs.length >= 2) {
+        [dirs[0], dirs[1]] = [dirs[1], dirs[0]];
+      }
+    } else {
+      // ウェイポイントなし → ランダムシャッフル（既存の徘徊挙動）
+      for (let i = dirs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+      }
     }
+    // 酔っ払いは時々逆方向に行く
+    const isDrunk = this.role === 'drunk';
+    if (isDrunk && Math.random() < 0.35) dirs.reverse();
+
     for (const [dx, dy] of dirs) {
       const nx = this.tx + dx;
       const ny = this.ty + dy;
@@ -118,11 +198,32 @@ export class BaseNpc {
       this.moveT = 0;
       if (dx > 0) this.facingDir = 1;
       else if (dx < 0) this.facingDir = -1;
-      this.nextActAt = now + 1200 + Math.random() * 1800;
+      // ウェイポイント到達判定
+      if (target && this.tx === target.tx && this.ty === target.ty) {
+        this._advanceWaypoint();
+      }
+      // 酔っ払いは動きが速い＆ランダム、触れ回しはゆっくり朗々と
+      const nextDelay =
+        this.role === 'drunk' ? 600  + Math.random() * 900 :
+        this.role === 'crier' ? 1600 + Math.random() * 1400 :
+        1200 + Math.random() * 1800;
+      this.nextActAt = now + nextDelay;
       return;
     }
-    // 動けなかったらしばし停止
+    // 動けなかったらしばし停止（ウェイポイントが壁越しなら先送り）
+    if (target) this._advanceWaypoint();
     this.nextActAt = now + 1500;
+  }
+
+  /** 現在向かっているウェイポイント（未設定なら null） */
+  private _currentWaypoint(): Waypoint | null {
+    if (this.waypoints.length === 0) return null;
+    return this.waypoints[this.wpIndex % this.waypoints.length];
+  }
+
+  private _advanceWaypoint(): void {
+    if (this.waypoints.length === 0) return;
+    this.wpIndex = (this.wpIndex + 1) % this.waypoints.length;
   }
 
   /** 吹き出しを強制セット（プレイヤーから話しかけられた時） */
@@ -133,7 +234,8 @@ export class BaseNpc {
 
   /** ランダム挨拶を返す（プレイヤーから話しかけられた時用） */
   randomGreeting(): string {
-    return pick(GREETINGS);
+    const lines = ROLE_LINES[this.role] ?? GREETINGS;
+    return pick(lines);
   }
 
   /**
@@ -165,7 +267,16 @@ export class BaseNpc {
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    const tag = `Lv${this.lv} ${this.name}`;
+    const roleIcon: Record<NpcRole, string> = {
+      wanderer: '',
+      merchant: '🛒',
+      guard:    '🛡',
+      drunk:    '🍺',
+      crier:    '📢',
+      priest:   '✨',
+    };
+    const ri = roleIcon[this.role];
+    const tag = `Lv${this.lv} ${this.name}${ri ? ' ' + ri : ''}`;
     const tw = ctx.measureText(tag).width + 8;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(px - tw / 2, py - TILE_SIZE * 0.55 - 12, tw, 14);

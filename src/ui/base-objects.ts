@@ -2682,6 +2682,156 @@ function drawWeaponRack(
 
 /** 建物間に渡す吊り旗 */
 
+// ─── アンビエントイベント状態（モジュールスコープ） ──────────────
+// 街上空を横切る鳥の群れを一時的に管理する。進捗 0..1 で画面を横断し、
+// 終端に達したら次のサイクル（色・高さ・向きをランダム化）に切り替える。
+interface FlockRoute {
+  startX: number;   // 画面内タイル座標 x
+  endX:   number;
+  y:      number;   // タイル座標 y
+  count:  number;   // 鳥の数
+  hue:    number;   // HSL hue
+  startedAt: number;
+  durationMs: number;
+  scatter: number;  // V字隊形の広がり
+}
+let _flocks: FlockRoute[] = [];
+let _lastFlockCheckAt = 0;
+
+/** 街の鐘（1分おきに響く） */
+interface BellRing {
+  startedAt: number;
+  x: number;
+  y: number;
+}
+let _bells: BellRing[] = [];
+let _lastBellAt = 0;
+
+/** アンビエントイベント層（鳥の群れ・鐘の響き・時々舞う花弁など） */
+function drawAmbientEvents(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+
+  // ── 鳥の群れ管理 ──
+  // 一定間隔（20〜35秒）で新しい群れを仕込む。同時最大2群。
+  if (now - _lastFlockCheckAt > 1000) {
+    _lastFlockCheckAt = now;
+    // 期限切れを整理
+    _flocks = _flocks.filter(f => now - f.startedAt < f.durationMs + 500);
+    if (_flocks.length < 2 && Math.random() < 0.06) {
+      // ランダムに新しい群れ
+      const leftToRight = Math.random() < 0.5;
+      const hue = [28, 44, 200, 320, 260][Math.floor(Math.random() * 5)];
+      _flocks.push({
+        startX:     leftToRight ? -2 : 38,
+        endX:       leftToRight ? 38 : -2,
+        y:          1 + Math.random() * 5,
+        count:      5 + Math.floor(Math.random() * 4),
+        hue,
+        startedAt:  now,
+        durationMs: 7000 + Math.random() * 4000,
+        scatter:    0.8 + Math.random() * 0.6,
+      });
+    }
+  }
+  // 描画
+  for (const f of _flocks) {
+    const t = (now - f.startedAt) / f.durationMs;
+    if (t < 0 || t > 1.1) continue;
+    const leaderX = f.startX + (f.endX - f.startX) * t;
+    const leaderY = f.y + Math.sin(t * Math.PI * 2.5) * 0.3;
+    const leaderPx = (leaderX + 0.5) * ts + camOffX;
+    const leaderPy = (leaderY + 0.5) * ts + camOffY;
+    const dir = Math.sign(f.endX - f.startX);
+
+    ctx.save();
+    ctx.fillStyle = `hsla(${f.hue}, 55%, 68%, 0.85)`;
+    ctx.strokeStyle = `hsla(${f.hue}, 70%, 75%, 0.9)`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < f.count; i++) {
+      const lag = i * 0.35;
+      const row = i % 2 === 0 ? 1 : -1;
+      const bx = leaderPx - dir * lag * ts * f.scatter;
+      const by = leaderPy + row * Math.ceil(i / 2) * ts * 0.2 * f.scatter;
+      // 羽ばたきフェーズ
+      const wPhase = (now * 0.012 + i * 0.4) % (Math.PI * 2);
+      const wingSpan = ts * 0.22 * (0.7 + 0.3 * Math.sin(wPhase));
+      const wingLift = ts * 0.07 * Math.sin(wPhase + 0.8);
+      ctx.beginPath();
+      // 体
+      ctx.arc(bx, by, ts * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+      // 翼（M字）
+      ctx.beginPath();
+      ctx.moveTo(bx - wingSpan, by + wingLift);
+      ctx.quadraticCurveTo(bx - wingSpan * 0.45, by - ts * 0.07, bx, by - ts * 0.02);
+      ctx.quadraticCurveTo(bx + wingSpan * 0.45, by - ts * 0.07, bx + wingSpan, by + wingLift);
+      ctx.stroke();
+      // 影（地面に薄く落ちる影。群れのすぐ真下にふんわり）
+      const sy = (f.y + 1.3) * ts + camOffY;
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(bx, sy, ts * 0.07, ts * 0.025, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // ── 大聖堂の鐘：60秒おきに鳴らす（波紋で視覚化） ──
+  if (now - _lastBellAt > 60000) {
+    _lastBellAt = now;
+    _bells.push({ startedAt: now, x: 17.5, y: 0.2 });
+  }
+  _bells = _bells.filter(b => now - b.startedAt < 3000);
+  for (const b of _bells) {
+    const t = (now - b.startedAt) / 3000;
+    const bx = (b.x + 0.5) * ts + camOffX;
+    const by = (b.y + 0.5) * ts + camOffY;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (let ring = 0; ring < 3; ring++) {
+      const tt = t - ring * 0.2;
+      if (tt < 0 || tt > 1) continue;
+      const r = ts * (0.5 + tt * 4.5);
+      const alpha = (1 - tt) * 0.35;
+      const grad = ctx.createRadialGradient(bx, by, r * 0.85, bx, by, r);
+      grad.addColorStop(0, 'rgba(255,235,180,0)');
+      grad.addColorStop(0.5, `rgba(255,225,160,${alpha})`);
+      grad.addColorStop(1, 'rgba(255,210,120,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(bx, by, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── 大聖堂から舞い散る光の花弁（常時、控えめ） ──
+  {
+    const baseX = (17.5 + 0.5) * ts + camOffX;
+    const baseY = (1.5) * ts + camOffY;
+    for (let i = 0; i < 6; i++) {
+      const phase = (now * 0.00025 + i * 0.166) % 1;
+      const ang = (i * 1.234 + Math.sin(now * 0.0003 + i) * 0.5);
+      const r = ts * 0.6 + phase * ts * 3.4;
+      const px = baseX + Math.cos(ang) * r;
+      const py = baseY + phase * ts * 2.4 + Math.sin(now * 0.0015 + i) * ts * 0.2;
+      const alpha = (1 - phase) * 0.75;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(255,215,170,${alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(px, py, ts * 0.035, ts * 0.06, ang, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
 /** 街全体の装飾レイヤ（舗装・道路網・街灯・ベンチ・街路樹・市場・裏路地） */
 function drawCityDecor(
   ctx: CanvasRenderingContext2D,
@@ -2916,6 +3066,200 @@ function drawCityDecor(
   drawSignPost(ctx, cx(17.5), cy(23) - ts * 0.1, ['ダンジョン↑', 'カジノ↓']);
   drawSignPost(ctx, cx(9.5), cy(17) - ts * 0.2, ['市場←', 'ギルド→']);
   drawSignPost(ctx, cx(26.5), cy(17) - ts * 0.2, ['工房→', 'ギルド←']);
+
+  // ═════ 13. ライティング層（加算合成で温かな光を重ねる） ═════
+  drawCityLighting(ctx, camOffX, camOffY, now);
+
+  // ═════ 14. アンビエントイベント（鳥の群れ・大聖堂の鐘・花弁） ═════
+  drawAmbientEvents(ctx, camOffX, camOffY, now);
+}
+
+/**
+ * 街全体のライティング。
+ * 加算合成で家の窓・街灯・篝火・噴水まわりの光を一括オーバーレイする。
+ * drawCityDecor の最後に呼ぶ前提。
+ */
+function drawCityLighting(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+  const cx = (tx: number): number => (tx + 0.5) * ts + camOffX;
+  const cy = (ty: number): number => (ty + 0.5) * ts + camOffY;
+
+  // 低周期のロウソク揺らぎ（全体に掛けるフェーズ）
+  const flick = (seed: number, rate = 0.004): number => {
+    // 0..1 の滑らかな揺らぎ
+    const t = now * rate + seed * 1.7;
+    return 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3.1) * Math.cos(t * 2.3));
+  };
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // ── 街灯の広いグレア（既存の drawStreetLamp の halo にさらに外殻を重ねる） ──
+  const lampCenters: [number, number, number][] = [
+    [15.5, 8, 0], [19.5, 8, 1],
+    [15.5, 11, 2], [19.5, 11, 3],
+    [15.5, 15, 4], [19.5, 15, 5],
+    [15.5, 20, 6], [19.5, 20, 7],
+    [15.5, 24, 8], [19.5, 24, 9],
+    [3, 19, 10], [8, 19, 11], [13, 19, 12], [23, 19, 13], [28, 19, 14], [33, 19, 15],
+    [3, 11, 16], [14, 11, 17], [22, 11, 18], [33, 11, 19],
+    [4, 15, 20], [9, 15, 21], [26, 15, 22], [32, 15, 23],
+    [9.5, 12, 24], [9.5, 22, 25], [26.5, 12, 26], [26.5, 22, 27],
+  ];
+  for (const [tx, ty, seed] of lampCenters) {
+    const lx = cx(tx) - ts * 0.5;
+    // 光源はランプの頭あたり
+    const ly = cy(ty) - ts * 0.45;
+    const intensity = flick(seed, 0.006);
+    const r = ts * 2.8 * intensity;
+    const grad = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+    grad.addColorStop(0,    `rgba(255,225,140,${0.52 * intensity})`);
+    grad.addColorStop(0.35, `rgba(255,190,100,${0.22 * intensity})`);
+    grad.addColorStop(0.75, 'rgba(255,160,60,0.04)');
+    grad.addColorStop(1,    'rgba(255,140,40,0.00)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(lx, ly, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── 家の窓からこぼれる光（家の位置に温かい矩形と外側ハロー） ──
+  // 実際の壁タイル座標に沿って配置
+  const windowRows: Array<{ tx: number; ty: number; w: number; h: number; seed: number }> = [
+    // 北辺（y=0 の家並み・中央の大聖堂）
+    ...[1,3,5,7,10,12,14,16,20,22,24,26,29,31,33,34].map((tx, i) => ({
+      tx, ty: 0, w: 1.15, h: 1.35, seed: 11 + i * 13,
+    })),
+    // 大聖堂（北中央）
+    { tx: 17.5, ty: 0,  w: 3.2,  h: 1.8,  seed: 7 },
+    // ダンジョン区境界（y=8）
+    ...[2,3,4,5,6,29,30,31,32,33].map((tx, i) => ({
+      tx, ty: 8, w: 1.0, h: 1.2, seed: 101 + i * 11,
+    })),
+    // 広場境界壁（y=17）
+    ...[2,3,4,5,6,7,28,29,30,31,32,33].map((tx, i) => ({
+      tx, ty: 17, w: 1.0, h: 1.2, seed: 151 + i * 17,
+    })),
+    // 裏路地の門柱
+    { tx: 10, ty: 20, w: 0.9, h: 1.0, seed: 223 },
+    { tx: 25, ty: 20, w: 0.9, h: 1.0, seed: 227 },
+    // 南辺の住宅街（y=27）
+    ...[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,34].map((tx, i) => ({
+      tx, ty: 27, w: 1.15, h: 1.35, seed: 229 + i * 11,
+    })),
+    // 東西の外周（x=0, x=35）
+    ...Array.from({ length: 8 }, (_, i) => {
+      const ty = 2 + i * 3;
+      return [
+        { tx: 0,  ty, w: 1.0, h: 1.2, seed: ty * 7 },
+        { tx: 35, ty, w: 1.0, h: 1.2, seed: ty * 11 },
+      ];
+    }).flat(),
+  ];
+  for (const { tx, ty, w, h, seed } of windowRows) {
+    const hx = cx(tx);
+    const hy = cy(ty) + ts * 0.1;
+    const intensity = flick(seed * 0.7, 0.0035);
+    // ── 窓から漏れる温かい矩形ブロック（本体） ──
+    // 小さな2〜3個の窓として表現
+    const winCount = (seed % 3) + 2;
+    const winW = ts * w * 0.16;
+    const winH = ts * h * 0.22;
+    for (let i = 0; i < winCount; i++) {
+      const ox = (i - (winCount - 1) / 2) * ts * w * 0.32;
+      const oy = -ts * h * 0.15;
+      const wx = hx + ox;
+      const wy = hy + oy;
+      // フリッカーに加えて窓ごとの位相差
+      const wIntensity = intensity * (0.8 + 0.2 * Math.sin(now * 0.008 + seed + i));
+      // 窓矩形
+      ctx.fillStyle = `rgba(255,210,130,${0.55 * wIntensity})`;
+      ctx.fillRect(wx - winW * 0.5, wy - winH * 0.5, winW, winH);
+      // 周囲ハロー
+      const hr = ts * 0.75;
+      const hg = ctx.createRadialGradient(wx, wy, 0, wx, wy, hr);
+      hg.addColorStop(0,   `rgba(255,200,120,${0.22 * wIntensity})`);
+      hg.addColorStop(0.5, `rgba(255,170,80,${0.08 * wIntensity})`);
+      hg.addColorStop(1,   'rgba(255,140,40,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath();
+      ctx.arc(wx, wy, hr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── 噴水まわりのクール青グロー ──
+  {
+    const fx = cx(17) + ts * 0.5;
+    const fy = cy(12) + ts * 0.5;
+    const r = ts * 3.0;
+    const pulse = 0.85 + 0.15 * Math.sin(now * 0.002);
+    const grad = ctx.createRadialGradient(fx, fy, ts * 0.4, fx, fy, r);
+    grad.addColorStop(0,   `rgba(140,200,255,${0.32 * pulse})`);
+    grad.addColorStop(0.5, `rgba(100,170,240,${0.12 * pulse})`);
+    grad.addColorStop(1,   'rgba(80,140,220,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(fx, fy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── 裏路地の小篝火の赤橙グロー ──
+  const braziers: [number, number, number][] = [
+    [11, 22, 0], [24, 22, 1],
+  ];
+  for (const [tx, ty, seed] of braziers) {
+    const bx = cx(tx);
+    const by = cy(ty);
+    const intensity = flick(seed * 3 + 5, 0.012);
+    const r = ts * 1.8 * intensity;
+    const grad = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+    grad.addColorStop(0,    `rgba(255,180,80,${0.55 * intensity})`);
+    grad.addColorStop(0.35, `rgba(255,120,40,${0.30 * intensity})`);
+    grad.addColorStop(0.7,  `rgba(220,70,20,${0.08 * intensity})`);
+    grad.addColorStop(1,    'rgba(180,40,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(bx, by, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── モニュメント（オベリスク周辺）の紫グロー ──
+  {
+    const mx = cx(17) + ts * 0.5;
+    const my = cy(10);
+    const pulse = 0.7 + 0.3 * Math.sin(now * 0.0015);
+    const r = ts * 2.2;
+    const grad = ctx.createRadialGradient(mx, my, 0, mx, my, r);
+    grad.addColorStop(0,    `rgba(196,181,253,${0.35 * pulse})`);
+    grad.addColorStop(0.5,  `rgba(168,85,247,${0.12 * pulse})`);
+    grad.addColorStop(1,    'rgba(126,34,206,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(mx, my, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── 大聖堂（北中央）薔薇窓からの神秘的な光 ──
+  {
+    const mx = cx(17) + ts * 0.5;
+    const my = cy(0) + ts * 0.1;
+    const pulse = 0.8 + 0.2 * Math.sin(now * 0.0018);
+    const r = ts * 2.6;
+    const grad = ctx.createRadialGradient(mx, my, 0, mx, my, r);
+    grad.addColorStop(0,   `rgba(255,230,200,${0.38 * pulse})`);
+    grad.addColorStop(0.5, `rgba(253,186,116,${0.14 * pulse})`);
+    grad.addColorStop(1,   'rgba(217,119,6,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(mx, my, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 export function drawBaseObjects(
