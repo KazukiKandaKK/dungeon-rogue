@@ -37,6 +37,188 @@ import {
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
+// ─── 昼夜サイクル（BASE 拠点のみ適用） ────────────
+//
+// 朝→昼→夕→夜→朝と巡るサイクル。位相（phase）は 0..1 の連続値で、
+// now（Date.now 相当のミリ秒）から純関数的に算出する。
+// 1 サイクル = 実時間 4 分（開発中は短めで挙動確認しやすく）。
+
+/** 1 サイクルの長さ（ミリ秒）。開発中は 4 分に設定。 */
+export const TIME_OF_DAY_CYCLE_MS = 4 * 60 * 1000;
+
+/** 現在の位相（0..1）を now から算出する純関数。 */
+export function getTimeOfDayPhase(now: number): number {
+  const t = ((now % TIME_OF_DAY_CYCLE_MS) + TIME_OF_DAY_CYCLE_MS) % TIME_OF_DAY_CYCLE_MS;
+  return t / TIME_OF_DAY_CYCLE_MS;
+}
+
+/** 時刻ラベル（朝・昼・夕・夜）を位相から得る。 */
+export function getTimeOfDayLabel(phase: number): '朝' | '昼' | '夕' | '夜' {
+  // 正規化
+  const p = ((phase % 1) + 1) % 1;
+  if (p < 0.20) return '朝';
+  if (p < 0.50) return '昼';
+  if (p < 0.70) return '夕';
+  return '夜';
+}
+
+/** 時刻ラベルに絵文字を付与した HUD 用の短い表記を返す。 */
+export function getTimeOfDayIcon(label: '朝' | '昼' | '夕' | '夜'): string {
+  if (label === '朝') return '🌅';
+  if (label === '昼') return '☀';
+  if (label === '夕') return '🌇';
+  return '🌙';
+}
+
+/** 線形補間。 */
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** smoothstep：edge0..edge1 の間を滑らかに 0→1 へ遷移。edge0 > edge1 の場合は逆向き。 */
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (edge0 === edge1) return x < edge0 ? 0 : 1;
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * 夜の強さ（0..1）。昼ほど 0、夜ほど 1 に近づく。
+ * phase=0（朝の入り口）と phase=1（夜の終わり）は夜のピーク近辺とし、
+ * 位相が 0 と 1 を跨ぐ際の不連続を避けるように組んでいる。
+ */
+export function getNightFactor(phase: number): number {
+  const p = ((phase % 1) + 1) % 1;
+  // 0.0 付近（朝手前）と 0.9 付近（深夜）が暗い。
+  const dusk  = smoothstep(0.6, 0.9, p);       // 夕→夜
+  const dawn  = smoothstep(0.1, 0.0, p);       // 夜明け側（0 に近いほど濃い）
+  const lateNight = smoothstep(0.9, 1.0, p);   // 深夜→朝直前
+  // いずれか強い方を採用（最大値でブレンド）。
+  return Math.max(dusk, dawn, lateNight);
+}
+
+/**
+ * 時間帯ごとの基底色（rgba 文字列）を位相から線形補間して返す。
+ * BASE 拠点の最上層オーバーレイ 1 枚用。
+ *
+ * アンカー：
+ *   0.00 朝の peach
+ *   0.20 朝→昼の橋渡し（ほぼ透明の薄桃）
+ *   0.35 昼（ほぼ透明）
+ *   0.55 夕の橙
+ *   0.65 夕の赤橙（濃）
+ *   0.80 夜（濃紺）
+ *   0.95 深夜（更に濃紺）
+ */
+function getTimeOfDayOverlayColor(phase: number): string {
+  const p = ((phase % 1) + 1) % 1;
+  // アンカー（位相, r, g, b, a）
+  const anchors: Array<[number, number, number, number, number]> = [
+    [0.00, 255, 200, 150, 0.12],
+    [0.20, 255, 220, 180, 0.04],
+    [0.35, 255, 245, 220, 0.02],
+    [0.55, 255, 140,  60, 0.18],
+    [0.65, 180,  80,  30, 0.12],
+    [0.80,  20,  30,  80, 0.32],
+    [0.95,  10,  15,  40, 0.42],
+    [1.00, 255, 200, 150, 0.12], // 終端を先頭に接続
+  ];
+  // 位相を挟む 2 点を見つけて補間
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const a = anchors[i];
+    const b = anchors[i + 1];
+    if (p >= a[0] && p <= b[0]) {
+      const tt = (p - a[0]) / Math.max(1e-6, b[0] - a[0]);
+      const r = Math.round(lerp(a[1], b[1], tt));
+      const g = Math.round(lerp(a[2], b[2], tt));
+      const bl = Math.round(lerp(a[3], b[3], tt));
+      const al = lerp(a[4], b[4], tt);
+      return `rgba(${r},${g},${bl},${al.toFixed(3)})`;
+    }
+  }
+  // フォールバック（理論上不達）
+  return 'rgba(255,245,220,0.02)';
+}
+
+/**
+ * 画面全体に時間帯オーバーレイを 1 枚塗る。BASE 拠点の drawCityDecor 末尾から呼ばれる。
+ * キャンバス全域を覆うため、camOffX/Y には依存せず ctx.canvas.width/height を使う。
+ */
+function drawTimeOfDayOverlay(
+  ctx: CanvasRenderingContext2D,
+  _camOffX: number, _camOffY: number, now: number,
+): void {
+  const phase = getTimeOfDayPhase(now);
+  const color = getTimeOfDayOverlayColor(phase);
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, W, H);
+
+  // 昼間のみ、太陽光の加算層（温かい黄色）を薄く足して映える演出。
+  // 0.20..0.50 が昼帯。中央（0.35）で最大。
+  const p = ((phase % 1) + 1) % 1;
+  const sun = smoothstep(0.20, 0.35, p) * (1 - smoothstep(0.35, 0.50, p));
+  if (sun > 0.01) {
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = `rgba(255,240,180,${(0.06 * sun).toFixed(3)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * BASE 拠点専用の時刻ラベルを画面右上に描画する簡易 HUD。
+ * drawHUD 側で右上に拠点パネルが出るため、その下に小さく時刻チップを重ねる。
+ */
+function drawTimeOfDayBadge(
+  ctx: CanvasRenderingContext2D,
+  now: number,
+): void {
+  const phase = getTimeOfDayPhase(now);
+  const label = getTimeOfDayLabel(phase);
+  const icon = getTimeOfDayIcon(label);
+  const text = `${icon} ${label}`;
+
+  const W = ctx.canvas.width;
+
+  ctx.save();
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  // 右上のフロア情報パネル（y=10, h=62）の真下に配置
+  const pad = 8;
+  const tw = ctx.measureText(text).width + pad * 2;
+  const th = 22;
+  const x = W - tw - 10;
+  const y = 10 + 62 + 6;
+
+  // 背景チップ
+  ctx.fillStyle = 'rgba(15,5,40,0.85)';
+  ctx.strokeStyle = 'rgba(253,230,138,0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  const r = 6;
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + tw - r, y);
+  ctx.arcTo(x + tw, y,      x + tw, y + r,      r);
+  ctx.lineTo(x + tw, y + th - r);
+  ctx.arcTo(x + tw, y + th, x + tw - r, y + th, r);
+  ctx.lineTo(x + r, y + th);
+  ctx.arcTo(x,      y + th, x,      y + th - r, r);
+  ctx.lineTo(x,      y + r);
+  ctx.arcTo(x,      y,      x + r,      y,      r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#fde68a';
+  ctx.fillText(text, x + tw - pad, y + 5);
+  ctx.restore();
+}
+
 // ─── SVG Path2D 建造物テンプレート（論理座標 -1..+1） ───
 
 /** 切妻屋根（標準） */
@@ -3072,6 +3254,9 @@ function drawCityDecor(
 
   // ═════ 14. アンビエントイベント（鳥の群れ・大聖堂の鐘・花弁） ═════
   drawAmbientEvents(ctx, camOffX, camOffY, now);
+
+  // ═════ 15. 時間帯オーバーレイ（朝・昼・夕・夜の空気色） ═════
+  drawTimeOfDayOverlay(ctx, camOffX, camOffY, now);
 }
 
 /**
@@ -3094,6 +3279,11 @@ function drawCityLighting(
     return 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3.1) * Math.cos(t * 2.3));
   };
 
+  // 時間帯に応じた光源スケール：夜ほど強く、昼ほど弱い（0.35〜1.0 の範囲でくすぶらせる）
+  const phase = getTimeOfDayPhase(now);
+  const nightFactor = getNightFactor(phase);
+  const lightScale = 0.35 + 0.65 * nightFactor;
+
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
@@ -3113,12 +3303,12 @@ function drawCityLighting(
     const lx = cx(tx) - ts * 0.5;
     // 光源はランプの頭あたり
     const ly = cy(ty) - ts * 0.45;
-    const intensity = flick(seed, 0.006);
+    const intensity = flick(seed, 0.006) * lightScale;
     const r = ts * 2.8 * intensity;
     const grad = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
     grad.addColorStop(0,    `rgba(255,225,140,${0.52 * intensity})`);
     grad.addColorStop(0.35, `rgba(255,190,100,${0.22 * intensity})`);
-    grad.addColorStop(0.75, 'rgba(255,160,60,0.04)');
+    grad.addColorStop(0.75, `rgba(255,160,60,${(0.04 * intensity).toFixed(3)})`);
     grad.addColorStop(1,    'rgba(255,140,40,0.00)');
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -3173,8 +3363,8 @@ function drawCityLighting(
       const oy = -ts * h * 0.15;
       const wx = hx + ox;
       const wy = hy + oy;
-      // フリッカーに加えて窓ごとの位相差
-      const wIntensity = intensity * (0.8 + 0.2 * Math.sin(now * 0.008 + seed + i));
+      // フリッカーに加えて窓ごとの位相差、さらに時間帯スケール
+      const wIntensity = intensity * (0.8 + 0.2 * Math.sin(now * 0.008 + seed + i)) * lightScale;
       // 窓矩形
       ctx.fillStyle = `rgba(255,210,130,${0.55 * wIntensity})`;
       ctx.fillRect(wx - winW * 0.5, wy - winH * 0.5, winW, winH);
@@ -3214,7 +3404,7 @@ function drawCityLighting(
   for (const [tx, ty, seed] of braziers) {
     const bx = cx(tx);
     const by = cy(ty);
-    const intensity = flick(seed * 3 + 5, 0.012);
+    const intensity = flick(seed * 3 + 5, 0.012) * lightScale;
     const r = ts * 1.8 * intensity;
     const grad = ctx.createRadialGradient(bx, by, 0, bx, by, r);
     grad.addColorStop(0,    `rgba(255,180,80,${0.55 * intensity})`);
@@ -3468,4 +3658,7 @@ export function drawBaseObjects(
     const on = c.player.tx === portal.tx && c.player.ty === portal.ty;
     drawGrandDungeonPortal(ctx, px, py, ts, now, dungeon, unlocked, on, i * 1.7);
   });
+
+  // ── 時刻バッジ（BASE 専用・右上のフロアパネル直下） ──
+  drawTimeOfDayBadge(ctx, now);
 }
