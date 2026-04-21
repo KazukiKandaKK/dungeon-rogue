@@ -34,6 +34,12 @@ import {
   drawMonument as drawGrandMonument,
   drawAmbientMotes as drawGrandAmbientMotes,
 } from './grand-props.js';
+import {
+  drawWeather,
+  nextWeatherState,
+  type WeatherState,
+  type WeatherType,
+} from './weather.js';
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
@@ -2889,6 +2895,80 @@ interface BellRing {
 let _bells: BellRing[] = [];
 let _lastBellAt = 0;
 
+// ─── 天候レイヤ（BASE 拠点） ──────────────────
+//
+// 2 分ごとに次の天候を抽選する。確率は clear 60% / rain 15% / snow 10%
+// / fog 10% / petals 5%。state は drawWeather 側が純関数で使うだけなので、
+// ここでは「現在どの天候か」を持つだけで良い。
+let _currentWeather: WeatherState | null = null;
+let _lastWeatherCheckAt = 0;
+
+/** BASE 向けの抽選プール（確率分布を反映するため同じ要素を複数回入れる） */
+const BASE_WEATHER_POOL: WeatherType[] = [
+  // 60%（×12）
+  'clear', 'clear', 'clear', 'clear', 'clear', 'clear',
+  'clear', 'clear', 'clear', 'clear', 'clear', 'clear',
+  // 15%（×3）
+  'rain', 'rain', 'rain',
+  // 10%（×2）
+  'snow', 'snow',
+  // 10%（×2）
+  'fog', 'fog',
+  // 5%（×1）
+  'petals',
+];
+
+/** 天候切り替え時の雰囲気ログ（console のみ。logger 本体は循環回避のため不使用） */
+function logWeatherChange(type: WeatherType): void {
+  // 循環 import を避けるため Logger クラスは直接参照しない。
+  // 開発時確認用に console.log だけ出す（本番でも邪魔にならない程度）。
+  let msg = '';
+  switch (type) {
+    case 'rain':   msg = '☔ 雨が降り始めた';   break;
+    case 'snow':   msg = '❄ 雪が舞い始めた';   break;
+    case 'fog':    msg = '🌫 霧が立ち込めた';   break;
+    case 'petals': msg = '🌸 花弁が舞い始めた'; break;
+    case 'clear':  msg = '☀ 空が晴れた';        break;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[weather] ${msg}`);
+}
+
+/**
+ * BASE 拠点の天候を更新し、描画する。drawCityDecor の末尾から呼ばれる。
+ * 2 分おきに「次の天候へ切り替えるか」を判定。現在の天候の durationMs を
+ * 過ぎたら次を抽選する。
+ */
+function updateAndDrawBaseWeather(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+): void {
+  // 2 分おきに「durationMs を超えたか」をチェック（チェック自体はもう少し細かく）。
+  const CHECK_INTERVAL_MS = 15_000;
+  if (now - _lastWeatherCheckAt > CHECK_INTERVAL_MS) {
+    _lastWeatherCheckAt = now;
+    const expired = _currentWeather == null
+      ? true
+      : (now - _currentWeather.startedAt) >= _currentWeather.durationMs;
+    if (expired) {
+      const next = nextWeatherState(_currentWeather, now, BASE_WEATHER_POOL);
+      // 切り替わりが同じ天候ならログは省略
+      if (_currentWeather == null || _currentWeather.type !== next.type) {
+        logWeatherChange(next.type);
+      }
+      _currentWeather = next;
+    }
+  }
+  // 初回のみ：まだ _currentWeather が無ければ無音で clear を設定（ランダム開始）。
+  if (_currentWeather == null) {
+    _currentWeather = nextWeatherState(null, now, BASE_WEATHER_POOL);
+  }
+
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  drawWeather(ctx, camOffX, camOffY, now, W, H, _currentWeather);
+}
+
 /** アンビエントイベント層（鳥の群れ・鐘の響き・時々舞う花弁など） */
 function drawAmbientEvents(
   ctx: CanvasRenderingContext2D,
@@ -3255,7 +3335,10 @@ function drawCityDecor(
   // ═════ 14. アンビエントイベント（鳥の群れ・大聖堂の鐘・花弁） ═════
   drawAmbientEvents(ctx, camOffX, camOffY, now);
 
-  // ═════ 15. 時間帯オーバーレイ（朝・昼・夕・夜の空気色） ═════
+  // ═════ 15. 天候レイヤ（雨・雪・霧・花吹雪。2 分おきに抽選） ═════
+  updateAndDrawBaseWeather(ctx, camOffX, camOffY, now);
+
+  // ═════ 16. 時間帯オーバーレイ（朝・昼・夕・夜の空気色） ═════
   drawTimeOfDayOverlay(ctx, camOffX, camOffY, now);
 }
 
