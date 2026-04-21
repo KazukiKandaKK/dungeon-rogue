@@ -1779,7 +1779,480 @@ function drawSignPost(
   ctx.restore();
 }
 
-/** 街全体の装飾レイヤ（石畳・街灯・ベンチ・街路樹・市場・裏路地のゴミ） */
+// ─── 地区別の舗装基盤（大通りの下に敷く） ───
+
+/** 中央広場：放射状の磨石パターン */
+function drawPlazaSubstrate(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, r: number,
+): void {
+  ctx.save();
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, '#6b625a');
+  g.addColorStop(0.55, '#524a42');
+  g.addColorStop(1, '#2f2a25');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  // 放射目地
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r * 0.15, cy + Math.sin(a) * r * 0.15);
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    ctx.stroke();
+  }
+  // 同心円
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  for (const rr of [0.3, 0.55, 0.8]) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * rr, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 金色の縁取り
+  ctx.strokeStyle = 'rgba(251,191,36,0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 市場の煉瓦ブロック（暖色のヘリンボーン） */
+function drawBrickArea(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number,
+): void {
+  ctx.save();
+  const g = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  g.addColorStop(0, '#7c3a0e');
+  g.addColorStop(1, '#4a1f04');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+  // ヘリンボーン
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 1;
+  const bw = 22, bh = 11;
+  for (let py = 0; py < h; py += bh) {
+    const rowOffset = ((py / bh) | 0) % 2 === 0 ? 0 : bw / 2;
+    for (let pxo = -bw; pxo < w + bw; pxo += bw) {
+      const rx = x0 + pxo + rowOffset;
+      const ry = y0 + py;
+      ctx.strokeRect(rx, ry, bw - 1, bh - 1);
+    }
+  }
+  // 縁石（黄土色）
+  ctx.strokeStyle = 'rgba(251,191,36,0.18)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0 + 1, y0 + 1, w - 2, h - 2);
+  ctx.restore();
+}
+
+/** 裏路地の荒れた石床 */
+function drawAlleySubstrate(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number,
+): void {
+  ctx.save();
+  ctx.fillStyle = '#1c1a17';
+  ctx.fillRect(x0, y0, w, h);
+  // ひび割れ
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 1;
+  const rnd = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+  for (let i = 0; i < 18; i++) {
+    const sx = x0 + rnd(i * 3.1) * w;
+    const sy = y0 + rnd(i * 5.7) * h;
+    const ex = sx + (rnd(i * 7.3) - 0.5) * 30;
+    const ey = sy + (rnd(i * 9.1) - 0.5) * 24;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+  }
+  // 暗いシミ
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  for (let i = 0; i < 6; i++) {
+    const cx = x0 + rnd(i * 11.3) * w;
+    const cy = y0 + rnd(i * 13.7) * h;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 14 + rnd(i) * 8, 6 + rnd(i * 2) * 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** ダンジョン区の黒玄武岩（ルーンが明滅） */
+function drawDungeonDistrictFloor(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number, now: number,
+): void {
+  ctx.save();
+  const g = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  g.addColorStop(0, '#1a0f2a');
+  g.addColorStop(1, '#0a0615');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+  // 大きな石板
+  ctx.strokeStyle = 'rgba(124,58,237,0.15)';
+  ctx.lineWidth = 1;
+  const cell = 48;
+  for (let py = 0; py < h; py += cell) {
+    for (let pxo = 0; pxo < w; pxo += cell) {
+      ctx.strokeRect(x0 + pxo + 1, y0 + py + 1, cell - 2, cell - 2);
+    }
+  }
+  // ルーン（浮かぶ光）
+  ctx.fillStyle = 'rgba(168,85,247,0.5)';
+  ctx.shadowColor = '#a855f7';
+  ctx.shadowBlur = 10;
+  for (let i = 0; i < 12; i++) {
+    const rx = x0 + ((i * 97) % (w - 16)) + 8;
+    const ry = y0 + ((i * 53) % (h - 16)) + 8;
+    const alpha = 0.3 + 0.4 * Math.abs(Math.sin(now * 1.5 + i));
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 井戸（小さな共同井戸） */
+function drawWell(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+): void {
+  ctx.save();
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 14, 22, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 石壁
+  ctx.fillStyle = '#52525b';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 8, 20, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3a3631';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 18, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 水面
+  ctx.fillStyle = '#1e40af';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 14, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(147,197,253,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 3, cy + 1, 5, 1.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 支柱
+  ctx.fillStyle = '#5a4024';
+  ctx.fillRect(cx - 16, cy - 14, 3, 16);
+  ctx.fillRect(cx + 13, cy - 14, 3, 16);
+  // 横木（屋根の梁）
+  ctx.fillStyle = '#3f1f04';
+  ctx.fillRect(cx - 18, cy - 16, 36, 3);
+  // 屋根
+  ctx.fillStyle = '#7c2d12';
+  ctx.beginPath();
+  ctx.moveTo(cx - 22, cy - 14);
+  ctx.lineTo(cx, cy - 24);
+  ctx.lineTo(cx + 22, cy - 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#451a03'; ctx.lineWidth = 0.8;
+  ctx.stroke();
+  // ロープと釣瓶
+  ctx.strokeStyle = '#a16207'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, cy - 13); ctx.lineTo(cx, cy - 4); ctx.stroke();
+  ctx.fillStyle = '#78350f';
+  roundRect(ctx, cx - 3, cy - 4, 6, 5, 1); ctx.fill();
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.6;
+  ctx.strokeRect(cx - 3, cy - 4, 6, 5);
+  ctx.restore();
+}
+
+/** 花のプランター */
+function drawFlowerPlanter(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, color: string,
+): void {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 10, 18, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 木箱
+  const g = ctx.createLinearGradient(cx, cy, cx, cy + 10);
+  g.addColorStop(0, '#92400e');
+  g.addColorStop(1, '#451a03');
+  ctx.fillStyle = g;
+  roundRect(ctx, cx - 16, cy, 32, 10, 2);
+  ctx.fill();
+  ctx.strokeStyle = '#3f1f04'; ctx.lineWidth = 0.8;
+  for (let i = -12; i <= 12; i += 6) {
+    ctx.beginPath(); ctx.moveTo(cx + i, cy + 1); ctx.lineTo(cx + i, cy + 9); ctx.stroke();
+  }
+  // 葉
+  ctx.fillStyle = '#166534';
+  ctx.beginPath();
+  ctx.ellipse(cx - 10, cy - 2, 4, 3, 0.3, 0, Math.PI * 2);
+  ctx.ellipse(cx + 10, cy - 2, 4, 3, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy - 2, 5, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 花
+  for (const [dx, dy] of [[-10, -3], [-3, -5], [4, -4], [10, -3]] as [number, number][]) {
+    ctx.fillStyle = color;
+    ctx.shadowColor = color; ctx.shadowBlur = 4;
+    ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 0.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 小さな篝火台 */
+function drawSmallBrazier(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+): void {
+  const flick = 0.75 + 0.25 * Math.sin(now * 8 + seed);
+  ctx.save();
+  // 三脚
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy + 10); ctx.lineTo(cx - 2, cy - 2);
+  ctx.moveTo(cx + 10, cy + 10); ctx.lineTo(cx + 2, cy - 2);
+  ctx.moveTo(cx, cy + 12); ctx.lineTo(cx, cy - 2);
+  ctx.stroke();
+  // 鉢
+  ctx.fillStyle = '#3a3631';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - 2, 10, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1c1917';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - 3, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 炎
+  ctx.shadowColor = '#fb923c';
+  ctx.shadowBlur = 18 * flick;
+  const fg = ctx.createRadialGradient(cx, cy - 4, 1, cx, cy - 10 * flick, 10 * flick);
+  fg.addColorStop(0, `rgba(254,240,138,${flick})`);
+  fg.addColorStop(0.5, `rgba(251,146,60,${0.9 * flick})`);
+  fg.addColorStop(1, 'rgba(185,28,28,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, cy - 3);
+  ctx.quadraticCurveTo(cx - 2, cy - 14 * flick, cx, cy - 16 * flick);
+  ctx.quadraticCurveTo(cx + 2, cy - 14 * flick, cx + 6, cy - 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 地区入口の石門アーチ */
+function drawArchway(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, w: number, label: string, color: string,
+): void {
+  ctx.save();
+  const h = w * 0.8;
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.45, w * 0.6, h * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 柱
+  const pg = ctx.createLinearGradient(cx - w / 2, cy, cx + w / 2, cy);
+  pg.addColorStop(0, '#52525b');
+  pg.addColorStop(0.5, '#78716c');
+  pg.addColorStop(1, '#3f3f46');
+  ctx.fillStyle = pg;
+  ctx.fillRect(cx - w * 0.5, cy - h * 0.1, w * 0.12, h * 0.55);
+  ctx.fillRect(cx + w * 0.38, cy - h * 0.1, w * 0.12, h * 0.55);
+  // 柱頭・台座
+  ctx.fillStyle = '#44403c';
+  ctx.fillRect(cx - w * 0.55, cy - h * 0.12, w * 0.22, h * 0.04);
+  ctx.fillRect(cx + w * 0.33, cy - h * 0.12, w * 0.22, h * 0.04);
+  ctx.fillRect(cx - w * 0.55, cy + h * 0.39, w * 0.22, h * 0.06);
+  ctx.fillRect(cx + w * 0.33, cy + h * 0.39, w * 0.22, h * 0.06);
+  // アーチ
+  ctx.fillStyle = '#52525b';
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.5, cy - h * 0.1);
+  ctx.arc(cx, cy - h * 0.1, w * 0.5, Math.PI, 0);
+  ctx.lineTo(cx + w * 0.5, cy - h * 0.3);
+  ctx.arc(cx, cy - h * 0.3, w * 0.5, 0, Math.PI, true);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 1; ctx.stroke();
+  // キーストーン
+  ctx.fillStyle = color;
+  ctx.shadowColor = color; ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(cx - 8, cy - h * 0.55);
+  ctx.lineTo(cx + 8, cy - h * 0.55);
+  ctx.lineTo(cx + 5, cy - h * 0.4);
+  ctx.lineTo(cx - 5, cy - h * 0.4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // 銘文
+  ctx.fillStyle = '#fde68a';
+  ctx.font = 'bold 10px "Noto Sans JP", monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 2;
+  ctx.fillText(label, cx, cy - h * 0.22);
+  ctx.restore();
+}
+
+/** 背景の建物ファサード（歩行不可領域に並ぶ装飾の家並み） */
+function drawHouseFacade(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, w: number, h: number,
+  kind: number,
+): void {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.5 + 3, w * 0.55, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 本体
+  const palettes: [string, string, string][] = [
+    ['#78350f', '#451a03', '#7c2d12'], // 赤茶
+    ['#44403c', '#1c1917', '#57534e'], // 石
+    ['#7c6f56', '#4a4435', '#5a4c3a'], // 漆喰
+    ['#854d0e', '#451a03', '#a16207'], // 木造
+  ];
+  const pal = palettes[kind % 4];
+  const bg = ctx.createLinearGradient(cx, cy - h * 0.3, cx, cy + h * 0.5);
+  bg.addColorStop(0, pal[0]);
+  bg.addColorStop(1, pal[1]);
+  ctx.fillStyle = bg;
+  ctx.fillRect(cx - w * 0.5, cy - h * 0.3, w, h * 0.8);
+  // 石組みのライン
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 0.6;
+  for (let py = -h * 0.25; py < h * 0.5; py += 6) {
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.5, cy + py);
+    ctx.lineTo(cx + w * 0.5, cy + py);
+    ctx.stroke();
+  }
+  // 屋根
+  ctx.fillStyle = pal[2];
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.55, cy - h * 0.3);
+  ctx.lineTo(cx - w * 0.1, cy - h * 0.55);
+  ctx.lineTo(cx + w * 0.1, cy - h * 0.55);
+  ctx.lineTo(cx + w * 0.55, cy - h * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.6; ctx.stroke();
+  // 瓦の線
+  for (let i = -w * 0.4; i < w * 0.4; i += 4) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(cx + i, cy - h * 0.3);
+    ctx.lineTo(cx + i * 0.3, cy - h * 0.52);
+    ctx.stroke();
+  }
+  // 窓
+  const winW = w * 0.18, winH = h * 0.18;
+  for (const dx of [-w * 0.22, w * 0.22]) {
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(cx + dx - winW / 2, cy - h * 0.12, winW, winH);
+    // 明かり
+    ctx.fillStyle = `rgba(253,224,71,${0.4 + 0.3 * (kind % 2)})`;
+    ctx.fillRect(cx + dx - winW / 2 + 1, cy - h * 0.12 + 1, winW - 2, winH - 2);
+    // 十字窓枠
+    ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx + dx, cy - h * 0.12);
+    ctx.lineTo(cx + dx, cy - h * 0.12 + winH);
+    ctx.moveTo(cx + dx - winW / 2, cy - h * 0.12 + winH / 2);
+    ctx.lineTo(cx + dx + winW / 2, cy - h * 0.12 + winH / 2);
+    ctx.stroke();
+  }
+  // ドア
+  ctx.fillStyle = '#3f1f04';
+  ctx.fillRect(cx - w * 0.06, cy + h * 0.15, w * 0.12, h * 0.25);
+  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(cx - w * 0.06, cy + h * 0.15, w * 0.12, h * 0.25);
+  // ドアノブ
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath(); ctx.arc(cx + w * 0.04, cy + h * 0.28, 1.2, 0, Math.PI * 2); ctx.fill();
+  // 煙突
+  if (kind % 2 === 0) {
+    ctx.fillStyle = pal[1];
+    ctx.fillRect(cx + w * 0.15, cy - h * 0.55, w * 0.08, h * 0.2);
+  }
+  ctx.restore();
+}
+
+/** 武器の展示台（鍛冶屋横） */
+function drawWeaponRack(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+): void {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 14, 18, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // 横板
+  ctx.fillStyle = '#5a4024';
+  ctx.fillRect(cx - 18, cy + 4, 36, 4);
+  ctx.fillStyle = '#3f1f04';
+  ctx.fillRect(cx - 18, cy - 14, 36, 2);
+  // 支柱
+  ctx.fillStyle = '#78350f';
+  ctx.fillRect(cx - 18, cy - 14, 3, 22);
+  ctx.fillRect(cx + 15, cy - 14, 3, 22);
+  // 剣
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy - 12); ctx.lineTo(cx - 10, cy + 4);
+  ctx.stroke();
+  ctx.fillStyle = '#44403c';
+  ctx.fillRect(cx - 13, cy + 3, 6, 2);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(cx - 11, cy - 14, 2, 3);
+  // 斧
+  ctx.fillStyle = '#5a4024';
+  ctx.fillRect(cx - 2, cy - 12, 3, 18);
+  ctx.fillStyle = '#94a3b8';
+  ctx.beginPath();
+  ctx.moveTo(cx + 1, cy - 12);
+  ctx.lineTo(cx + 8, cy - 14);
+  ctx.lineTo(cx + 8, cy - 4);
+  ctx.lineTo(cx + 1, cy - 6);
+  ctx.closePath();
+  ctx.fill();
+  // 盾
+  ctx.fillStyle = '#b45309';
+  ctx.beginPath();
+  ctx.moveTo(cx + 11, cy - 12);
+  ctx.lineTo(cx + 17, cy - 12);
+  ctx.lineTo(cx + 17, cy - 2);
+  ctx.lineTo(cx + 14, cy + 4);
+  ctx.lineTo(cx + 11, cy - 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#78350f'; ctx.lineWidth = 0.6;
+  ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath(); ctx.arc(cx + 14, cy - 4, 1.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/** 建物間に渡す吊り旗 */
+
+/** 街全体の装飾レイヤ（舗装・道路網・街灯・ベンチ・街路樹・市場・裏路地） */
 function drawCityDecor(
   ctx: CanvasRenderingContext2D,
   camOffX: number, camOffY: number, now: number,
@@ -1790,70 +2263,190 @@ function drawCityDecor(
   const cx = (tx: number): number => (tx + 0.5) * ts + camOffX;
   const cy = (ty: number): number => (ty + 0.5) * ts + camOffY;
 
-  // ── 石畳の道（建物の下に敷く） ──
-  // メインストリート：スポーン(18,25) → 噴水(17-18,12-13) → ポータル(y=3-6)
-  drawCobblestoneStrip(ctx, px(16) + ts * 0.1, py(2), ts * 2 - ts * 0.2, ts * 24);
-  // プラザ東西通り（y=15 のギルド受付・掲示板・祠を繋ぐ）
-  drawCobblestoneStrip(ctx, px(10), py(14) + ts * 0.2, ts * 14, ts - ts * 0.4);
-  // 商業地区の大通り（y=19 の建物南側）
-  drawCobblestoneStrip(ctx, px(2), py(19) + ts * 0.1, ts * 32, ts * 0.8);
-  // 酒場〜行商人の東西通り（y=11）
-  drawCobblestoneStrip(ctx, px(6), py(10) + ts * 0.25, ts * 24, ts * 0.5);
+  // ═════ 1. 地区別の舗装基盤（最下層） ═════
 
-  // ── 街灯（大通りに沿って） ──
+  // ダンジョン区（y=2-7）：黒玄武岩＋ルーン
+  drawDungeonDistrictFloor(ctx, px(1), py(2), ts * 34, ts * 6, now);
+
+  // 中央広場（モニュメント・噴水の周囲）：円形の磨石
+  drawPlazaSubstrate(ctx, cx(17) + ts * 0.5, cy(12) + ts * 0.5, ts * 4.5);
+
+  // 市場（西・商業地区）：煉瓦
+  drawBrickArea(ctx, px(2) + ts * 0.1, py(17) + ts * 0.2, ts * 11 - ts * 0.2, ts * 3 - ts * 0.4);
+  // 市場（東・工房地区）：煉瓦
+  drawBrickArea(ctx, px(22) + ts * 0.1, py(17) + ts * 0.2, ts * 11 - ts * 0.2, ts * 3 - ts * 0.4);
+
+  // 裏路地（y=20-22）：荒れた石
+  drawAlleySubstrate(ctx, px(2), py(20) + ts * 0.5, ts * 12, ts * 2.5);
+  drawAlleySubstrate(ctx, px(22), py(20) + ts * 0.5, ts * 12, ts * 2.5);
+
+  // ═════ 2. 主要道路網（石畳） ═════
+
+  // 南北メインストリート（スポーン→噴水→ポータル）
+  drawCobblestoneStrip(ctx, px(16) + ts * 0.1, py(2), ts * 2 - ts * 0.2, ts * 24);
+
+  // 南北サブスパイン（西側・商業地区を縦断）
+  drawCobblestoneStrip(ctx, px(9) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17);
+  // 南北サブスパイン（東側）
+  drawCobblestoneStrip(ctx, px(26) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17);
+
+  // 東西：ポータル前通り（y=7）
+  drawCobblestoneStrip(ctx, px(2), py(7) + ts * 0.35, ts * 32, ts * 0.4);
+
+  // 東西：酒場〜行商人（y=11）
+  drawCobblestoneStrip(ctx, px(2), py(10) + ts * 0.2, ts * 32, ts * 0.55);
+
+  // 東西：プラザ（y=14-15）
+  drawCobblestoneStrip(ctx, px(2), py(14) + ts * 0.2, ts * 32, ts * 0.65);
+
+  // 東西：プラザ南（y=16-17 の境界直前）
+  drawCobblestoneStrip(ctx, px(8), py(16) + ts * 0.25, ts * 18, ts * 0.5);
+
+  // 東西：商業大通り（y=19）
+  drawCobblestoneStrip(ctx, px(2), py(19) + ts * 0.1, ts * 32, ts * 0.8);
+
+  // 東西：裏路地の通路（y=21-22）
+  drawCobblestoneStrip(ctx, px(10), py(22) + ts * 0.25, ts * 15, ts * 0.5);
+
+  // 東西：スポーン前の通り（y=24-25）
+  drawCobblestoneStrip(ctx, px(10), py(24) + ts * 0.25, ts * 15, ts * 0.55);
+
+  // ═════ 3. 地区入口アーチ ═════
+
+  // 転移の間への門（北側）
+  drawArchway(ctx, cx(17) + ts * 0.5, cy(7), ts * 1.6, '転移の間', '#c4b5fd');
+  // 市場の門（西）
+  drawArchway(ctx, cx(7) + ts * 0.2, cy(17), ts * 1.4, '市場', '#fde68a');
+  // 工房の門（東）
+  drawArchway(ctx, cx(27) - ts * 0.2, cy(17), ts * 1.4, '工房', '#fb923c');
+  // 裏路地の門
+  drawArchway(ctx, cx(17) + ts * 0.5, cy(21) + ts * 0.2, ts * 1.3, '裏路地', '#94a3b8');
+
+  // ═════ 4. 背景の建物ファサード（壁側に並ぶ家並み） ═════
+
+  // y=9 の北側（ポータル区と広場の間）に並ぶ家
+  const northFacades: [number, number, number][] = [
+    [3, 9, 0], [8, 9, 1], [12, 9, 2], [22, 9, 3], [26, 9, 0], [32, 9, 2],
+  ];
+  for (const [tx, ty, kind] of northFacades) {
+    drawHouseFacade(ctx, cx(tx), cy(ty) + ts * 0.05, ts * 1.2, ts * 1.1, kind);
+  }
+
+  // y=17 の境界壁の上に家（市場の後ろ側）
+  const midFacades: [number, number, number][] = [
+    [3, 17, 1], [5, 17, 2], [30, 17, 3], [32, 17, 0],
+  ];
+  for (const [tx, ty, kind] of midFacades) {
+    drawHouseFacade(ctx, cx(tx), cy(ty), ts * 1.0, ts * 1.0, kind);
+  }
+
+  // 南端の家並み（スポーン脇）
+  const southFacades: [number, number, number][] = [
+    [3, 25, 2], [7, 25, 0], [28, 25, 3], [32, 25, 1],
+    [3, 27, 1], [13, 27, 3], [22, 27, 0], [32, 27, 2],
+  ];
+  for (const [tx, ty, kind] of southFacades) {
+    drawHouseFacade(ctx, cx(tx), cy(ty), ts * 1.15, ts * 1.1, kind);
+  }
+
+  // ═════ 5. 街灯（大通り沿いの格子配置） ═════
+
   const lamps: [number, number, number][] = [
-    // メイン通り沿い（左右交互）
+    // メイン通り（x=17-18 に沿って左右交互）
     [15.5, 8, 0], [19.5, 8, 1],
-    [15.5, 15, 2], [19.5, 15, 3],
-    [15.5, 20, 4], [19.5, 20, 5],
-    [15.5, 24, 6], [19.5, 24, 7],
-    // 商業通り
-    [3, 19, 8], [8, 19, 9], [13, 19, 10], [23, 19, 11], [28, 19, 12], [33, 19, 13],
-    // 酒場・行商人の前
-    [4, 11, 14], [31, 11, 15],
+    [15.5, 11, 2], [19.5, 11, 3],
+    [15.5, 15, 4], [19.5, 15, 5],
+    [15.5, 20, 6], [19.5, 20, 7],
+    [15.5, 24, 8], [19.5, 24, 9],
+    // 商業通り（y=19 に等間隔）
+    [3, 19, 10], [8, 19, 11], [13, 19, 12], [23, 19, 13], [28, 19, 14], [33, 19, 15],
+    // 酒場・行商人通り（y=11）
+    [3, 11, 16], [14, 11, 17], [22, 11, 18], [33, 11, 19],
+    // プラザ東西通り（y=15）
+    [4, 15, 20], [9, 15, 21], [26, 15, 22], [32, 15, 23],
+    // 西・東サブスパイン
+    [9.5, 12, 24], [9.5, 22, 25], [26.5, 12, 26], [26.5, 22, 27],
   ];
   for (const [tx, ty, seed] of lamps) {
     drawStreetLamp(ctx, cx(tx) - ts * 0.5, cy(ty), now, seed);
   }
 
-  // ── 噴水まわりのベンチ ──
+  // ═════ 6. 噴水・井戸 ═════
+
+  // 噴水まわりのベンチ（4脚）
   drawStoneBench(ctx, cx(15), cy(13) + ts * 0.05, true);
   drawStoneBench(ctx, cx(20), cy(13) + ts * 0.05, true);
   drawStoneBench(ctx, cx(16) + ts * 0.2, cy(11) + ts * 0.3, true);
   drawStoneBench(ctx, cx(19) - ts * 0.2, cy(11) + ts * 0.3, true);
 
-  // ── 街路樹 ──
+  // サブ広場の井戸（西・東に1基ずつ）
+  drawWell(ctx, cx(8), cy(13));
+  drawWell(ctx, cx(27), cy(13));
+
+  // ═════ 7. 花のプランター（広場・道沿いを彩る） ═════
+
+  const planters: [number, number, string][] = [
+    [3, 15, '#f472b6'], [33, 15, '#60a5fa'],
+    [6, 16, '#fde047'], [29, 16, '#fde047'],
+    [12, 14, '#f87171'], [23, 14, '#a78bfa'],
+    [11, 24, '#fbbf24'], [22, 24, '#34d399'],
+    [16, 16, '#f0abfc'], [19, 16, '#f0abfc'],
+  ];
+  for (const [tx, ty, color] of planters) {
+    drawFlowerPlanter(ctx, cx(tx), cy(ty) + ts * 0.15, color);
+  }
+
+  // ═════ 8. 街路樹（随所に配置） ═════
+
   const trees: [number, number, number][] = [
     [2, 11, 0], [33, 11, 1],
-    [2, 14, 2], [33, 14, 3],
-    [8, 14, 4], [27, 14, 5],
-    [12, 23, 6], [23, 23, 7],
+    [7, 14, 4], [27, 14, 5],
+    [11, 23, 6], [24, 23, 7],
     [2, 24, 8], [33, 24, 9],
     [14, 8, 10], [21, 8, 11],
+    [2, 15, 12], [33, 15, 13],
+    [2, 20, 14], [33, 20, 15],
   ];
   for (const [tx, ty, s] of trees) {
     drawStreetTree(ctx, cx(tx), cy(ty) + ts * 0.15, now, s);
   }
 
-  // ── 市場の荷車（商業地区） ──
+  // ═════ 9. 市場の荷車と武器展示 ═════
+
   drawMarketCart(ctx, cx(7), cy(19) + ts * 0.15, false);
   drawMarketCart(ctx, cx(12), cy(19) + ts * 0.15, true);
   drawMarketCart(ctx, cx(23), cy(19) + ts * 0.15, false);
   drawMarketCart(ctx, cx(28), cy(19) + ts * 0.15, true);
 
-  // ── 裏路地の樽・木箱 ──
+  // 鍛冶屋の横に武器展示
+  drawWeaponRack(ctx, cx(24) + ts * 0.2, cy(19) - ts * 0.2);
+  drawWeaponRack(ctx, cx(26) - ts * 0.2, cy(19) - ts * 0.2);
+
+  // ═════ 10. 裏路地の樽・木箱 ═════
+
   drawAlleyClutter(ctx, cx(7), cy(21) + ts * 0.15, 1);
   drawAlleyClutter(ctx, cx(15), cy(21) + ts * 0.15, 2);
   drawAlleyClutter(ctx, cx(20), cy(21) + ts * 0.15, 3);
   drawAlleyClutter(ctx, cx(28), cy(21) + ts * 0.15, 4);
 
-  // ── 吊り旗（建物間に渡す） ──
+  // 裏路地の小さな篝火
+  drawSmallBrazier(ctx, cx(11), cy(22), now, 0);
+  drawSmallBrazier(ctx, cx(24), cy(22), now, 1);
+
+  // ═════ 11. 吊り旗（祭りの飾り） ═════
+
   drawBuntingLine(ctx, cx(5), cx(10), cy(16) - ts * 0.35, now, '#ef4444');
   drawBuntingLine(ctx, cx(25), cx(30), cy(16) - ts * 0.35, now, '#3b82f6');
   drawBuntingLine(ctx, cx(13), cx(21), cy(13) - ts * 0.35, now, '#a855f7');
+  drawBuntingLine(ctx, cx(3), cx(8), cy(9) - ts * 0.35, now, '#fbbf24');
+  drawBuntingLine(ctx, cx(27), cx(32), cy(9) - ts * 0.35, now, '#22c55e');
+  drawBuntingLine(ctx, cx(13), cx(22), cy(26) - ts * 0.35, now, '#ec4899');
 
-  // ── 道標 ──
+  // ═════ 12. 道標 ═════
+
   drawSignPost(ctx, cx(17.5), cy(23) - ts * 0.1, ['ダンジョン↑', 'カジノ↓']);
+  drawSignPost(ctx, cx(9.5), cy(17) - ts * 0.2, ['市場←', 'ギルド→']);
+  drawSignPost(ctx, cx(26.5), cy(17) - ts * 0.2, ['工房→', 'ギルド←']);
 }
 
 export function drawBaseObjects(
