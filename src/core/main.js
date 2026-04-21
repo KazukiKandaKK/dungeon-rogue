@@ -740,6 +740,76 @@ function _doPetTurn() {
   );
 }
 
+/**
+ * BASE（拠点）専用のペット1ステップ。
+ * 戦闘は一切行わず、プレイヤーに追従するだけ。
+ *  - プレイヤーから3×3隣接範囲（チェビシェフ距離 > 1）の外にいれば1マス近づく
+ *  - 範囲内にいる場合は20%でランダム歩き、それ以外は停止
+ *  - プレイヤー／NPC／予約タイル（商店・掲示板など）には乗らない
+ *  - map.isWalkable() で通行可否を判定する
+ */
+function _doPetBaseStep() {
+  if (!pet || !pet.alive || !player || !map || gamePhase !== 'BASE') return;
+
+  // ── 進入禁止タイル集合を作る ──
+  //  予約タイル（商店・掲示板・ポータルなど）と NPC、プレイヤー自身を除外。
+  const blocked = new Set();
+  for (const r of _baseReservedTiles()) blocked.add(`${r.tx},${r.ty}`);
+  for (const n of baseNpcs) blocked.add(`${n.tx},${n.ty}`);
+  blocked.add(`${player.tx},${player.ty}`);
+
+  const isBlocked = (nx, ny) => {
+    if (nx < 0 || ny < 0 || nx >= map.cols || ny >= map.rows) return true;
+    if (!map.isWalkable(nx, ny)) return true;
+    return blocked.has(`${nx},${ny}`);
+  };
+
+  const dx = player.tx - pet.tx;
+  const dy = player.ty - pet.ty;
+  // 3×3隣接判定はチェビシェフ距離（max(|dx|,|dy|) <= 1）
+  const cheb = Math.max(Math.abs(dx), Math.abs(dy));
+
+  // 移動先候補を決める
+  const tries = [];
+  if (cheb > 1) {
+    // プレイヤーに1マス近づく。距離が大きい軸を優先。
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx !== 0) tries.push([Math.sign(dx), 0]);
+      if (dy !== 0) tries.push([0, Math.sign(dy)]);
+      // 斜め（両軸とも動かしたい場合のフォールバック）
+      if (dx !== 0 && dy !== 0) tries.push([Math.sign(dx), Math.sign(dy)]);
+    } else {
+      if (dy !== 0) tries.push([0, Math.sign(dy)]);
+      if (dx !== 0) tries.push([Math.sign(dx), 0]);
+      if (dx !== 0 && dy !== 0) tries.push([Math.sign(dx), Math.sign(dy)]);
+    }
+  } else {
+    // 既に隣接範囲内。20%の確率でランダムに1マス歩く。それ以外は停止。
+    if (Math.random() >= 0.2) return;
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    // シャッフル
+    for (let i = dirs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    }
+    for (const d of dirs) tries.push(d);
+  }
+
+  for (const [mx, my] of tries) {
+    const nx = pet.tx + mx;
+    const ny = pet.ty + my;
+    if (isBlocked(nx, ny)) continue;
+    // 1マス移動を適用（補間もセット）
+    pet.fromTx = pet.tx;
+    pet.fromTy = pet.ty;
+    pet.tx = nx;
+    pet.ty = ny;
+    pet.moveT = 0;
+    pet.walkPhase = (pet.walkPhase + 0.5) % 1;
+    return;
+  }
+}
+
 function _spawnOrMovePet() {
   if (!playerPetKind || !player || !map) { return; }
   const candidates = [
@@ -1585,6 +1655,9 @@ function _handleBaseInput() {
     player.dirX = dx;
     player.dirY = dy;
 
+    // プレイヤーが実際に動いたかをチェックしてペット追従につなげる
+    const prevTx = player.tx, prevTy = player.ty;
+
     if (action.type === 'DASH') {
       let cx = player.tx, cy = player.ty;
       for (let i = 0; i < 30; i++) {
@@ -1618,6 +1691,10 @@ function _handleBaseInput() {
       if (map.isWalkable(ntx, nty)) player.moveTo(ntx, nty);
     }
     _updateExplored();
+    // プレイヤーが動いたらペットも1マス追従（BASE では戦闘させない）
+    if (player.tx !== prevTx || player.ty !== prevTy) {
+      _doPetBaseStep();
+    }
   }
 }
 
