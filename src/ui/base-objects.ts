@@ -37,6 +37,116 @@ import {
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
+// ─── SVG Path2D 建造物テンプレート（論理座標 -1..+1） ───
+
+/** 切妻屋根（標準） */
+const ROOF_GABLED = new Path2D(
+  'M -0.55 0.00 L -0.45 -0.10 L 0.00 -0.85 L 0.45 -0.10 L 0.55 0.00 ' +
+  'L 0.50 0.05 L -0.50 0.05 Z'
+);
+
+/** マンサード屋根（二段勾配） */
+const ROOF_MANSARD = new Path2D(
+  'M -0.55 0.00 L -0.45 -0.35 L -0.25 -0.60 L 0.25 -0.60 L 0.45 -0.35 L 0.55 0.00 ' +
+  'L 0.50 0.05 L -0.50 0.05 Z'
+);
+
+/** 円錐塔の屋根 */
+const ROOF_CONE = new Path2D(
+  'M -0.45 0.00 L -0.35 -0.20 L 0.00 -1.10 L 0.35 -0.20 L 0.45 0.00 Z'
+);
+
+/** 煙突 */
+const CHIMNEY_PATH = new Path2D(
+  'M -0.06 0.00 L -0.06 -0.45 L -0.09 -0.50 L 0.09 -0.50 L 0.06 -0.45 L 0.06 0.00 Z'
+);
+
+/** アーチ窓 */
+const WINDOW_ARCH = new Path2D(
+  'M -0.30 0.45 L -0.30 -0.10 ' +
+  'C -0.30 -0.45 0.30 -0.45 0.30 -0.10 ' +
+  'L 0.30 0.45 Z'
+);
+
+/** 十字ムリオン */
+const WINDOW_MULLION = new Path2D(
+  'M 0 -0.45 L 0 0.45 M -0.30 0 L 0.30 0'
+);
+
+/** ダイヤモンド鉛格子 */
+const WINDOW_LEAD = new Path2D(
+  'M 0 -0.45 L -0.30 -0.15 L 0 0.15 L 0.30 -0.15 Z ' +
+  'M 0 -0.15 L -0.30 0.15 L 0 0.45 L 0.30 0.15 Z'
+);
+
+/** バラ窓（大きめ） */
+const ROSE_WINDOW = (() => {
+  const p = new Path2D();
+  p.arc(0, 0, 1, 0, Math.PI * 2);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    p.moveTo(0, 0);
+    p.lineTo(Math.cos(a), Math.sin(a));
+  }
+  p.moveTo(0.5, 0); p.arc(0, 0, 0.5, 0, Math.PI * 2);
+  return p;
+})();
+
+/** 木組み装飾：X 型 */
+const TIMBER_X = new Path2D('M -0.45 -0.35 L 0.45 0.35 M -0.45 0.35 L 0.45 -0.35');
+
+/** 木組み装飾：V 型 */
+const TIMBER_V = new Path2D('M -0.45 -0.35 L 0.00 0.35 L 0.45 -0.35');
+
+/** ドア（アーチ型） */
+const DOOR_ARCH = new Path2D(
+  'M -0.25 0.45 L -0.25 -0.10 ' +
+  'C -0.25 -0.40 0.25 -0.40 0.25 -0.10 ' +
+  'L 0.25 0.45 Z'
+);
+
+/** 吊り看板（ブラケット含む） */
+const SHOP_SIGN = new Path2D(
+  'M -0.05 -0.50 L -0.05 -0.20 M -0.05 -0.20 L 0.35 -0.20 ' +
+  'M 0.05 -0.30 L 0.25 -0.30 ' +
+  'M 0.35 -0.20 L 0.35 0.10 L 0.30 0.20 L -0.20 0.20 L -0.25 0.10 L -0.25 -0.20 Z'
+);
+
+/** 風見鶏（鶏のシルエット） */
+const WEATHERVANE = new Path2D(
+  // 矢
+  'M -0.80 0 L 0.80 0 ' +
+  'M -0.80 0 L -0.65 -0.10 M -0.80 0 L -0.65 0.10 ' +
+  'M 0.80 0 L 0.55 -0.20 L 0.55 0.20 Z ' +
+  // 鶏本体
+  'M 0 -0.30 C 0.15 -0.35 0.25 -0.20 0.20 -0.10 ' +
+  'C 0.25 -0.05 0.20 0.05 0.10 0.05 ' +
+  'C 0.00 0.05 -0.05 -0.10 0.00 -0.30 Z ' +
+  // 尾
+  'M -0.10 -0.15 L -0.25 -0.25 L -0.15 -0.05 Z ' +
+  // とさか
+  'M 0.12 -0.32 L 0.08 -0.42 L 0.18 -0.35 Z'
+);
+
+/** 花枠（窓下の花箱） */
+const FLOWER_BOX = new Path2D(
+  'M -0.40 0.20 L -0.35 -0.05 L 0.35 -0.05 L 0.40 0.20 Z'
+);
+
+/** ガーゴイル（壁面装飾） */
+const GARGOYLE = new Path2D(
+  // 頭部
+  'M -0.20 -0.10 L -0.25 -0.30 L -0.10 -0.45 L 0.10 -0.45 L 0.25 -0.30 L 0.20 -0.10 ' +
+  // 顎
+  'L 0.15 0.10 L 0.00 0.15 L -0.15 0.10 Z ' +
+  // 角
+  'M -0.15 -0.35 L -0.25 -0.55 L -0.05 -0.40 Z ' +
+  'M  0.15 -0.35 L  0.25 -0.55 L  0.05 -0.40 Z ' +
+  // 翼
+  'M -0.20 -0.05 L -0.65 -0.25 L -0.55 0.05 L -0.30 0.00 Z ' +
+  'M  0.20 -0.05 L  0.65 -0.25 L  0.55 0.05 L  0.30 0.00 Z'
+);
+
 // ─── 公開インターフェース ──────────────────────
 
 export interface BaseObjectsContext {
@@ -2111,87 +2221,407 @@ function drawArchway(
   ctx.restore();
 }
 
-/** 背景の建物ファサード（歩行不可領域に並ぶ装飾の家並み） */
-function drawHouseFacade(
+// ─── SVG Path2D を活用したリッチな建物 ───
+
+function withTransform(
   ctx: CanvasRenderingContext2D,
-  cx: number, cy: number, w: number, h: number,
-  kind: number,
+  tx: number, ty: number, sx: number, sy: number,
+  fn: () => void,
 ): void {
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + h * 0.5 + 3, w * 0.55, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // 本体
-  const palettes: [string, string, string][] = [
-    ['#78350f', '#451a03', '#7c2d12'], // 赤茶
-    ['#44403c', '#1c1917', '#57534e'], // 石
-    ['#7c6f56', '#4a4435', '#5a4c3a'], // 漆喰
-    ['#854d0e', '#451a03', '#a16207'], // 木造
+  ctx.translate(tx, ty);
+  ctx.scale(sx, sy);
+  fn();
+  ctx.restore();
+}
+
+/** リッチな煙（煙突から立ち昇る） */
+function drawChimneySmoke(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 5; i++) {
+    const t = ((now * 0.4 + i * 0.2 + seed * 0.13) % 1);
+    const r = 4 + t * 18;
+    const y = cy - t * 42;
+    const x = cx + Math.sin(t * Math.PI * 2 + seed) * 6;
+    const alpha = (1 - t) * 0.5;
+    ctx.fillStyle = `rgba(200,200,200,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * リッチな町屋（SVG Path2D ベース）
+ * kind:
+ *   0 = 切妻・石造（赤茶屋根）
+ *   1 = マンサード・漆喰（青屋根）
+ *   2 = 切妻・木組み Tudor
+ *   3 = 円錐塔（小塔）
+ *   4 = 大聖堂風（バラ窓）
+ *   5 = 切妻・商店（看板あり）
+ */
+function drawRichHouse(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, w: number, h: number,
+  kind: number, now: number, seed: number,
+): void {
+  const wallPalettes: [string, string, string, string][] = [
+    ['#8c6d58', '#5c4433', '#a08670', '#3a2818'], // 石（暖）
+    ['#d4c5a9', '#8a7a60', '#e8dcc0', '#4a3d2a'], // 漆喰
+    ['#9b6b3f', '#5a3817', '#b88655', '#3f1f04'], // 煉瓦
+    ['#6c7281', '#3f4451', '#8a93a3', '#1f232b'], // 灰石
+    ['#b25534', '#6d2e13', '#d16e45', '#3d1506'], // 赤煉瓦
+    ['#7c6f56', '#4a4435', '#9b8e70', '#2d291e'], // 漆喰（暗）
   ];
-  const pal = palettes[kind % 4];
-  const bg = ctx.createLinearGradient(cx, cy - h * 0.3, cx, cy + h * 0.5);
+  const roofPalettes: [string, string][] = [
+    ['#7f1d1d', '#450a0a'], // 深紅瓦
+    ['#1e3a8a', '#0c1e4a'], // 青瓦
+    ['#166534', '#052e16'], // 緑瓦
+    ['#7c2d12', '#3f1f04'], // 茶瓦
+    ['#3730a3', '#1e1b4b'], // 紫瓦
+  ];
+  const pal = wallPalettes[seed % wallPalettes.length];
+  const roof = roofPalettes[(seed * 3 + 1) % roofPalettes.length];
+  const isTall = kind === 3 || kind === 4;
+  const useTower = kind === 3;
+  const useCathedral = kind === 4;
+  const effectiveH = isTall ? h * 1.6 : h;
+
+  ctx.save();
+
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + h * 0.5 + 4, w * 0.6, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 本体 ──
+  const bodyTop = cy - effectiveH * 0.25;
+  const bodyBot = cy + h * 0.5;
+  const bodyH = bodyBot - bodyTop;
+  const bodyW = w;
+  const bodyX = cx - bodyW / 2;
+
+  // 壁下地
+  const bg = ctx.createLinearGradient(cx, bodyTop, cx, bodyBot);
   bg.addColorStop(0, pal[0]);
+  bg.addColorStop(0.5, pal[0]);
   bg.addColorStop(1, pal[1]);
   ctx.fillStyle = bg;
-  ctx.fillRect(cx - w * 0.5, cy - h * 0.3, w, h * 0.8);
-  // 石組みのライン
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(bodyX, bodyTop, bodyW, bodyH);
+
+  // 石組みのテクスチャ（千鳥）
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.lineWidth = 0.6;
-  for (let py = -h * 0.25; py < h * 0.5; py += 6) {
+  const stoneH = 9;
+  for (let py = 0; py < bodyH; py += stoneH) {
+    const offset = ((py / stoneH) | 0) % 2 === 0 ? 0 : 10;
     ctx.beginPath();
-    ctx.moveTo(cx - w * 0.5, cy + py);
-    ctx.lineTo(cx + w * 0.5, cy + py);
+    ctx.moveTo(bodyX, bodyTop + py);
+    ctx.lineTo(bodyX + bodyW, bodyTop + py);
     ctx.stroke();
+    for (let sx = bodyX - 20 + offset; sx < bodyX + bodyW; sx += 20) {
+      ctx.beginPath();
+      ctx.moveTo(sx, bodyTop + py);
+      ctx.lineTo(sx, bodyTop + py + stoneH);
+      ctx.stroke();
+    }
   }
-  // 屋根
+  // ハイライト
+  ctx.fillStyle = `rgba(255,255,255,0.08)`;
+  ctx.fillRect(bodyX, bodyTop, 3, bodyH);
+
+  // コーナーストーン（角石）
   ctx.fillStyle = pal[2];
-  ctx.beginPath();
-  ctx.moveTo(cx - w * 0.55, cy - h * 0.3);
-  ctx.lineTo(cx - w * 0.1, cy - h * 0.55);
-  ctx.lineTo(cx + w * 0.1, cy - h * 0.55);
-  ctx.lineTo(cx + w * 0.55, cy - h * 0.3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.6; ctx.stroke();
-  // 瓦の線
-  for (let i = -w * 0.4; i < w * 0.4; i += 4) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  for (const [dx, dy] of [[0, 0], [bodyW - 7, 0], [0, bodyH - 7], [bodyW - 7, bodyH - 7]] as [number, number][]) {
+    ctx.fillRect(bodyX + dx, bodyTop + dy, 7, 7);
+  }
+
+  // 木組み（Tudor）装飾
+  if (kind === 2) {
+    ctx.save();
+    ctx.strokeStyle = pal[3];
+    ctx.lineWidth = 2;
+    // 縦梁
     ctx.beginPath();
-    ctx.moveTo(cx + i, cy - h * 0.3);
-    ctx.lineTo(cx + i * 0.3, cy - h * 0.52);
+    ctx.moveTo(cx - bodyW * 0.4, bodyTop + bodyH * 0.1);
+    ctx.lineTo(cx - bodyW * 0.4, bodyBot);
+    ctx.moveTo(cx + bodyW * 0.4, bodyTop + bodyH * 0.1);
+    ctx.lineTo(cx + bodyW * 0.4, bodyBot);
+    // 横梁
+    ctx.moveTo(bodyX, bodyTop + bodyH * 0.55);
+    ctx.lineTo(bodyX + bodyW, bodyTop + bodyH * 0.55);
+    ctx.stroke();
+    // 斜め
+    withTransform(ctx, cx, bodyTop + bodyH * 0.3, bodyW * 0.35, bodyH * 0.2, () => {
+      ctx.strokeStyle = pal[3]; ctx.lineWidth = 0.12;
+      ctx.stroke(TIMBER_V);
+    });
+    withTransform(ctx, cx, bodyTop + bodyH * 0.75, bodyW * 0.35, bodyH * 0.15, () => {
+      ctx.strokeStyle = pal[3]; ctx.lineWidth = 0.12;
+      ctx.stroke(TIMBER_X);
+    });
+    ctx.restore();
+  }
+
+  // ── 窓 ──
+  if (useCathedral) {
+    // バラ窓（大聖堂）
+    withTransform(ctx, cx, bodyTop + bodyH * 0.3, bodyW * 0.20, bodyW * 0.20, () => {
+      ctx.save();
+      ctx.fillStyle = '#1e1b4b';
+      ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(253,224,71,0.75)';
+      ctx.beginPath(); ctx.arc(0, 0, 0.85, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.07;
+      ctx.stroke(ROSE_WINDOW);
+      ctx.restore();
+    });
+    // アーチ窓左右
+    for (const dxPct of [-0.32, 0.32]) {
+      withTransform(ctx, cx + dxPct * bodyW, bodyTop + bodyH * 0.65, bodyW * 0.11, bodyH * 0.22, () => {
+        ctx.fillStyle = '#1c1917';
+        ctx.fill(WINDOW_ARCH);
+        ctx.fillStyle = `rgba(254,240,138,${0.5 + 0.3 * Math.abs(Math.sin(now * 2 + seed))})`;
+        ctx.fill(WINDOW_ARCH);
+        ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 0.08;
+        ctx.stroke(WINDOW_ARCH);
+      });
+    }
+  } else if (useTower) {
+    // 塔：縦に2個のアーチ窓
+    for (const dyPct of [0.20, 0.55, 0.85]) {
+      withTransform(ctx, cx, bodyTop + bodyH * dyPct, bodyW * 0.15, bodyH * 0.14, () => {
+        ctx.fillStyle = '#0c0a09';
+        ctx.fill(WINDOW_ARCH);
+        ctx.fillStyle = `rgba(253,224,71,${0.55 + 0.3 * Math.abs(Math.sin(now * 1.5 + seed * 0.7))})`;
+        ctx.fill(WINDOW_ARCH);
+        ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 0.1;
+        ctx.stroke(WINDOW_ARCH);
+      });
+    }
+  } else {
+    // 標準：2列×2〜3段
+    const rows = kind === 0 ? 2 : (kind % 2 === 0 ? 1 : 2);
+    const cols = 2;
+    const winWScale = bodyW * 0.18;
+    const winHScale = bodyH * 0.17;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const wx = cx + (c - 0.5) * bodyW * 0.45;
+        const wy = bodyTop + bodyH * (0.2 + r * 0.35);
+        // 窓枠
+        ctx.fillStyle = pal[3];
+        ctx.fillRect(wx - winWScale * 0.58, wy - winHScale * 0.58, winWScale * 1.16, winHScale * 1.16);
+        // 窓ガラス
+        const flick = 0.5 + 0.3 * Math.abs(Math.sin(now * (1 + r * 0.4) + c + seed));
+        const glass = ctx.createLinearGradient(wx, wy - winHScale, wx, wy + winHScale);
+        glass.addColorStop(0, `rgba(254,240,138,${flick * 0.9})`);
+        glass.addColorStop(1, `rgba(251,146,60,${flick * 0.6})`);
+        ctx.fillStyle = glass;
+        ctx.fillRect(wx - winWScale * 0.5, wy - winHScale * 0.5, winWScale, winHScale);
+        // ムリオン or 鉛格子
+        withTransform(ctx, wx, wy, winWScale, winHScale, () => {
+          ctx.strokeStyle = pal[3]; ctx.lineWidth = 0.15;
+          ctx.stroke(kind === 2 ? WINDOW_LEAD : WINDOW_MULLION);
+        });
+        // 鎧戸
+        ctx.fillStyle = pal[1];
+        ctx.fillRect(wx - winWScale * 0.75, wy - winHScale * 0.58, winWScale * 0.15, winHScale * 1.16);
+        ctx.fillRect(wx + winWScale * 0.60, wy - winHScale * 0.58, winWScale * 0.15, winHScale * 1.16);
+        // 鎧戸の板目
+        ctx.strokeStyle = pal[3]; ctx.lineWidth = 0.5;
+        for (let k = 0; k < 3; k++) {
+          const shy = wy + (-0.45 + k * 0.35) * winHScale;
+          ctx.beginPath();
+          ctx.moveTo(wx - winWScale * 0.73, shy);
+          ctx.lineTo(wx - winWScale * 0.62, shy);
+          ctx.moveTo(wx + winWScale * 0.63, shy);
+          ctx.lineTo(wx + winWScale * 0.74, shy);
+          ctx.stroke();
+        }
+        // 窓下の花箱（最下段）
+        if (r === rows - 1 && c === 0 && kind !== 2) {
+          withTransform(ctx, wx, wy + winHScale * 0.65, winWScale * 0.7, winHScale * 0.5, () => {
+            ctx.fillStyle = '#5a3817';
+            ctx.fill(FLOWER_BOX);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(-0.2, -0.05, 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath(); ctx.arc(0.0, -0.08, 0.11, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ec4899';
+            ctx.beginPath(); ctx.arc(0.2, -0.05, 0.11, 0, Math.PI * 2); ctx.fill();
+          });
+        }
+      }
+    }
+  }
+
+  // ── ドア ──
+  if (!useCathedral) {
+    withTransform(ctx, cx, bodyBot - bodyH * 0.12, bodyW * 0.14, bodyH * 0.24, () => {
+      ctx.fillStyle = pal[3];
+      ctx.fill(DOOR_ARCH);
+      ctx.strokeStyle = pal[1]; ctx.lineWidth = 0.1; ctx.stroke(DOOR_ARCH);
+      // 木目
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.05;
+      for (let k = -0.15; k <= 0.2; k += 0.1) {
+        ctx.beginPath();
+        ctx.moveTo(k, -0.15); ctx.lineTo(k, 0.4);
+        ctx.stroke();
+      }
+      // ノブ
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath(); ctx.arc(0.15, 0.15, 0.06, 0, Math.PI * 2); ctx.fill();
+    });
+  } else {
+    // 大聖堂の大扉
+    withTransform(ctx, cx, bodyBot - bodyH * 0.1, bodyW * 0.22, bodyH * 0.35, () => {
+      ctx.fillStyle = '#3f1f04';
+      ctx.fill(DOOR_ARCH);
+      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 0.08;
+      ctx.stroke(DOOR_ARCH);
+      // 鉄飾り
+      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 0.08;
+      ctx.beginPath(); ctx.moveTo(-0.20, 0.10); ctx.lineTo(0.20, 0.10); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 0.12, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath(); ctx.arc(0, 0, 0.06, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  // ── 屋根 ──
+  const roofY = bodyTop;
+  const roofPath = useTower ? ROOF_CONE : (kind === 1 ? ROOF_MANSARD : ROOF_GABLED);
+  const roofH = useTower ? bodyW * 0.7 : bodyW * 0.35;
+  const useCathedralSpires = useCathedral;
+
+  withTransform(ctx, cx, roofY, bodyW * 0.5, roofH, () => {
+    const rg = ctx.createLinearGradient(0, -1, 0, 0.1);
+    rg.addColorStop(0, roof[0]);
+    rg.addColorStop(1, roof[1]);
+    ctx.fillStyle = rg;
+    ctx.fill(roofPath);
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.015;
+    ctx.stroke(roofPath);
+  });
+  // 瓦ライン
+  if (!useTower) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.6;
+    const roofPeak = roofY - roofH * (kind === 1 ? 0.6 : 0.85);
+    for (let y = roofPeak; y < roofY; y += 5) {
+      const t = (y - roofPeak) / (roofY - roofPeak);
+      const half = t * bodyW * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - half, y);
+      ctx.lineTo(cx + half, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 大聖堂の左右塔
+  if (useCathedralSpires) {
+    for (const side of [-1, 1]) {
+      const sx = cx + side * bodyW * 0.45;
+      // 塔の本体
+      ctx.fillStyle = pal[0];
+      ctx.fillRect(sx - bodyW * 0.08, roofY - bodyH * 0.3, bodyW * 0.16, bodyH * 0.6);
+      ctx.strokeStyle = pal[1]; ctx.lineWidth = 0.6;
+      ctx.strokeRect(sx - bodyW * 0.08, roofY - bodyH * 0.3, bodyW * 0.16, bodyH * 0.6);
+      // 塔の尖塔
+      withTransform(ctx, sx, roofY - bodyH * 0.3, bodyW * 0.10, bodyW * 0.28, () => {
+        ctx.fillStyle = roof[0]; ctx.fill(ROOF_CONE);
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.02;
+        ctx.stroke(ROOF_CONE);
+      });
+      // 塔の窓
+      ctx.fillStyle = '#1c1917';
+      ctx.fillRect(sx - bodyW * 0.03, roofY - bodyH * 0.15, bodyW * 0.06, bodyH * 0.1);
+      ctx.fillStyle = `rgba(253,224,71,${0.6 + 0.3 * Math.abs(Math.sin(now + seed + side))})`;
+      ctx.fillRect(sx - bodyW * 0.025, roofY - bodyH * 0.145, bodyW * 0.05, bodyH * 0.09);
+    }
+  }
+
+  // ── 煙突 ──
+  const hasChimney = !useCathedral && !useTower && kind !== 4;
+  if (hasChimney) {
+    const chimX = cx + bodyW * 0.22;
+    const chimBase = roofY - bodyW * 0.12;
+    withTransform(ctx, chimX, chimBase, bodyW * 0.08, bodyW * 0.25, () => {
+      ctx.fillStyle = pal[1];
+      ctx.fill(CHIMNEY_PATH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.06;
+      ctx.stroke(CHIMNEY_PATH);
+    });
+    // 煙
+    drawChimneySmoke(ctx, chimX, chimBase - bodyW * 0.32, now, seed);
+  }
+
+  // ── 風見鶏（高い建物だけ） ──
+  if (useTower || useCathedral || kind === 1) {
+    const vaneX = cx;
+    const vaneY = useTower ? roofY - roofH : roofY - roofH * 0.9;
+    const rot = Math.sin(now * 0.5 + seed) * 0.3;
+    ctx.save();
+    ctx.translate(vaneX, vaneY);
+    ctx.rotate(rot);
+    ctx.scale(10, 10);
+    ctx.strokeStyle = '#1c1917';
+    ctx.lineWidth = 0.08;
+    ctx.fillStyle = '#1c1917';
+    ctx.fill(WEATHERVANE);
+    ctx.stroke(WEATHERVANE);
+    ctx.restore();
+    // 柱
+    ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(vaneX, vaneY);
+    ctx.lineTo(vaneX, vaneY + 8);
     ctx.stroke();
   }
-  // 窓
-  const winW = w * 0.18, winH = h * 0.18;
-  for (const dx of [-w * 0.22, w * 0.22]) {
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(cx + dx - winW / 2, cy - h * 0.12, winW, winH);
-    // 明かり
-    ctx.fillStyle = `rgba(253,224,71,${0.4 + 0.3 * (kind % 2)})`;
-    ctx.fillRect(cx + dx - winW / 2 + 1, cy - h * 0.12 + 1, winW - 2, winH - 2);
-    // 十字窓枠
-    ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(cx + dx, cy - h * 0.12);
-    ctx.lineTo(cx + dx, cy - h * 0.12 + winH);
-    ctx.moveTo(cx + dx - winW / 2, cy - h * 0.12 + winH / 2);
-    ctx.lineTo(cx + dx + winW / 2, cy - h * 0.12 + winH / 2);
-    ctx.stroke();
+
+  // ── ガーゴイル（大聖堂のみ、左右） ──
+  if (useCathedral) {
+    for (const side of [-1, 1]) {
+      withTransform(ctx, cx + side * bodyW * 0.3, roofY + bodyH * 0.05, 12 * side, 12, () => {
+        ctx.fillStyle = '#44403c';
+        ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.05;
+        ctx.fill(GARGOYLE);
+        ctx.stroke(GARGOYLE);
+      });
+    }
   }
-  // ドア
-  ctx.fillStyle = '#3f1f04';
-  ctx.fillRect(cx - w * 0.06, cy + h * 0.15, w * 0.12, h * 0.25);
-  ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.8;
-  ctx.strokeRect(cx - w * 0.06, cy + h * 0.15, w * 0.12, h * 0.25);
-  // ドアノブ
-  ctx.fillStyle = '#fbbf24';
-  ctx.beginPath(); ctx.arc(cx + w * 0.04, cy + h * 0.28, 1.2, 0, Math.PI * 2); ctx.fill();
-  // 煙突
-  if (kind % 2 === 0) {
-    ctx.fillStyle = pal[1];
-    ctx.fillRect(cx + w * 0.15, cy - h * 0.55, w * 0.08, h * 0.2);
+
+  // ── 吊り看板（商店タイプ） ──
+  if (kind === 5) {
+    const signColors = ['#7f1d1d', '#1e40af', '#166534', '#6b21a8'];
+    const sc = signColors[seed % signColors.length];
+    const icons = ['⚔', '🍺', '🍞', '📜', '💎', '🛡'];
+    const icon = icons[seed % icons.length];
+    const signX = cx + bodyW * 0.3;
+    const signY = bodyTop + bodyH * 0.1;
+    withTransform(ctx, signX, signY, 20, 20, () => {
+      ctx.strokeStyle = '#1c1917'; ctx.lineWidth = 0.08;
+      ctx.fillStyle = sc;
+      ctx.fill(SHOP_SIGN);
+      ctx.stroke(SHOP_SIGN);
+    });
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 4;
+    ctx.fillText(icon, signX + 1, signY + 3);
   }
+
   ctx.restore();
 }
 
@@ -2322,31 +2752,70 @@ function drawCityDecor(
   // 裏路地の門
   drawArchway(ctx, cx(17) + ts * 0.5, cy(21) + ts * 0.2, ts * 1.3, '裏路地', '#94a3b8');
 
-  // ═════ 4. 背景の建物ファサード（壁側に並ぶ家並み） ═════
+  // ═════ 4. 建物ファサード（壁タイル上にのみ配置） ═════
+  //
+  // 実際の壁タイル：
+  //   y=0 の外周壁（x=0..35）
+  //   y=27 の外周壁（x=0..35）
+  //   x=0, x=35 の左右外周壁
+  //   y=8 の x=2..6, x=29..33（ダンジョン区境界）
+  //   y=17 の x=2..7, x=28..33（広場と商業地区の境界）
+  //   y=20 の x=10, x=25（裏路地の門柱）
 
-  // y=9 の北側（ポータル区と広場の間）に並ぶ家
-  const northFacades: [number, number, number][] = [
-    [3, 9, 0], [8, 9, 1], [12, 9, 2], [22, 9, 3], [26, 9, 0], [32, 9, 2],
+  // ── 北辺の家並み（y=0）：大聖堂と町屋の連なり ──
+  // 中央に大聖堂（kind=4）、両脇に町屋
+  const northRow: [number, number, number, number][] = [
+    [1, 0, 0, 11], [3, 0, 1, 13], [5, 0, 2, 17], [7, 0, 5, 19],
+    [10, 0, 0, 23], [12, 0, 5, 29], [14, 0, 1, 31], [16, 0, 3, 37],
+    [20, 0, 3, 41], [22, 0, 5, 43], [24, 0, 2, 47], [26, 0, 0, 53],
+    [29, 0, 1, 59], [31, 0, 5, 61], [33, 0, 2, 67], [34, 0, 0, 71],
   ];
-  for (const [tx, ty, kind] of northFacades) {
-    drawHouseFacade(ctx, cx(tx), cy(ty) + ts * 0.05, ts * 1.2, ts * 1.1, kind);
+  for (const [tx, ty, kind, seed] of northRow) {
+    drawRichHouse(ctx, cx(tx), cy(ty) + ts * 0.2, ts * 1.15, ts * 1.35, kind, now, seed);
+  }
+  // 北辺中央は大聖堂（kind=4, 幅広）
+  drawRichHouse(ctx, cx(17) + ts * 0.5, cy(0) + ts * 0.0, ts * 3.2, ts * 1.8, 4, now, 7);
+
+  // ── ダンジョン区境界の家並み（y=8, x=2..6 と x=29..33） ──
+  const northGateRow: [number, number, number, number][] = [
+    [2, 8, 0, 101], [3, 8, 2, 103], [4, 8, 5, 107], [5, 8, 1, 109], [6, 8, 0, 113],
+    [29, 8, 1, 127], [30, 8, 5, 131], [31, 8, 2, 137], [32, 8, 0, 139], [33, 8, 3, 149],
+  ];
+  for (const [tx, ty, kind, seed] of northGateRow) {
+    drawRichHouse(ctx, cx(tx), cy(ty), ts * 1.0, ts * 1.2, kind, now, seed);
   }
 
-  // y=17 の境界壁の上に家（市場の後ろ側）
-  const midFacades: [number, number, number][] = [
-    [3, 17, 1], [5, 17, 2], [30, 17, 3], [32, 17, 0],
+  // ── 広場境界壁の家並み（y=17, x=2..7 と x=28..33） ──
+  const midRow: [number, number, number, number][] = [
+    [2, 17, 2, 151], [3, 17, 5, 157], [4, 17, 0, 163], [5, 17, 2, 167],
+    [6, 17, 1, 173], [7, 17, 5, 179],
+    [28, 17, 0, 181], [29, 17, 5, 191], [30, 17, 2, 193], [31, 17, 1, 197],
+    [32, 17, 5, 199], [33, 17, 0, 211],
   ];
-  for (const [tx, ty, kind] of midFacades) {
-    drawHouseFacade(ctx, cx(tx), cy(ty), ts * 1.0, ts * 1.0, kind);
+  for (const [tx, ty, kind, seed] of midRow) {
+    drawRichHouse(ctx, cx(tx), cy(ty), ts * 1.0, ts * 1.2, kind, now, seed);
   }
 
-  // 南端の家並み（スポーン脇）
-  const southFacades: [number, number, number][] = [
-    [3, 25, 2], [7, 25, 0], [28, 25, 3], [32, 25, 1],
-    [3, 27, 1], [13, 27, 3], [22, 27, 0], [32, 27, 2],
+  // ── 裏路地の門柱（y=20, x=10, 25）：小塔 ──
+  drawRichHouse(ctx, cx(10), cy(20), ts * 0.9, ts * 1.0, 3, now, 223);
+  drawRichHouse(ctx, cx(25), cy(20), ts * 0.9, ts * 1.0, 3, now, 227);
+
+  // ── 南辺の家並み（y=27）：住宅街 ──
+  const southRow: [number, number, number, number][] = [
+    [1, 27, 0, 229], [3, 27, 2, 233], [5, 27, 1, 239], [7, 27, 5, 241],
+    [9, 27, 0, 251], [11, 27, 5, 257], [13, 27, 1, 263], [15, 27, 2, 269],
+    [17, 27, 3, 271], [19, 27, 5, 277], [21, 27, 2, 281], [23, 27, 0, 283],
+    [25, 27, 1, 293], [27, 27, 5, 307], [29, 27, 2, 311], [31, 27, 0, 313],
+    [33, 27, 1, 317], [34, 27, 5, 331],
   ];
-  for (const [tx, ty, kind] of southFacades) {
-    drawHouseFacade(ctx, cx(tx), cy(ty), ts * 1.15, ts * 1.1, kind);
+  for (const [tx, ty, kind, seed] of southRow) {
+    drawRichHouse(ctx, cx(tx), cy(ty) - ts * 0.15, ts * 1.15, ts * 1.35, kind, now, seed);
+  }
+
+  // ── 西辺と東辺（x=0, x=35）の建物：縦並び ──
+  for (let ty = 2; ty <= 25; ty += 3) {
+    drawRichHouse(ctx, cx(0), cy(ty), ts * 1.0, ts * 1.2, ty % 4, now, ty * 7);
+    drawRichHouse(ctx, cx(35), cy(ty), ts * 1.0, ts * 1.2, (ty + 1) % 4, now, ty * 11);
   }
 
   // ═════ 5. 街灯（大通り沿いの格子配置） ═════
