@@ -81,6 +81,16 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+// ─── 決定論的擬似乱数（タイル/建物の摩耗パターン用） ──────
+//
+// 描画関数の中で Math.random() を使うと毎フレームでパターンが変わって
+// 「ちらつき」を起こす。摩耗・ひび・苔は座標 (x,y) または建物 seed から
+// 純関数的に決まるよう、Canvas に依存しないハッシュ＋PRNG を別モジュール
+// （base-realism.ts）に切り出して再エクスポートする。Node テスト用。
+
+export { hash2, hash3, seededRand } from './base-realism.js';
+import { hash2, hash3, seededRand } from './base-realism.js';
+
 /** smoothstep：edge0..edge1 の間を滑らかに 0→1 へ遷移。edge0 > edge1 の場合は逆向き。 */
 function smoothstep(edge0: number, edge1: number, x: number): number {
   if (edge0 === edge1) return x < edge0 ? 0 : 1;
@@ -868,6 +878,17 @@ function drawShopBuilding(
     ctx.beginPath(); ctx.arc(sx, sy, 3 + ph * 4, 0, Math.PI * 2); ctx.fill();
   }
 
+  // 風化（壁面）
+  drawWallWeathering(ctx, x + 4, y + h * 0.3, w - 8, h * 0.7, hash2(Math.floor(x), Math.floor(y)));
+  // 屋根瓦（瓦目を上塗り）
+  drawRoofTiles(
+    ctx,
+    x, y - 4, w + 4, h * 0.34,
+    'rgba(127,29,29,0.55)',
+    hash2(Math.floor(x), Math.floor(y) + 3),
+    { weatherVane: false },
+  );
+
   // 商品点数バッジ
   if (itemCount > 0) {
     ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 8;
@@ -995,6 +1016,9 @@ function drawStallBuilding(
     ctx.fillText(String(stallCount), bx, by);
   }
 
+  // 風化（カウンター板）
+  drawWallWeathering(ctx, x + 10, y + h * 0.62, w - 20, h * 0.16, hash2(Math.floor(x), Math.floor(y)));
+
   // 点滅の小旗
   const flagX = x + w * 0.5, flagY = y + h * 0.03;
   ctx.fillStyle = '#dc2626';
@@ -1115,6 +1139,17 @@ function drawCasinoBuilding(
   ctx.fillStyle = '#ef4444';
   ctx.font = `bold ${Math.floor(ts * 0.28)}px serif`;
   ctx.fillText('♥', cx, doorY + doorH * 0.3);
+
+  // 風化（壁面）
+  ctx.shadowBlur = 0;
+  drawWallWeathering(ctx, x + 6, y + h * 0.2, w - 12, h * 0.8, hash2(Math.floor(x), Math.floor(y) + 1));
+  // 屋根瓦（マーキー部分）
+  drawRoofTiles(
+    ctx,
+    x, y, w, h * 0.22,
+    'rgba(76,29,149,0.55)',
+    hash2(Math.floor(x), Math.floor(y) + 2),
+  );
 
   ctx.restore();
 }
@@ -1250,6 +1285,9 @@ function drawLoanBuilding(
     }
   }
 
+  // 風化（壁面）— 金貸しは薄暗いので強めにシミ／苔
+  drawWallWeathering(ctx, bodyX, bodyY, bodyW, bodyH, hash2(Math.floor(x), Math.floor(y) + 4));
+
   ctx.restore();
 }
 
@@ -1384,6 +1422,16 @@ function drawForgeBuilding(
   ctx.fillText('FORGE', cx, y + h * 0.11);
   ctx.shadowBlur = 0;
 
+  // 風化（石壁）
+  drawWallWeathering(ctx, x + 4, y + h * 0.18, w - 8, h * 0.82, hash2(Math.floor(x), Math.floor(y) + 5));
+  // 屋根瓦
+  drawRoofTiles(
+    ctx,
+    x - 2, y - 4, w + 4, h * 0.22,
+    'rgba(63,63,70,0.55)',
+    hash2(Math.floor(x), Math.floor(y) + 6),
+  );
+
   ctx.restore();
 }
 
@@ -1514,6 +1562,10 @@ function drawReclassShrine(
     ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill();
   }
 
+  // 風化（背面壁）
+  ctx.shadowBlur = 0;
+  drawWallWeathering(ctx, x + ts * 0.1, y + h * 0.12, w - ts * 0.2, h * 0.55, hash2(Math.floor(x), Math.floor(y) + 7));
+
   ctx.restore();
 }
 
@@ -1568,6 +1620,15 @@ function drawSoulShrine(
     ctx.fillStyle = '#e9d5ff';
     ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, Math.PI * 2); ctx.fill();
   }
+
+  // 風化（台座）
+  ctx.shadowBlur = 0;
+  drawWallWeathering(
+    ctx,
+    cx - ts * 0.28, cy + ts * 0.05, ts * 0.56, ts * 0.18,
+    hash2(Math.floor(cx), Math.floor(cy) + 8),
+  );
+
   ctx.restore();
 }
 
@@ -1797,12 +1858,469 @@ function drawReception(
 
 // ─── エクスポート関数 ──────────────────────────
 
+// ─── リアル化レイヤ（A/B/C/D/E）：摩耗・風化・屋根瓦・窓・煙 ──
+//
+// すべて純粋なオーバーレイ関数で、既存の draw 関数の上に重ねて使う。
+// 「ランダム」要素はすべて hash2 / 建物 seed から決定論的に派生させ、
+// フレーム間でちらつかないようにする。
+
+/**
+ * 壁面の風化オーバーレイ。
+ * 雨だれの縦シミ、ヘアラインのひび、根元の苔、ぼんやりした汚れを
+ * (x,y,seed) から決定論的に乗せる。
+ *
+ * 既存の建物 draw 関数の最後（窓ハイライトの直前）に呼ぶ想定。
+ * 上塗り強度はあくまで控えめ。タイル全体に強く乗せると下品になるため、
+ * 透明度は最大でも 0.25 程度に抑える。
+ */
+export function drawWallWeathering(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, seed: number,
+): void {
+  if (w <= 0 || h <= 0) return;
+  const rnd = seededRand(hash3(Math.floor(x), Math.floor(y), seed));
+  ctx.save();
+
+  // 1. 窓下の縦シミ（雨だれ）：3〜5 本、最上部から下方へ
+  const streaks = 3 + Math.floor(rnd() * 3);
+  for (let i = 0; i < streaks; i++) {
+    const sx = x + (0.1 + rnd() * 0.8) * w;
+    const sy = y + h * (0.2 + rnd() * 0.2);
+    const sh = h * (0.3 + rnd() * 0.4);
+    const sw = 0.6 + rnd() * 1.6;
+    const grad = ctx.createLinearGradient(sx, sy, sx, sy + sh);
+    grad.addColorStop(0, 'rgba(20,15,10,0.0)');
+    grad.addColorStop(0.5, 'rgba(20,15,10,0.18)');
+    grad.addColorStop(1, 'rgba(20,15,10,0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - sw * 0.5, sy, sw, sh);
+  }
+
+  // 2. ヘアラインのひび（1px の暗線）：4〜7 本
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+  ctx.lineWidth = 0.6;
+  const cracks = 4 + Math.floor(rnd() * 4);
+  for (let i = 0; i < cracks; i++) {
+    const cx0 = x + rnd() * w;
+    const cy0 = y + rnd() * h;
+    const len = 6 + rnd() * Math.min(28, w * 0.3);
+    const ang = rnd() * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx0, cy0);
+    // 1〜2 個の節を持つ折れ線で「自然な」ひび
+    const mid = (rnd() - 0.5) * 0.6;
+    ctx.lineTo(
+      cx0 + Math.cos(ang + mid) * len * 0.55,
+      cy0 + Math.sin(ang + mid) * len * 0.55,
+    );
+    ctx.lineTo(
+      cx0 + Math.cos(ang) * len,
+      cy0 + Math.sin(ang) * len,
+    );
+    ctx.stroke();
+  }
+
+  // 3. 根元の苔／ツタ（緑のグラデーション、左右に 0〜2 か所）
+  const mossSpots = Math.floor(rnd() * 3);
+  for (let i = 0; i < mossSpots; i++) {
+    const mx = x + (0.1 + rnd() * 0.8) * w;
+    const my = y + h - 2;
+    const mw = 8 + rnd() * Math.min(28, w * 0.25);
+    const mh = 4 + rnd() * 8;
+    const mg = ctx.createRadialGradient(mx, my, 1, mx, my, Math.max(mw, mh));
+    mg.addColorStop(0, 'rgba(74,124,69,0.55)');
+    mg.addColorStop(0.6, 'rgba(46,86,46,0.30)');
+    mg.addColorStop(1, 'rgba(46,86,46,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.ellipse(mx, my, mw, mh, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. うっすらした汚れ斑（広い柔らかい円、低 alpha）
+  const blots = 2 + Math.floor(rnd() * 2);
+  for (let i = 0; i < blots; i++) {
+    const bx = x + rnd() * w;
+    const by = y + rnd() * h;
+    const br = 6 + rnd() * Math.min(18, w * 0.18);
+    const bg = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+    bg.addColorStop(0, 'rgba(40,30,20,0.18)');
+    bg.addColorStop(1, 'rgba(40,30,20,0)');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * 屋根瓦オーバーレイ。重なる瓦行・上端ハイライト・下端シャドウ・
+ * 時折暗い瓦・棟瓦ライン・最上段に風見鶏（オプション）。
+ *
+ * (x, y) は屋根の左上 / w, h は屋根全体の矩形。色は屋根本体色。
+ */
+export function drawRoofTiles(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  color: string, seed: number,
+  opts?: { weatherVane?: boolean; now?: number },
+): void {
+  if (w <= 4 || h <= 4) return;
+  const rnd = seededRand(hash3(Math.floor(x), Math.floor(y), seed));
+  ctx.save();
+
+  // 瓦のサイズ（行数を h から逆算）
+  const rows = Math.max(2, Math.min(6, Math.round(h / 5)));
+  const rowH = h / rows;
+  const tileW = Math.max(6, Math.min(11, w / Math.max(8, Math.floor(w / 9))));
+
+  for (let r = 0; r < rows; r++) {
+    const ry = y + r * rowH;
+    const offset = (r % 2 === 0 ? 0 : tileW * 0.5);
+    for (let cx0 = x - tileW; cx0 < x + w + tileW; cx0 += tileW) {
+      const tx0 = cx0 + offset;
+      // 瓦本体（スカロップ：扇形の 1 枚）
+      const dark = rnd() < 0.07; // 数枚に 1 枚は暗く（欠け／古さ）
+      ctx.fillStyle = dark ? 'rgba(20,12,8,0.85)' : color;
+      ctx.beginPath();
+      ctx.moveTo(tx0, ry + rowH);
+      ctx.quadraticCurveTo(tx0 + tileW * 0.5, ry - rowH * 0.15, tx0 + tileW, ry + rowH);
+      ctx.lineTo(tx0 + tileW, ry + rowH);
+      ctx.closePath();
+      // クリップして矩形外にはみ出さない
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.fill();
+      ctx.restore();
+
+      // 上端ハイライト
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(tx0 + tileW * 0.1, ry + rowH * 0.1);
+      ctx.quadraticCurveTo(
+        tx0 + tileW * 0.5, ry - rowH * 0.05,
+        tx0 + tileW * 0.9, ry + rowH * 0.1,
+      );
+      ctx.stroke();
+      // 下端シャドウ
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(tx0, ry + rowH);
+      ctx.lineTo(tx0 + tileW, ry + rowH);
+      ctx.stroke();
+    }
+  }
+
+  // 棟瓦（最上端の太いライン）
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(x, y, w, 1.4);
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(x, y + 1.4, w, 0.8);
+
+  // 風見鶏
+  if (opts?.weatherVane) {
+    const now = opts.now ?? 0;
+    const rot = Math.sin(now * 0.0006 + seed) * 0.4;
+    const cx0 = x + w * 0.5;
+    const cy0 = y - 4;
+    ctx.save();
+    ctx.strokeStyle = '#1c1917';
+    ctx.lineWidth = 1.2;
+    // 柱
+    ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(cx0, cy0 - 12); ctx.stroke();
+    // 十字
+    ctx.beginPath();
+    ctx.moveTo(cx0 - 4, cy0 - 8); ctx.lineTo(cx0 + 4, cy0 - 8);
+    ctx.moveTo(cx0, cy0 - 12); ctx.lineTo(cx0, cy0 - 4);
+    ctx.stroke();
+    // 鶏（小さなシルエット）
+    ctx.translate(cx0, cy0 - 12);
+    ctx.rotate(rot);
+    ctx.fillStyle = '#1c1917';
+    ctx.beginPath();
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(3, -3);
+    ctx.lineTo(5, 0);
+    ctx.lineTo(3, 1);
+    ctx.lineTo(-3, 2);
+    ctx.closePath();
+    ctx.fill();
+    // とさか
+    ctx.beginPath();
+    ctx.moveTo(3, -3); ctx.lineTo(4, -5); ctx.lineTo(5, -2);
+    ctx.closePath();
+    ctx.fill();
+    // 尾
+    ctx.beginPath();
+    ctx.moveTo(-5, 0); ctx.lineTo(-7, -2); ctx.lineTo(-6, 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * 奥行きのある窓。
+ * 木枠＋ガラス（青緑グラデ）＋十字ムリオン＋オプションで鎧戸／花箱／室内灯。
+ */
+export function drawWindow(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  opts?: {
+    shutters?: boolean;
+    flowerBox?: boolean;
+    lit?: boolean;
+    frame?: string;
+  },
+): void {
+  if (w <= 2 || h <= 2) return;
+  ctx.save();
+  const frame = opts?.frame ?? '#3a2a18';
+  // 外枠（窓枠）
+  ctx.fillStyle = frame;
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  // ガラス（青緑グラデ）
+  const gg = ctx.createLinearGradient(x, y, x, y + h);
+  gg.addColorStop(0, 'rgba(140,180,180,0.85)');
+  gg.addColorStop(0.5, 'rgba(95,135,150,0.85)');
+  gg.addColorStop(1, 'rgba(60,90,110,0.85)');
+  ctx.fillStyle = gg;
+  ctx.fillRect(x, y, w, h);
+
+  // 室内灯（暖色グロー、点いていれば）
+  if (opts?.lit) {
+    const lg = ctx.createLinearGradient(x, y, x, y + h);
+    lg.addColorStop(0, 'rgba(255,210,130,0.55)');
+    lg.addColorStop(1, 'rgba(255,170,80,0.45)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(x, y, w, h);
+  }
+
+  // ハイライト（左上の鏡面反射）
+  ctx.fillStyle = 'rgba(255,255,255,0.20)';
+  ctx.beginPath();
+  ctx.moveTo(x + 1, y + 1);
+  ctx.lineTo(x + w * 0.35, y + 1);
+  ctx.lineTo(x + 1, y + h * 0.35);
+  ctx.closePath();
+  ctx.fill();
+
+  // 十字ムリオン
+  ctx.strokeStyle = frame;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.5, y); ctx.lineTo(x + w * 0.5, y + h);
+  ctx.moveTo(x, y + h * 0.5); ctx.lineTo(x + w, y + h * 0.5);
+  ctx.stroke();
+
+  // 鎧戸
+  if (opts?.shutters) {
+    const sw = Math.max(3, w * 0.22);
+    for (const dir of [-1, 1]) {
+      const sx = dir < 0 ? x - 2 - sw : x + w + 2;
+      ctx.fillStyle = frame;
+      ctx.fillRect(sx, y - 2, sw, h + 4);
+      // 板目
+      ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+      ctx.lineWidth = 0.6;
+      for (let k = 1; k < 4; k++) {
+        const ly = y - 2 + (h + 4) * k / 4;
+        ctx.beginPath();
+        ctx.moveTo(sx + 1, ly); ctx.lineTo(sx + sw - 1, ly);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // 花箱（窓下）
+  if (opts?.flowerBox) {
+    const bw = w + 4;
+    const bh = Math.max(3, h * 0.18);
+    const bx = x - 2;
+    const by = y + h + 2;
+    ctx.fillStyle = '#5a3817';
+    ctx.fillRect(bx, by, bw, bh);
+    // 縁
+    ctx.fillStyle = '#3a2008';
+    ctx.fillRect(bx, by, bw, 1);
+    // 花（3〜4 ドット）
+    const colors = ['#ef4444', '#fde047', '#ec4899', '#f97316'];
+    const count = Math.max(3, Math.min(5, Math.floor(bw / 4)));
+    for (let i = 0; i < count; i++) {
+      const fx = bx + (i + 0.5) * bw / count;
+      const fy = by - 0.5;
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 葉
+    ctx.fillStyle = '#166534';
+    for (let i = 0; i < count; i++) {
+      const fx = bx + (i + 0.5) * bw / count;
+      ctx.fillRect(fx - 0.5, by - 1.5, 1, 1);
+    }
+  }
+
+  ctx.restore();
+}
+
+/**
+ * 細い・横にたなびく煙（風に流される）。drawChimneySmoke の補助バリエーション。
+ * cooking == true のときは白く濃いめ（夜の調理を想起）。
+ */
+export function drawWispSmoke(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+  opts?: { cooking?: boolean },
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const baseAlpha = opts?.cooking ? 0.55 : 0.32;
+  const tint = opts?.cooking ? '240,240,235' : '200,200,200';
+  for (let i = 0; i < 6; i++) {
+    const t = ((now * 0.00018 + i * 0.18 + seed * 0.07) % 1);
+    const r = 2 + t * 9;
+    const x = cx + Math.sin(t * Math.PI * 2 + seed * 1.7) * 18 + t * 14;
+    const y = cy - t * 38;
+    const alpha = (1 - t) * baseAlpha;
+    ctx.fillStyle = `rgba(${tint},${alpha.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * 路面に水たまりを点在させる（雨上がりの濡れ感）。
+ * wetness 0..1 を呼び出し側から渡す。0 なら何もしない。
+ * cobble strip 自体の上にレイヤするため、内部で clip はしない。
+ */
+function drawPuddles(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number,
+  wetness: number, seed: number,
+): void {
+  if (wetness <= 0.02 || w < 12 || h < 12) return;
+  const rnd = seededRand(hash3(Math.floor(x0), Math.floor(y0), seed));
+  const targetCount = Math.max(1, Math.floor((w * h) / 9000));
+  ctx.save();
+  for (let i = 0; i < targetCount; i++) {
+    const px0 = x0 + rnd() * w;
+    const py0 = y0 + rnd() * h;
+    const pw = 6 + rnd() * Math.min(18, w * 0.06);
+    const ph = pw * (0.45 + rnd() * 0.25);
+    // 暗い水面
+    ctx.fillStyle = `rgba(20,28,40,${(0.55 * wetness).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.ellipse(px0, py0, pw, ph, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 空色の反射ハイライト（薄く上半分に）
+    ctx.fillStyle = `rgba(170,200,225,${(0.30 * wetness).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.ellipse(px0, py0 - ph * 0.25, pw * 0.7, ph * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * 石畳を「混在サイズ・ひび・摩耗ライン」でリッチ化するオーバーレイ。
+ * drawCobblestoneStrip の最後に呼ばれる。すべて (x0,y0) 基準で決定論的。
+ */
+function drawCobbleWear(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, w: number, h: number,
+  now: number,
+): void {
+  if (w <= 4 || h <= 4) return;
+  ctx.save();
+
+  // 1. 摩耗パス：縦長 strip なら中央縦に明るい帯、横長なら中央横に
+  const horizontal = w > h * 1.5;
+  if (horizontal) {
+    const grad = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+    grad.addColorStop(0, 'rgba(255,240,210,0)');
+    grad.addColorStop(0.5, 'rgba(255,240,210,0.10)');
+    grad.addColorStop(1, 'rgba(255,240,210,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x0, y0 + h * 0.30, w, h * 0.40);
+  } else if (h > w * 1.5) {
+    const grad = ctx.createLinearGradient(x0, y0, x0 + w, y0);
+    grad.addColorStop(0, 'rgba(255,240,210,0)');
+    grad.addColorStop(0.5, 'rgba(255,240,210,0.10)');
+    grad.addColorStop(1, 'rgba(255,240,210,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x0 + w * 0.30, y0, w * 0.40, h);
+  }
+
+  // 2. 混在サイズの石を点在させる（小石・大石）
+  const cell = 18;
+  for (let py = 0; py < h; py += cell) {
+    for (let px = 0; px < w; px += cell) {
+      const tx = Math.floor((x0 + px) / cell);
+      const ty = Math.floor((y0 + py) / cell);
+      const hsh = hash2(tx, ty);
+      const r = (hsh & 0xff) / 255;
+      if (r < 0.18) {
+        // 大きめの石（既存のグリッド線をハイライトで覆う）
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(x0 + px - 1, y0 + py - 1, cell + 1, cell + 1);
+      } else if (r < 0.40) {
+        // 小石を 4 分割
+        ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(x0 + px + cell * 0.5, y0 + py);
+        ctx.lineTo(x0 + px + cell * 0.5, y0 + py + cell);
+        ctx.moveTo(x0 + px, y0 + py + cell * 0.5);
+        ctx.lineTo(x0 + px + cell, y0 + py + cell * 0.5);
+        ctx.stroke();
+      }
+
+      // 3. ひび（決定論的）：低確率
+      if ((hsh >>> 8 & 0xff) / 255 < 0.10) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 0.5;
+        const ax = x0 + px + (((hsh >>> 16) & 0xff) / 255) * cell;
+        const ay = y0 + py + (((hsh >>> 24) & 0xff) / 255) * cell;
+        const ang = (hsh >>> 4 & 0xf) / 16 * Math.PI * 2;
+        const len = cell * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax + Math.cos(ang) * len * 0.5, ay + Math.sin(ang) * len * 0.5 + 1);
+        ctx.lineTo(ax + Math.cos(ang) * len, ay + Math.sin(ang) * len);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // 4. 雨上がりの水たまり
+  const wet = getWetness(now);
+  if (wet > 0.02) {
+    drawPuddles(ctx, x0, y0, w, h, wet, hash2(Math.floor(x0), Math.floor(y0)));
+  }
+
+  ctx.restore();
+}
+
 // ─── 街の装飾：石畳・街灯・ベンチ・街路樹・市場の荷車 ───
 
 /** 石畳の大通り（タイル群をまとめて暖色の石床として塗る） */
 function drawCobblestoneStrip(
   ctx: CanvasRenderingContext2D,
   x0: number, y0: number, w: number, h: number,
+  now: number = 0,
 ): void {
   ctx.save();
   const g = ctx.createLinearGradient(x0, y0, x0, y0 + h);
@@ -1830,6 +2348,10 @@ function drawCobblestoneStrip(
   ctx.moveTo(x0 + 1, y0); ctx.lineTo(x0 + 1, y0 + h);
   ctx.moveTo(x0 + w - 1, y0); ctx.lineTo(x0 + w - 1, y0 + h);
   ctx.stroke();
+
+  // 摩耗パス・混在サイズ・ひび・水たまりを上塗り
+  drawCobbleWear(ctx, x0, y0, w, h, now);
+
   ctx.restore();
 }
 
@@ -2248,6 +2770,27 @@ function drawAlleySubstrate(
     const cy = y0 + rnd(i * 13.7) * h;
     ctx.beginPath();
     ctx.ellipse(cx, cy, 14 + rnd(i) * 8, 6 + rnd(i * 2) * 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 苔のパッチ（隅に偏らせる）。決定論的で毎フレーム同じ位置。
+  const mossRand = seededRand(hash2(Math.floor(x0), Math.floor(y0)));
+  const mossCount = 4 + Math.floor(mossRand() * 4);
+  for (let i = 0; i < mossCount; i++) {
+    // x を ^2 で偏らせて壁際に寄せる
+    const tx = mossRand();
+    const offset = tx < 0.5 ? tx * tx * 2 : 1 - (1 - tx) * (1 - tx) * 2;
+    const mx = x0 + offset * w;
+    const my = y0 + mossRand() * h;
+    const mw = 6 + mossRand() * 14;
+    const mh = 4 + mossRand() * 8;
+    const mg = ctx.createRadialGradient(mx, my, 1, mx, my, Math.max(mw, mh));
+    mg.addColorStop(0, 'rgba(74,124,69,0.45)');
+    mg.addColorStop(0.6, 'rgba(46,86,46,0.22)');
+    mg.addColorStop(1, 'rgba(46,86,46,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.ellipse(mx, my, mw, mh, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -2814,6 +3357,10 @@ function drawRichHouse(
   // ── 煙突 ──
   const hasChimney = !useCathedral && !useTower && kind !== 4;
   if (hasChimney) {
+    // 夜は調理の煙（白めで濃い）
+    const phase = getTimeOfDayPhase(now);
+    const isNight = getNightFactor(phase) > 0.4;
+
     const chimX = cx + bodyW * 0.22;
     const chimBase = roofY - bodyW * 0.12;
     withTransform(ctx, chimX, chimBase, bodyW * 0.08, bodyW * 0.25, () => {
@@ -2824,6 +3371,22 @@ function drawRichHouse(
     });
     // 煙
     drawChimneySmoke(ctx, chimX, chimBase - bodyW * 0.32, now, seed);
+
+    // 大きめの建物（kind 0, 5）には第 2 煙突＋風になびく細煙を追加
+    if (kind === 0 || kind === 5) {
+      const chim2X = cx - bodyW * 0.28;
+      const chim2Base = roofY - bodyW * 0.05;
+      withTransform(ctx, chim2X, chim2Base, bodyW * 0.06, bodyW * 0.18, () => {
+        ctx.fillStyle = pal[1];
+        ctx.fill(CHIMNEY_PATH);
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.07;
+        ctx.stroke(CHIMNEY_PATH);
+      });
+      drawWispSmoke(ctx, chim2X, chim2Base - bodyW * 0.22, now, seed + 11, { cooking: isNight });
+    } else if (isNight) {
+      // 夜は主煙突にも調理煙を重ねる
+      drawWispSmoke(ctx, chimX, chimBase - bodyW * 0.32, now, seed + 3, { cooking: true });
+    }
   }
 
   // ── 風見鶏（高い建物だけ） ──
@@ -2881,6 +3444,10 @@ function drawRichHouse(
     ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 4;
     ctx.fillText(icon, signX + 1, signY + 3);
   }
+
+  // ── 風化（壁面）：seed から決定論的に ──
+  ctx.shadowBlur = 0;
+  drawWallWeathering(ctx, bodyX, bodyTop, bodyW, bodyH, seed * 31 + kind);
 
   ctx.restore();
 }
@@ -2974,6 +3541,23 @@ let _lastBellAt = 0;
 // ここでは「現在どの天候か」を持つだけで良い。
 let _currentWeather: WeatherState | null = null;
 let _lastWeatherCheckAt = 0;
+/** 直近で雨が止んだ時刻（雨上がりの水たまり描画に使う）。0 ならまだ雨が降ったことがない。 */
+let _lastRainEndedAt = 0;
+
+/**
+ * 「いま路面が濡れている度合い」を返す（0..1）。雨中は 1、止んでから 60 秒で 0 にフェード。
+ * 純関数として now を引数で取る。
+ */
+function getWetness(now: number): number {
+  if (_currentWeather && _currentWeather.type === 'rain') {
+    return Math.min(1, 0.5 + 0.5 * _currentWeather.intensity);
+  }
+  if (_lastRainEndedAt <= 0) return 0;
+  const dt = now - _lastRainEndedAt;
+  const fade = 60_000;
+  if (dt >= fade) return 0;
+  return 1 - dt / fade;
+}
 
 /** BASE 向けの抽選プール（確率分布を反映するため同じ要素を複数回入れる） */
 const BASE_WEATHER_POOL: WeatherType[] = [
@@ -3027,6 +3611,10 @@ function updateAndDrawBaseWeather(
       // 切り替わりが同じ天候ならログは省略
       if (_currentWeather == null || _currentWeather.type !== next.type) {
         logWeatherChange(next.type);
+      }
+      // 雨→他へ遷移したら、水たまりフェードアウトの起点を覚えておく
+      if (_currentWeather && _currentWeather.type === 'rain' && next.type !== 'rain') {
+        _lastRainEndedAt = now;
       }
       _currentWeather = next;
     }
@@ -3197,33 +3785,33 @@ function drawCityDecor(
   // ═════ 2. 主要道路網（石畳） ═════
 
   // 南北メインストリート（スポーン→噴水→ポータル）
-  drawCobblestoneStrip(ctx, px(16) + ts * 0.1, py(2), ts * 2 - ts * 0.2, ts * 24);
+  drawCobblestoneStrip(ctx, px(16) + ts * 0.1, py(2), ts * 2 - ts * 0.2, ts * 24, now);
 
   // 南北サブスパイン（西側・商業地区を縦断）
-  drawCobblestoneStrip(ctx, px(9) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17);
+  drawCobblestoneStrip(ctx, px(9) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17, now);
   // 南北サブスパイン（東側）
-  drawCobblestoneStrip(ctx, px(26) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17);
+  drawCobblestoneStrip(ctx, px(26) + ts * 0.15, py(8), ts - ts * 0.3, ts * 17, now);
 
   // 東西：ポータル前通り（y=7）
-  drawCobblestoneStrip(ctx, px(2), py(7) + ts * 0.35, ts * 32, ts * 0.4);
+  drawCobblestoneStrip(ctx, px(2), py(7) + ts * 0.35, ts * 32, ts * 0.4, now);
 
   // 東西：酒場〜行商人（y=11）
-  drawCobblestoneStrip(ctx, px(2), py(10) + ts * 0.2, ts * 32, ts * 0.55);
+  drawCobblestoneStrip(ctx, px(2), py(10) + ts * 0.2, ts * 32, ts * 0.55, now);
 
   // 東西：プラザ（y=14-15）
-  drawCobblestoneStrip(ctx, px(2), py(14) + ts * 0.2, ts * 32, ts * 0.65);
+  drawCobblestoneStrip(ctx, px(2), py(14) + ts * 0.2, ts * 32, ts * 0.65, now);
 
   // 東西：プラザ南（y=16-17 の境界直前）
-  drawCobblestoneStrip(ctx, px(8), py(16) + ts * 0.25, ts * 18, ts * 0.5);
+  drawCobblestoneStrip(ctx, px(8), py(16) + ts * 0.25, ts * 18, ts * 0.5, now);
 
   // 東西：商業大通り（y=19）
-  drawCobblestoneStrip(ctx, px(2), py(19) + ts * 0.1, ts * 32, ts * 0.8);
+  drawCobblestoneStrip(ctx, px(2), py(19) + ts * 0.1, ts * 32, ts * 0.8, now);
 
   // 東西：裏路地の通路（y=21-22）
-  drawCobblestoneStrip(ctx, px(10), py(22) + ts * 0.25, ts * 15, ts * 0.5);
+  drawCobblestoneStrip(ctx, px(10), py(22) + ts * 0.25, ts * 15, ts * 0.5, now);
 
   // 東西：スポーン前の通り（y=24-25）
-  drawCobblestoneStrip(ctx, px(10), py(24) + ts * 0.25, ts * 15, ts * 0.55);
+  drawCobblestoneStrip(ctx, px(10), py(24) + ts * 0.25, ts * 15, ts * 0.55, now);
 
   // ═════ 3. 地区入口アーチ ═════
 
