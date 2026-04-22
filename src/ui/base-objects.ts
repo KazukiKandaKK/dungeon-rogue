@@ -40,6 +40,10 @@ import {
   type WeatherState,
   type WeatherType,
 } from './weather.js';
+import {
+  drawAmbientCreatures,
+  type AmbientCreature,
+} from './ambient-creatures.js';
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
@@ -358,6 +362,10 @@ export interface BaseObjectsContext {
   /** 今日のクエスト件数（undefined なら未実装扱いで掲示板を出さない） */
   questActive?:     number;
   questClaimable?:  number;
+  /** 街の小動物（描画のみ。null/undefined なら描画スキップ） */
+  ambientCreatures?: import('./ambient-creatures.js').AmbientCreature[];
+  /** 触れ回し NPC の位置一覧（声の波紋を描画する起点） */
+  crierPositions?:   Array<{ tx: number; ty: number }>;
 }
 
 // ─── 内部純粋関数 ──────────────────────────────
@@ -2600,6 +2608,502 @@ function drawAlleyClutter(
   ctx.restore();
 }
 
+// ─── 街の生活感レイヤ（看板・洗濯物・小物・職人エフェクト） ───
+
+export type HangingSignIcon =
+  | 'sword' | 'shield' | 'hammer' | 'bag' | 'mask'
+  | 'ring' | 'crystal' | 'book' | 'flask';
+
+/**
+ * 建物入口の上から鎖で揺れる吊り看板。
+ * @param anchorX 壁から看板を吊り下げる基点の x（中央のはり座標）
+ * @param anchorY 同 y。看板はこの下に下がる。
+ */
+function drawHangingSign(
+  ctx: CanvasRenderingContext2D,
+  anchorX: number,
+  anchorY: number,
+  label: string,
+  iconKind: HangingSignIcon,
+  now: number,
+): void {
+  const ts = TILE_SIZE;
+  const seedAng = (hash2(Math.floor(anchorX), Math.floor(anchorY)) % 1000) / 1000;
+  const swing = Math.sin(now / 1500 + seedAng * Math.PI * 2) * 0.05;
+
+  const beamW = ts * 0.5, beamH = 4;
+  const chainLen = ts * 0.18;
+  const signW = ts * 0.5, signH = ts * 0.5;
+
+  ctx.save();
+  // 影（壁背面）
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(anchorX - beamW * 0.45, anchorY + 2, beamW * 0.9, beamH);
+
+  // 木の梁（壁から張り出す）
+  ctx.fillStyle = '#78350f';
+  roundRect(ctx, anchorX - beamW / 2, anchorY - beamH / 2, beamW, beamH, 1.2); ctx.fill();
+  // 金属ヒンジ
+  ctx.fillStyle = '#a1a1aa';
+  ctx.beginPath();
+  ctx.arc(anchorX - beamW * 0.35, anchorY + beamH * 0.5, 1.5, 0, Math.PI * 2);
+  ctx.arc(anchorX + beamW * 0.35, anchorY + beamH * 0.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 揺れる看板（梁の中央付近を支点に回転）
+  ctx.translate(anchorX, anchorY + beamH);
+  ctx.rotate(swing);
+  // チェーン
+  ctx.strokeStyle = '#71717a'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-signW * 0.4, 0); ctx.lineTo(-signW * 0.4, chainLen);
+  ctx.moveTo( signW * 0.4, 0); ctx.lineTo( signW * 0.4, chainLen);
+  ctx.stroke();
+  // 看板本体
+  const sx = -signW / 2, sy = chainLen;
+  const g = ctx.createLinearGradient(sx, sy, sx, sy + signH);
+  g.addColorStop(0, '#7c2d12'); g.addColorStop(1, '#451a03');
+  ctx.fillStyle = g;
+  roundRect(ctx, sx, sy, signW, signH, 3); ctx.fill();
+  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.stroke();
+  // アイコン
+  _drawSignIcon(ctx, 0, sy + signH * 0.5, signW * 0.55, iconKind);
+  // ラベル（短い、看板下部）
+  if (label) {
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(label, 0, sy + signH - 9);
+  }
+  ctx.restore();
+}
+
+function _drawSignIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, size: number, kind: HangingSignIcon,
+): void {
+  ctx.save();
+  ctx.fillStyle = '#fde68a';
+  ctx.strokeStyle = '#fde68a';
+  ctx.lineWidth = 1.5;
+  const s = size;
+  switch (kind) {
+    case 'sword':
+      // 縦の剣
+      ctx.fillRect(cx - 1, cy - s * 0.42, 2, s * 0.55);
+      ctx.fillRect(cx - s * 0.18, cy + s * 0.13, s * 0.36, 2);
+      ctx.fillRect(cx - 1, cy + s * 0.13, 2, s * 0.18);
+      break;
+    case 'shield':
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.35);
+      ctx.lineTo(cx + s * 0.32, cy - s * 0.18);
+      ctx.lineTo(cx + s * 0.20, cy + s * 0.30);
+      ctx.lineTo(cx, cy + s * 0.40);
+      ctx.lineTo(cx - s * 0.20, cy + s * 0.30);
+      ctx.lineTo(cx - s * 0.32, cy - s * 0.18);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'hammer':
+      ctx.fillRect(cx - 1, cy - s * 0.10, 2, s * 0.45);
+      ctx.fillRect(cx - s * 0.25, cy - s * 0.22, s * 0.5, s * 0.16);
+      break;
+    case 'bag':
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.30, cy - s * 0.12);
+      ctx.quadraticCurveTo(cx, cy - s * 0.45, cx + s * 0.30, cy - s * 0.12);
+      ctx.lineTo(cx + s * 0.32, cy + s * 0.30);
+      ctx.quadraticCurveTo(cx, cy + s * 0.42, cx - s * 0.32, cy + s * 0.30);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'mask':
+      ctx.beginPath();
+      ctx.ellipse(cx - s * 0.16, cy, s * 0.18, s * 0.13, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + s * 0.16, cy, s * 0.18, s * 0.13, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'ring':
+      ctx.beginPath();
+      ctx.arc(cx, cy, s * 0.25, 0, Math.PI * 2);
+      ctx.arc(cx, cy, s * 0.13, 0, Math.PI * 2);
+      ctx.fill('evenodd' as CanvasFillRule);
+      break;
+    case 'crystal':
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.40);
+      ctx.lineTo(cx + s * 0.22, cy - s * 0.05);
+      ctx.lineTo(cx, cy + s * 0.40);
+      ctx.lineTo(cx - s * 0.22, cy - s * 0.05);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'book':
+      ctx.fillRect(cx - s * 0.30, cy - s * 0.25, s * 0.6, s * 0.5);
+      ctx.strokeStyle = '#451a03'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.25); ctx.lineTo(cx, cy + s * 0.25);
+      ctx.stroke();
+      break;
+    case 'flask':
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.10, cy - s * 0.30);
+      ctx.lineTo(cx + s * 0.10, cy - s * 0.30);
+      ctx.lineTo(cx + s * 0.10, cy - s * 0.05);
+      ctx.lineTo(cx + s * 0.25, cy + s * 0.30);
+      ctx.lineTo(cx - s * 0.25, cy + s * 0.30);
+      ctx.lineTo(cx - s * 0.10, cy - s * 0.05);
+      ctx.closePath(); ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+/**
+ * 物干しロープ。x1,y1 〜 x2,y2 のあいだに 4〜7 枚の洗濯物がぶら下がる。
+ * 雨天時は描画しない（呼び出し側が判定）。風の強さで揺れ幅を変える。
+ */
+function drawClothesline(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number, x2: number, y2: number,
+  now: number, seed: number, windStrength: number = 0.5,
+): void {
+  const rng = seededRand(seed);
+  const dx = x2 - x1, dy = y2 - y1;
+  const sag = 6;
+  // ロープ
+  ctx.save();
+  ctx.strokeStyle = 'rgba(120,113,108,0.85)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + sag, x2, y2);
+  ctx.stroke();
+  // 端のフック
+  ctx.fillStyle = '#52525b';
+  ctx.beginPath(); ctx.arc(x1, y1, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x2, y2, 1.5, 0, Math.PI * 2); ctx.fill();
+
+  const count = 4 + Math.floor(rng() * 4); // 4〜7
+  for (let i = 0; i < count; i++) {
+    const t = (i + 1) / (count + 1);
+    const baseX = x1 + dx * t;
+    const baseY = y1 + dy * t + sag * (1 - Math.pow(2 * t - 1, 2));
+    const sway = Math.sin(now / 900 + i * 1.2 + seed * 0.13) * (1 + windStrength * 2);
+    const kind = Math.floor(rng() * 4); // 0:shirt 1:pants 2:towel 3:sock
+    const colorRoll = rng();
+    const color =
+      colorRoll < 0.25 ? '#f87171' :
+      colorRoll < 0.50 ? '#60a5fa' :
+      colorRoll < 0.75 ? '#fde68a' :
+                         '#86efac';
+    ctx.save();
+    ctx.translate(baseX, baseY);
+    ctx.rotate(sway * 0.02);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 0.5;
+    if (kind === 0) {
+      // シャツ：T 字
+      ctx.fillRect(-5, 1, 10, 9);
+      ctx.fillRect(-7, 1, 14, 3);
+      ctx.strokeRect(-5, 1, 10, 9);
+    } else if (kind === 1) {
+      // ズボン：逆 V
+      ctx.fillRect(-5, 1, 10, 4);
+      ctx.fillRect(-5, 5, 4, 7);
+      ctx.fillRect( 1, 5, 4, 7);
+    } else if (kind === 2) {
+      // タオル：縦長矩形
+      ctx.fillRect(-3, 1, 6, 12);
+      ctx.strokeRect(-3, 1, 6, 12);
+    } else {
+      // 靴下：小さな逆三角
+      ctx.beginPath();
+      ctx.moveTo(-2, 1); ctx.lineTo(2, 1);
+      ctx.lineTo(2, 5); ctx.lineTo(0, 8);
+      ctx.lineTo(-2, 5);
+      ctx.closePath(); ctx.fill();
+    }
+    // 洗濯ばさみ
+    ctx.fillStyle = '#a1a1aa';
+    ctx.fillRect(-1, 0, 2, 2);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/**
+ * 路地のゴミ・小物。決定論的に位置を散らす。
+ * @param kind 0=空ビン, 1=丸めた紙, 2=落ち葉, 3=ロープの巻き, 4=空き缶
+ */
+function drawStreetClutter(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, kind: number, seed: number,
+): void {
+  const rng = seededRand(seed);
+  const ox = (rng() - 0.5) * 6;
+  const oy = (rng() - 0.5) * 4;
+  ctx.save();
+  ctx.translate(cx + ox, cy + oy);
+  // 控えめな影
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 5, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  switch (kind % 5) {
+    case 0: {
+      // 空きビン（横倒し）
+      ctx.fillStyle = 'rgba(110,180,160,0.75)';
+      roundRect(ctx, -5, -2, 10, 3, 1); ctx.fill();
+      ctx.fillStyle = 'rgba(60,120,100,0.85)';
+      ctx.fillRect(4, -1, 2, 1.5);
+      break;
+    }
+    case 1: {
+      // 丸めた紙
+      ctx.fillStyle = '#e7e5e4';
+      ctx.beginPath(); ctx.arc(0, 0, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.arc(0, 0, 2.4, 0, Math.PI * 2); ctx.stroke();
+      break;
+    }
+    case 2: {
+      // 落ち葉（小さな葉）
+      const colorRoll = rng();
+      ctx.fillStyle = colorRoll < 0.5 ? '#b45309' : '#a16207';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 3.2, 1.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 3: {
+      // ロープの巻き
+      ctx.strokeStyle = '#92400e';
+      ctx.lineWidth = 1.2;
+      for (let r = 1; r <= 3; r++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 4: {
+      // 空き缶
+      ctx.fillStyle = '#a1a1aa';
+      ctx.fillRect(-2, -3, 4, 5);
+      ctx.fillStyle = '#52525b';
+      ctx.fillRect(-2, -3, 4, 1);
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+/** 触れ回し NPC の声の波紋（8秒おき）。drawAmbientEvents から呼ぶ。 */
+const _crierRipples: Array<{ x: number; y: number; startedAt: number }> = [];
+let _lastCrierEmitAt = 0;
+function _updateAndDrawCrierRipples(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+  crierPositions: Array<{ tx: number; ty: number }>,
+): void {
+  const ts = TILE_SIZE;
+  // 8秒おきに新しい波紋を仕込む
+  if (now - _lastCrierEmitAt > 8000 && crierPositions.length > 0) {
+    _lastCrierEmitAt = now;
+    for (const p of crierPositions) {
+      _crierRipples.push({ x: p.tx + 0.5, y: p.ty + 0.3, startedAt: now });
+    }
+  }
+  // 期限切れ整理
+  for (let i = _crierRipples.length - 1; i >= 0; i--) {
+    if (now - _crierRipples[i].startedAt > 1800) _crierRipples.splice(i, 1);
+  }
+  // 描画
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (const r of _crierRipples) {
+    const t = (now - r.startedAt) / 1800;
+    if (t < 0 || t > 1) continue;
+    const cx = r.x * ts + camOffX;
+    const cy = r.y * ts + camOffY;
+    const radius = ts * (0.3 + t * 1.8);
+    const alpha = (1 - t) * 0.45;
+    ctx.strokeStyle = `rgba(253,224,138,${alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** 鍛冶屋の鉄床から飛ぶ火花。drawForgeBuilding 後に重ねる。 */
+function drawForgeSparks(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+  // 鉄床の位置（drawForgeBuilding 内の anvX/anvY と整合）
+  const w = ts * 3;
+  const x = cx - w / 2;
+  const y = cy + ts / 2 - ts * 2;
+  const anvCx = x + ts * 0.55; // anvX + anvW/2
+  const anvCy = y + ts * 2 * 0.88;
+  // クランクパルス（〜600ms 周期で 1 回）
+  const cycleMs = 620;
+  const phase = (now % cycleMs) / cycleMs;
+  // 火花（複数粒子、上方向）
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const seed = (i * 17 + Math.floor(now / cycleMs)) | 0;
+    const rng = seededRand(seed * 31 + 7);
+    const ang = -Math.PI / 2 + (rng() - 0.5) * 1.0;
+    const speed = ts * 1.2 * (0.6 + rng() * 0.6);
+    const tt = phase + i * 0.05;
+    if (tt < 0 || tt > 1) continue;
+    const px = anvCx + Math.cos(ang) * speed * tt;
+    const py = anvCy + Math.sin(ang) * speed * tt + ts * 0.5 * tt * tt;
+    const alpha = (1 - tt) * 0.95;
+    ctx.fillStyle = `rgba(253,186,116,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // クランクの白いリング（叩いた瞬間）
+  if (phase < 0.18) {
+    const t = phase / 0.18;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.strokeStyle = `rgba(254,243,199,${(1 - t) * 0.55})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(anvCx, anvCy, ts * (0.18 + t * 0.4), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** ショップ窓から立ちのぼる蒸気（パン屋っぽい雰囲気）。 */
+function drawShopSteam(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+  // ショップは 3×2、窓は左右にある。左側窓の上から蒸気を出す
+  const baseX = cx - ts * 1.05;
+  const baseY = cy - ts * 0.35;
+  ctx.save();
+  for (let i = 0; i < 4; i++) {
+    const ph = ((now * 0.0006 + i * 0.25) % 1);
+    const px = baseX + Math.sin(now * 0.0015 + i) * 4;
+    const py = baseY - ph * ts * 0.9;
+    const alpha = (1 - ph) * 0.45;
+    ctx.fillStyle = `rgba(240,235,225,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px, py, 2 + ph * 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 武器棚の先端の小さなグリント（巡回的にチカッと光る）。 */
+function drawWeaponGlint(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, now: number, seed: number,
+): void {
+  const ts = TILE_SIZE;
+  const ph = ((now * 0.0008 + seed * 0.13) % 1);
+  if (ph > 0.18) return; // 短いパルス
+  const t = ph / 0.18;
+  const alpha = Math.sin(t * Math.PI) * 0.9;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  // 十字グリント
+  ctx.strokeStyle = `rgba(255,250,220,${alpha})`;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(cx - ts * 0.12, cy); ctx.lineTo(cx + ts * 0.12, cy);
+  ctx.moveTo(cx, cy - ts * 0.12); ctx.lineTo(cx, cy + ts * 0.12);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 街全体の生活感（看板・洗濯物・小物・職人エフェクト）を描く。
+ * drawBaseObjects の最後あたりから 1 度だけ呼ぶ。
+ */
+function drawStreetLife(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+  ambient: AmbientCreature[] | undefined,
+  weatherType: WeatherType | undefined,
+): void {
+  const ts = TILE_SIZE;
+  const cx = (tx: number): number => (tx + 0.5) * ts + camOffX;
+  const cy = (ty: number): number => (ty + 0.5) * ts + camOffY;
+
+  // ── A. 吊り看板（主要建物の入口上に） ──
+  // 各ショップ建物は描画時に床基準で配置されている。看板は建物の上方ほどに置く。
+  drawHangingSign(ctx, cx(BASE_SHOP_POS.tx),    cy(BASE_SHOP_POS.ty)    - ts * 1.6, '武器', 'sword',   now);
+  drawHangingSign(ctx, cx(BASE_STALL_POS.tx),   cy(BASE_STALL_POS.ty)   - ts * 1.6, '露店', 'bag',     now);
+  drawHangingSign(ctx, cx(BASE_CRAFT_POS.tx),   cy(BASE_CRAFT_POS.ty)   - ts * 1.6, '鍛冶', 'hammer',  now);
+  drawHangingSign(ctx, cx(BASE_RECLASS_POS.tx), cy(BASE_RECLASS_POS.ty) - ts * 1.6, '転職', 'crystal', now);
+  drawHangingSign(ctx, cx(BASE_LOAN_POS.tx),    cy(BASE_LOAN_POS.ty)    - ts * 1.6, '金貸', 'ring',    now);
+  drawHangingSign(ctx, cx(BASE_CASINO_POS.tx),  cy(BASE_CASINO_POS.ty)  - ts * 1.6, '博打', 'mask',    now);
+
+  // ── B. 物干しロープ（住宅街の隙間に2-3本） ──
+  // 雨天時は洗濯物を取り込んでいる想定（描画スキップ）
+  const isRain = weatherType === 'rain';
+  const wind = weatherType === 'rain' ? 1.2
+             : weatherType === 'snow' ? 0.8
+             : 0.4;
+  if (!isRain) {
+    drawClothesline(ctx, cx(11) - ts * 0.4, cy(26) - ts * 0.6, cx(13) - ts * 0.4, cy(26) - ts * 0.5, now, 911, wind);
+    drawClothesline(ctx, cx(22) + ts * 0.4, cy(26) - ts * 0.55, cx(24) + ts * 0.4, cy(26) - ts * 0.6, now, 953, wind);
+    drawClothesline(ctx, cx(12) - ts * 0.3, cy(22) - ts * 0.7, cx(15) - ts * 0.3, cy(22) - ts * 0.6, now, 977, wind);
+  }
+
+  // ── E. 路地のゴミ・小物（決定論配置・約12個） ──
+  const clutterSpots: Array<[number, number, number, number]> = [
+    // [tx, ty, kind, seed]
+    [ 4, 22, 0, 1301],
+    [ 7, 21, 1, 1303],
+    [ 9, 22, 2, 1307],
+    [12, 21, 3, 1313],
+    [14, 22, 4, 1319],
+    [21, 22, 0, 1321],
+    [24, 21, 1, 1327],
+    [27, 22, 2, 1331],
+    [29, 21, 3, 1361],
+    [ 2, 25, 1, 1367],
+    [33, 25, 2, 1373],
+    [16, 26, 4, 1381],
+  ];
+  for (const [tx, ty, kind, seed] of clutterSpots) {
+    drawStreetClutter(ctx, cx(tx), cy(ty), kind, seed);
+  }
+
+  // ── D. 職人エフェクト ──
+  // 鍛冶屋の火花
+  drawForgeSparks(ctx, cx(BASE_CRAFT_POS.tx), cy(BASE_CRAFT_POS.ty), now);
+  // ショップ窓から蒸気（パン屋的雰囲気）
+  drawShopSteam(ctx, cx(BASE_SHOP_POS.tx), cy(BASE_SHOP_POS.ty), now);
+  // 武器棚のグリント（drawCityDecor で配置されている rack 位置に合わせる）
+  drawWeaponGlint(ctx, cx(24) + ts * 0.2, cy(19) - ts * 0.4, now, 1);
+  drawWeaponGlint(ctx, cx(26) - ts * 0.2, cy(19) - ts * 0.4, now, 7);
+
+  // ── C. 小動物（プールがあれば最後に重ねる） ──
+  if (ambient && ambient.length > 0) {
+    const phase = getTimeOfDayPhase(now);
+    const nightFactor = getNightFactor(phase);
+    drawAmbientCreatures(ctx, ambient, camOffX, camOffY, now, ts, nightFactor);
+  }
+}
+
 /** 建物間に渡す吊り旗 */
 function drawBuntingLine(
   ctx: CanvasRenderingContext2D,
@@ -4401,6 +4905,14 @@ export function drawBaseObjects(
     const on = c.player.tx === portal.tx && c.player.ty === portal.ty;
     drawGrandDungeonPortal(ctx, px, py, ts, now, dungeon, unlocked, on, i * 1.7);
   });
+
+  // ── 街の生活感レイヤ（看板・洗濯物・小物・職人エフェクト・小動物） ──
+  drawStreetLife(ctx, camOffX, camOffY, now, c.ambientCreatures, _currentWeather?.type);
+
+  // ── 触れ回し NPC の声の波紋 ──
+  if (c.crierPositions && c.crierPositions.length > 0) {
+    _updateAndDrawCrierRipples(ctx, camOffX, camOffY, now, c.crierPositions);
+  }
 
   // ── 時刻バッジ（BASE 専用・右上のフロアパネル直下） ──
   drawTimeOfDayBadge(ctx, now);
