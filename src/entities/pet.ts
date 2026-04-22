@@ -9,11 +9,25 @@
 // 描画は `assets/pet_*.svg` をスプライトとして読み込み、sprite キャッシュ経由で描く。
 // ─────────────────────────────────────────────
 
-import type { GameMap } from '../types.js';
+import type { GameMap, StatusEffectEntry } from '../types.js';
 import type { SpriteLoader } from '../core/sprites.js';
 
 export type PetKind =
   | 'dog' | 'cat' | 'gorilla' | 'rabbit' | 'bird' | 'fox' | 'slime';
+
+/** ペットがプレイヤーにかけるバフ。隣接（チェビシェフ距離 <= 2）時に定期的に付与する。 */
+export type PetBuffType = 'regen' | 'haste' | 'war_cry' | 'barrier';
+
+export interface PetBuff {
+  /** 付与する statusEffects の type（プレイヤー側のロジックと共有） */
+  type:  PetBuffType;
+  /** バフの効果量。regen=毎ターン HP 回復、haste=SPD 加算、war_cry=ATK 加算、barrier=DEF 加算 */
+  power: number;
+  /** 付与ターン数。kick するたびにこの値でリセット */
+  turns: number;
+  /** HUD・ログ用の日本語ラベル */
+  label: string;
+}
 
 export interface PetDef {
   kind:       PetKind;
@@ -23,21 +37,30 @@ export interface PetDef {
   hp:         number;
   atk:        number;
   desc:       string;
+  buff:       PetBuff; // ダンジョンで隣接している間プレイヤーに付与するバフ
 }
 
 /**
  * ペット定義。
  * spriteName は sprites.loadAll に渡すキー、assetUrl は実ファイルへのパス。
  * HP/ATK はバランス調整用のシンプルな数値（追従の戦闘力）。
+ * buff はダンジョン中、プレイヤーから距離 2 以内にいる間に定期付与される。
  */
 export const PETS: Record<PetKind, PetDef> = {
-  dog:     { kind: 'dog',     name: 'こいぬ',   spriteName: 'pet_dog',     assetUrl: 'assets/pet_dog.svg?v=1',     hp: 8,  atk: 2, desc: '元気よく追従 / 隣接の敵を噛む' },
-  cat:     { kind: 'cat',     name: 'こねこ',   spriteName: 'pet_cat',     assetUrl: 'assets/pet_cat.svg?v=1',     hp: 6,  atk: 3, desc: '軽やか・爪で引っ掻く' },
-  gorilla: { kind: 'gorilla', name: 'ゴリラ',   spriteName: 'pet_gorilla', assetUrl: 'assets/pet_gorilla.svg?v=1', hp: 14, atk: 4, desc: '重い一撃 / タフ' },
-  rabbit:  { kind: 'rabbit',  name: 'うさぎ',   spriteName: 'pet_rabbit',  assetUrl: 'assets/pet_rabbit.svg?v=1',  hp: 5,  atk: 2, desc: 'すばしこく蹴りを入れる' },
-  bird:    { kind: 'bird',    name: 'ことり',   spriteName: 'pet_bird',    assetUrl: 'assets/pet_bird.svg?v=1',    hp: 4,  atk: 2, desc: '素早くつつく' },
-  fox:     { kind: 'fox',     name: 'きつね',   spriteName: 'pet_fox',     assetUrl: 'assets/pet_fox.svg?v=1',     hp: 7,  atk: 3, desc: 'しなやかに噛みつく' },
-  slime:   { kind: 'slime',   name: 'スライム', spriteName: 'pet_slime',   assetUrl: 'assets/slime.svg?v=6',       hp: 6,  atk: 2, desc: 'ぷるぷる・無害でかわいい' },
+  dog:     { kind: 'dog',     name: 'こいぬ',   spriteName: 'pet_dog',     assetUrl: 'assets/pet_dog.svg?v=1',     hp: 8,  atk: 2, desc: '元気よく追従 / 隣接の敵を噛む',
+             buff: { type: 'regen',   power: 1, turns: 6, label: '再生 HP+1/turn' } },
+  cat:     { kind: 'cat',     name: 'こねこ',   spriteName: 'pet_cat',     assetUrl: 'assets/pet_cat.svg?v=1',     hp: 6,  atk: 3, desc: '軽やか・爪で引っ掻く',
+             buff: { type: 'haste',   power: 1, turns: 6, label: '俊敏 SPD+1' } },
+  gorilla: { kind: 'gorilla', name: 'ゴリラ',   spriteName: 'pet_gorilla', assetUrl: 'assets/pet_gorilla.svg?v=1', hp: 14, atk: 4, desc: '重い一撃 / タフ',
+             buff: { type: 'war_cry', power: 2, turns: 6, label: '雄叫び ATK+2' } },
+  rabbit:  { kind: 'rabbit',  name: 'うさぎ',   spriteName: 'pet_rabbit',  assetUrl: 'assets/pet_rabbit.svg?v=1',  hp: 5,  atk: 2, desc: 'すばしこく蹴りを入れる',
+             buff: { type: 'haste',   power: 1, turns: 6, label: '跳躍 SPD+1' } },
+  bird:    { kind: 'bird',    name: 'ことり',   spriteName: 'pet_bird',    assetUrl: 'assets/pet_bird.svg?v=1',    hp: 4,  atk: 2, desc: '素早くつつく',
+             buff: { type: 'haste',   power: 2, turns: 6, label: '風の加護 SPD+2' } },
+  fox:     { kind: 'fox',     name: 'きつね',   spriteName: 'pet_fox',     assetUrl: 'assets/pet_fox.svg?v=1',     hp: 7,  atk: 3, desc: 'しなやかに噛みつく',
+             buff: { type: 'war_cry', power: 1, turns: 6, label: '鋭敏 ATK+1' } },
+  slime:   { kind: 'slime',   name: 'スライム', spriteName: 'pet_slime',   assetUrl: 'assets/slime.svg?v=6',       hp: 6,  atk: 2, desc: 'ぷるぷる・無害でかわいい',
+             buff: { type: 'barrier', power: 2, turns: 6, label: '粘膜の盾 DEF+2' } },
 };
 
 export const PET_KINDS: ReadonlyArray<PetKind> = ['dog', 'cat', 'gorilla', 'rabbit', 'bird', 'fox', 'slime'];
@@ -157,6 +180,40 @@ export class Pet implements PetActor {
   /** 補間更新（1tickあたり0.25進む程度） */
   advanceAnim(dt: number): void {
     if (this.moveT < 1) this.moveT = Math.min(1, this.moveT + dt * 8);
+  }
+
+  /**
+   * プレイヤーが近くにいる（チェビシェフ距離 <= 2）ときに、このペット固有のバフを
+   * プレイヤーの statusEffects に付与する。既に同種のバフが残り 2 ターン以上あるなら
+   * 何もしない（ログ・エフェクトのスパム防止）。
+   *
+   * @param player 現在のプレイヤー（statusEffects 配列を持つ）
+   * @returns 新規にバフを付け直したか否か（呼び出し側がログ／フロートテキストを出すための情報）
+   */
+  maybeBuffPlayer(
+    player: { tx: number; ty: number; statusEffects: StatusEffectEntry[] },
+  ): { applied: boolean; buff: PetBuff } {
+    const buff = this.def.buff;
+    if (!this.alive) return { applied: false, buff };
+    const dx = Math.abs(player.tx - this.tx);
+    const dy = Math.abs(player.ty - this.ty);
+    const cheb = Math.max(dx, dy);
+    if (cheb > 2) return { applied: false, buff };
+
+    // 既存の同種バフを探す（pet が再度近づいたときに延長するため、まず既存を検出）
+    const existing = player.statusEffects.find(e => e.type === buff.type);
+    const remaining = (existing?.turnsLeft ?? 0);
+    // まだ残っているなら延長不要（頻発するとログが荒れる）
+    if (existing && remaining >= 2) return { applied: false, buff };
+
+    // 既存の同種バフは除去してから積む（power が違うケースで多重適用を防ぐ）
+    player.statusEffects = player.statusEffects.filter(e => e.type !== buff.type);
+    player.statusEffects.push({
+      type:      buff.type,
+      turnsLeft: buff.turns,
+      power:     buff.power,
+    });
+    return { applied: true, buff };
   }
 
   /**

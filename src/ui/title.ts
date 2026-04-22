@@ -677,10 +677,16 @@ export function drawCharCreate(
   ctx.font = 'bold 13px monospace';
   ctx.fillStyle = '#86efac';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(`🐾 ${petLabel}`, W / 2 - 56, prevY - 6);
+  ctx.fillText(`🐾 ${petLabel}`, W / 2 - 56, prevY - 10);
   ctx.font = '10.5px monospace';
   ctx.fillStyle = 'rgba(200,200,220,0.75)';
-  ctx.fillText(petDesc, W / 2 - 56, prevY + 10);
+  ctx.fillText(petDesc, W / 2 - 56, prevY + 6);
+  // バフ（ダンジョンで隣接時に付与される加護）
+  if (petDef?.buff) {
+    ctx.font = 'bold 10.5px monospace';
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(`♪ 加護: ${petDef.buff.label}`, W / 2 - 56, prevY + 22);
+  }
   // 切り替えヒント
   ctx.font = 'bold 11px monospace';
   ctx.fillStyle = 'rgba(251,191,36,0.85)';

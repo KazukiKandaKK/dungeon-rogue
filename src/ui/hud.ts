@@ -174,7 +174,7 @@ export function drawHUD(
   ctx.fillStyle = '#fcd34d';
   ctx.fillText(`💨 SPD ${player.spd}   🍀 LUK ${player.luk}`, px + 8, py + 81);
 
-  const efIcons: Record<string, string> = { haste: '💨', barrier: '🔵', regen: '🌿' };
+  const efIcons: Record<string, string> = { haste: '💨', barrier: '🔵', regen: '🌿', war_cry: '💢', berserk: '🔥', iron_skin: '🛡' };
   let efX = px + 8;
   for (const ef of player.statusEffects) {
     ctx.font = '11px monospace';

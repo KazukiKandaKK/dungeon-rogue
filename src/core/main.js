@@ -785,6 +785,22 @@ function _doPetTurn() {
       logger.add(`🐾 ${pet.def.name}が ${target.name ?? '敵'}に ${dmg} ダメージ`, 'info');
     },
   );
+  // ペットが近くにいればプレイヤーにバフを付与（距離 2 以内・残 2 ターン未満のとき）
+  const { applied, buff } = pet.maybeBuffPlayer(player);
+  if (applied) {
+    const sx = (player.tx + 0.5) * TILE_SIZE + camOffX;
+    const sy = (player.ty + 0.5) * TILE_SIZE + camOffY;
+    const buffColor = buff.type === 'war_cry' ? '#fca5a5'
+                    : buff.type === 'barrier' ? '#93c5fd'
+                    : buff.type === 'haste'   ? '#fde68a'
+                    :                           '#86efac'; // regen
+    floatingTexts.push({
+      text: `♪ ${buff.label}`, x: sx, y: sy - 44,
+      alpha: 1, scale: 1, color: buffColor, life: 1.4, maxLife: 1.4,
+    });
+    particles.burst(sx, sy - 10, buffColor, 10);
+    logger.add(`🐾 ${pet.def.name}の加護：${buff.label}`, 'heal');
+  }
 }
 
 /**
