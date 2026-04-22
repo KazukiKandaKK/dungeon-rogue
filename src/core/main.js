@@ -80,6 +80,7 @@ import { drawTitle, drawSaveSlot, drawClassSelect, drawBuildSelect, drawGameOver
 import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
 import { drawAttackPreview, drawEnemyRanges, drawFloorItems, drawChests, drawInfiniteEscapePrompt } from '../ui/dungeon.js';
 import { drawBaseObjects } from '../ui/base-objects.js';
+import { getTimeOfDayPhase, getSunVector } from '../ui/daylight.js';
 import { createAmbientCreatures, updateAmbientCreatures } from '../ui/ambient-creatures.js';
 import { emitFootprint, tickFootprints } from '../systems/footprints.js';
 import {
@@ -3526,8 +3527,11 @@ function _draw(ctx, W, H, now) {
     }
   }
 
-  for (const e of enemies) if (e.alive) e.drawShadow(ctx, camOffX, camOffY);
-  if (player.alive) player.drawShadow(ctx, camOffX, camOffY);
+  // BASE フェーズでは時間帯に応じた指向性影を全アクターに掛ける。
+  // ダンジョン内は屋内想定なので従来の単純な足元影のまま。
+  const sunVec = gamePhase === 'BASE' ? getSunVector(getTimeOfDayPhase(now)) : undefined;
+  for (const e of enemies) if (e.alive) e.drawShadow(ctx, camOffX, camOffY, sunVec);
+  if (player.alive) player.drawShadow(ctx, camOffX, camOffY, sunVec);
 
   // ペットの位置補間 + Y ソート用 renderY 計算
   let petRenderY = 0;
@@ -3539,13 +3543,7 @@ function _draw(ctx, W, H, now) {
     petRenderY = py + camOffY;
     pet._sx = px + camOffX;
     pet._sy = py + camOffY;
-    // 影
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(pet._sx, pet._sy + TILE_SIZE * 0.42, TILE_SIZE * 0.32, TILE_SIZE * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // 影は pet.draw 側で sunVec を見て統一的に描くため、ここでは描かない。
   }
 
   const sortable = [...enemies.filter(e => e.alive), player];
@@ -3568,7 +3566,7 @@ function _draw(ctx, W, H, now) {
       const facing = (player && player.tx > pet.tx) ? 'side' : (player && player.tx < pet.tx ? 'side' : 'front');
       const walking = pet.moveT < 1;
       ctx.save();
-      pet.draw(ctx, sprites, pet._sx, pet._sy, TILE_SIZE * 0.78, facing, walking);
+      pet.draw(ctx, sprites, pet._sx, pet._sy, TILE_SIZE * 0.78, facing, walking, sunVec);
       ctx.restore();
       // HPバー（小さく）
       if (pet.hp < pet.maxHp) {
@@ -3705,7 +3703,7 @@ function _draw(ctx, W, H, now) {
   }
 
   // HUD / minimap / effects → src/ui/hud.ts に移動済み
-  drawHUD(ctx, W, H, { player, enemies, gamePhase, currentDungeon, floorNumber, turnCount });
+  drawHUD(ctx, W, H, { player, enemies, gamePhase, currentDungeon, floorNumber, turnCount, now });
   drawHotbar(ctx, W, H, { player, hotbar, gamePhase, sprites });
   drawBossHPBar(ctx, W, enemies);
   drawMinimap(ctx, W, H, { map, player, enemies, exploredTiles, floorItems, floorChests, shopPos });

@@ -11,6 +11,7 @@
 
 import type { GameMap, StatusEffectEntry } from '../types.js';
 import type { SpriteLoader } from '../core/sprites.js';
+import type { SunVec } from '../ui/daylight.js';
 
 export type PetKind =
   | 'dog' | 'cat' | 'gorilla' | 'rabbit' | 'bird' | 'fox' | 'slime';
@@ -228,13 +229,33 @@ export class Pet implements PetActor {
     sizePx:  number,
     _facing: 'front' | 'back' | 'side',
     walking: boolean,
+    sun?:    SunVec,
   ): void {
-    // 足元の影（スプライト側にもあるが、タイル統一感のためもう一枚）
+    // 足元の影（時間帯に応じて指向性を持たせる）
+    const footY = cy + sizePx * 0.38;
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + sizePx * 0.38, sizePx * 0.28, sizePx * 0.07, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (sun) {
+      const rx = sizePx * 0.28 * sun.lengthMult;
+      const ry = sizePx * 0.065;
+      const offset = rx * 0.55;
+      const ex = cx + sun.dx * offset;
+      const ey = footY + sun.dy * offset * 0.35;
+      const angle = Math.atan2(sun.dy, sun.dx);
+      ctx.fillStyle = sun.tint;
+      ctx.beginPath();
+      ctx.ellipse(ex, ey, rx, ry, angle, 0, Math.PI * 2);
+      ctx.fill();
+      // 接地影
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(cx, footY, sizePx * 0.16, sizePx * 0.045, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx, footY, sizePx * 0.28, sizePx * 0.07, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
 
     // 歩行中の軽い上下バウンス

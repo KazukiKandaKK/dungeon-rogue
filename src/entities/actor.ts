@@ -4,6 +4,7 @@
 
 import { TILE_SIZE } from '../world/tiles.js';
 import type { SpriteManager } from '../types.js';
+import type { SunVec } from '../ui/daylight.js';
 
 const LERP_K = 14;
 
@@ -126,13 +127,46 @@ export class Actor {
     };
   }
 
-  drawShadow(ctx: CanvasRenderingContext2D, camOffX: number, camOffY: number): void {
+  /**
+   * 影の描画。sun（太陽ベクトル）を渡すと方向と長さが時間帯で変化し、
+   * 引数を省略すると従来どおり真下の小さな固定影を描く。
+   */
+  drawShadow(
+    ctx: CanvasRenderingContext2D,
+    camOffX: number, camOffY: number,
+    sun?: SunVec,
+  ): void {
     const { sx, sy } = this.screenPos(camOffX, camOffY);
+    const footY = sy + TILE_SIZE * 0.22;
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath();
-    ctx.ellipse(sx, sy + TILE_SIZE * 0.22, TILE_SIZE * 0.32, TILE_SIZE * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
+
+    if (sun) {
+      // ── 指向性の長い影 ──
+      // 長軸：太陽高度が低いほど長い。短軸は一定。
+      const rx = TILE_SIZE * 0.30 * sun.lengthMult;
+      const ry = TILE_SIZE * 0.10;
+      // 中心を太陽反対方向に少しずらす（足元から伸びるように）
+      const offset = rx * 0.55;
+      const cx = sx + sun.dx * offset;
+      const cy = footY + sun.dy * offset * 0.35;
+      const angle = Math.atan2(sun.dy, sun.dx);
+      ctx.fillStyle = sun.tint;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, angle, 0, Math.PI * 2);
+      ctx.fill();
+      // 足元の小さな接地影（影をキャラに繋げる）
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(sx, footY, TILE_SIZE * 0.18, TILE_SIZE * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // ── 互換：フォールバック（ダンジョン内など sun が無い場面）──
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(sx, footY, TILE_SIZE * 0.32, TILE_SIZE * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 }

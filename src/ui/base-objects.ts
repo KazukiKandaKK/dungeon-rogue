@@ -59,36 +59,21 @@ import type { DungeonDef } from '../world/dungeon_defs.js';
 
 // ─── 昼夜サイクル（BASE 拠点のみ適用） ────────────
 //
-// 朝→昼→夕→夜→朝と巡るサイクル。位相（phase）は 0..1 の連続値で、
-// now（Date.now 相当のミリ秒）から純関数的に算出する。
-// 1 サイクル = 実時間 4 分（開発中は短めで挙動確認しやすく）。
+// 時間帯の純関数は daylight.ts に分離済み。ここでは後方互換のため
+// 再 export するのみ。オーバーレイ色などの Canvas 依存ロジックは
+// 引き続きこのファイルに置く。
 
-/** 1 サイクルの長さ（ミリ秒）。開発中は 4 分に設定。 */
-export const TIME_OF_DAY_CYCLE_MS = 4 * 60 * 1000;
-
-/** 現在の位相（0..1）を now から算出する純関数。 */
-export function getTimeOfDayPhase(now: number): number {
-  const t = ((now % TIME_OF_DAY_CYCLE_MS) + TIME_OF_DAY_CYCLE_MS) % TIME_OF_DAY_CYCLE_MS;
-  return t / TIME_OF_DAY_CYCLE_MS;
-}
-
-/** 時刻ラベル（朝・昼・夕・夜）を位相から得る。 */
-export function getTimeOfDayLabel(phase: number): '朝' | '昼' | '夕' | '夜' {
-  // 正規化
-  const p = ((phase % 1) + 1) % 1;
-  if (p < 0.20) return '朝';
-  if (p < 0.50) return '昼';
-  if (p < 0.70) return '夕';
-  return '夜';
-}
-
-/** 時刻ラベルに絵文字を付与した HUD 用の短い表記を返す。 */
-export function getTimeOfDayIcon(label: '朝' | '昼' | '夕' | '夜'): string {
-  if (label === '朝') return '🌅';
-  if (label === '昼') return '☀';
-  if (label === '夕') return '🌇';
-  return '🌙';
-}
+export {
+  TIME_OF_DAY_CYCLE_MS,
+  getTimeOfDayPhase,
+  getTimeOfDayLabel,
+  getTimeOfDayIcon,
+} from './daylight.js';
+import {
+  getTimeOfDayPhase,
+  getTimeOfDayLabel,
+  getTimeOfDayIcon,
+} from './daylight.js';
 
 /** 線形補間。 */
 function lerp(a: number, b: number, t: number): number {

@@ -14,6 +14,7 @@ import type { SpriteLoader } from '../core/sprites.js';
 import { getActiveTitle } from '../systems/titles.js';
 import type { FloatingText, GamePhase } from '../core/game-context.js';
 import { TILE }             from '../world/tiles.js';
+import { getTimeOfDayPhase, getTimeOfDayLabel, getTimeOfDayIcon } from './daylight.js';
 
 // ── マップの最小インターフェース ─────────────────────
 
@@ -35,6 +36,8 @@ export interface HudContext {
   currentDungeon: DungeonDef | null;
   floorNumber:    number;
   turnCount:      number;
+  /** 現在時刻（ms）。時間帯バッジ描画に使う。省略時はバッジを描かない。 */
+  now?:           number;
 }
 
 export interface MinimapContext {
@@ -113,7 +116,7 @@ export function drawHUD(
   H:   number,
   c:   HudContext,
 ): void {
-  const { player, enemies, gamePhase, currentDungeon, floorNumber, turnCount } = c;
+  const { player, enemies, gamePhase, currentDungeon, floorNumber, turnCount, now } = c;
   ctx.save();
 
   // ─── 左上: HP + ステータス ─────────────────
@@ -229,6 +232,36 @@ export function drawHUD(
   ctx.font = '10px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.fillText(`Turn: ${turnCount}`, rpx + rpw - 8, rpy + 30);
   ctx.fillText(`敵: ${enemies.filter(e => e.alive).length} 体`, rpx + rpw - 8, rpy + 46);
+
+  // ─── 時刻バッジ（右上フロア情報パネルの直下） ───
+  if (now !== undefined) {
+    const phase = getTimeOfDayPhase(now);
+    const label = getTimeOfDayLabel(phase);
+    const icon  = getTimeOfDayIcon(label);
+    const bw2   = rpw;
+    const bh2   = 22;
+    const bx2   = rpx;
+    const by2   = rpy + rph + 6;
+    roundRect(ctx, bx2, by2, bw2, bh2, 6);
+    ctx.fillStyle = 'rgba(15,5,40,0.78)'; ctx.fill();
+    // 枠色は時間帯で変える
+    let borderCol = 'rgba(167,139,250,0.45)';
+    if (label === '朝') borderCol = 'rgba(251,191,36,0.55)';
+    else if (label === '夕') borderCol = 'rgba(249,115,22,0.6)';
+    else if (label === '夜') borderCol = 'rgba(96,165,250,0.45)';
+    ctx.strokeStyle = borderCol; ctx.lineWidth = 1.3; ctx.stroke();
+
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(`${icon} ${label}`, bx2 + bw2 / 2, by2 + bh2 / 2 + 1);
+
+    // 位相プログレスバー（薄く）
+    ctx.fillStyle = 'rgba(250,204,21,0.25)';
+    ctx.fillRect(bx2 + 4, by2 + bh2 - 3, (bw2 - 8) * phase, 1.5);
+
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  }
 
   // ─── 下部ヒント ────────────────────────────
   ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(196,181,253,0.4)';
