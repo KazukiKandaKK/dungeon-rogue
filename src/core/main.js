@@ -64,6 +64,10 @@ import {
 import { attack as _attackFn }                                       from '../systems/combat.js';
 import { hasLOS, isActorOnLine }                                      from '../systems/fov.js';
 import { tickTransition }                                             from '../systems/transitions.js';
+import {
+  createCamera, tickCamera,
+  beginFloorEntry, beginBossZoom, beginBaseFlyIn,
+} from '../systems/camera.js';
 import { drawHUD, drawBossHPBar, drawMinimap, drawFloatingTexts, drawHotbar } from '../ui/hud.js';
 import { drawMagicMenu, drawShopMenu, drawInventory } from '../ui/inventory.js';
 import { tickWaveSpawn } from '../systems/wave-spawn.js';
@@ -287,6 +291,12 @@ let hotbar = [null, null, null, null, null, null]; // スペルID or null
 // カメラ
 let camOffX = CANVAS_W / 2;
 let camOffY = CANVAS_H / 2;
+// 滑らかなカメラ追従 & シネマティック演出用の状態
+const camera = createCamera();
+// 入力ロック（ボスズーム／フロアパン中はプレイヤー操作を止める）
+let cinematicLocksInput = false;
+// ボスズームが当該フロアで既に発火したか
+let _bossCinematicTriggered = false;
 
 // 探索済みタイル（ミニマップ用）
 let exploredTiles = new Set(); // "tx,ty" 形式
@@ -533,6 +543,11 @@ function _buildBase() {
 
   gameState = 'PLAYER_TURN';
   logger.add('🏠 王都アストラルに帰還。北のダンジョン門から出撃できる。', 'warn');
+
+  // 拠点フライイン演出：南から上昇してプレイヤーへ着地。
+  // ボス演出フラグはダンジョン外では不要だが、安全のため拠点でもクリア。
+  _bossCinematicTriggered = false;
+  beginBaseFlyIn(camera);
 }
 
 
@@ -623,6 +638,15 @@ function _buildFloor(entryDir) {
       text: `BOSS: ${bossName}`, x: CANVAS_W / 2, y: CANVAS_H / 2 - 80,
       alpha: 1, scale: 1, color: '#f87171', life: 3.0, maxLife: 3.0, big: true,
     });
+  }
+
+  // ── カメラ演出：フロア突入パン ───────────────────
+  // 偶数階は南から、奇数階は北から登場させて単調さを避ける。
+  // ボス階はあとで boss-zoom が走るのでパンは省略する。
+  _bossCinematicTriggered = false;
+  if (!isBossFloor) {
+    const dir = (floorNumber % 2 === 0) ? 'south' : 'north';
+    beginFloorEntry(camera, dir);
   }
 }
 
@@ -1191,6 +1215,28 @@ function startLoop(canvas) {
       player.updateRender(dt);
       for (const e of enemies) e.updateRender(dt);
     }
+
+    // ── ボスフロア突入ズーム（フロアあたり一度だけ）──
+    // フロア生成直後の最初のフレームで、ボスを見つけたら寄せる。
+    if (player && gamePhase === 'DUNGEON' && !_bossCinematicTriggered
+        && camera.cinematic.kind === 'none') {
+      const boss = enemies.find(e => e && e.alive && e.isBoss);
+      if (boss) {
+        beginBossZoom(camera, boss.renderX, boss.renderY);
+        _bossCinematicTriggered = true;
+      }
+    }
+
+    // ── カメラ追従・シネマティック更新 ──────────────
+    // rawDt を渡すことでヒットストップ中もカメラは固まらない
+    if (player) {
+      cinematicLocksInput = tickCamera(
+        camera, rawDt, player.renderX, player.renderY, CANVAS_W, CANVAS_H,
+      );
+    } else {
+      cinematicLocksInput = false;
+    }
+
     particles.update(dt);
     _updateDust(dt);
     tickChatTicker();
@@ -1292,6 +1338,10 @@ function startLoop(canvas) {
       _handleClassSelectInput();
     } else if (gameState === 'BUILD_SELECT') {
       _handleBuildSelectInput();
+    } else if (gameState === 'PLAYER_TURN' && cinematicLocksInput) {
+      // シネマティック演出中（フロア開始パン／ボスズーム／拠点フライイン）は
+      // 入力と turn 進行を止める。flush しておかないと演出後に連打が暴発する。
+      input.flush();
     } else if (gameState === 'PLAYER_TURN') {
       // 無限ダンジョン脱出確認プロンプト
       if (infiniteEscapePrompt) {
@@ -3343,8 +3393,9 @@ function _draw(ctx, W, H, now) {
 
   if (!player) return;
 
-  camOffX = W / 2 - player.renderX + shakeX;
-  camOffY = H / 2 - player.renderY + shakeY;
+  // カメラはループ内で tickCamera 済み。shake をここで重ねる。
+  camOffX = camera.offX + shakeX;
+  camOffY = camera.offY + shakeY;
 
   ctx.fillStyle = map ? (THEMES[map.theme]?.bg ?? '#0a0812') : '#0a0812';
   ctx.fillRect(0, 0, W, H);
@@ -3589,6 +3640,33 @@ function _draw(ctx, W, H, now) {
   drawBossHPBar(ctx, W, enemies);
   drawMinimap(ctx, W, H, { map, player, enemies, exploredTiles, floorItems, floorChests, shopPos });
   drawFloatingTexts(ctx, floatingTexts);
+
+  // ── ボス突入バナー（boss-zoom 演出中のみ）────────
+  // フェードイン 30%、ホールド、フェードアウト最後 20% の不透明度カーブ。
+  if (camera.cinematic.kind === 'boss-zoom') {
+    const cin = camera.cinematic;
+    const p = Math.min(1, Math.max(0, cin.t / cin.duration));
+    let a = 1;
+    if (p < 0.3)      a = p / 0.3;
+    else if (p > 0.8) a = (1 - p) / 0.2;
+    a = Math.max(0, Math.min(1, a));
+    if (a > 0.01) {
+      ctx.save();
+      ctx.globalAlpha   = a;
+      ctx.textAlign     = 'center';
+      ctx.textBaseline  = 'middle';
+      ctx.font          = 'bold 56px serif';
+      ctx.shadowColor   = '#7f1d1d';
+      ctx.shadowBlur    = 24;
+      ctx.fillStyle     = '#fecaca';
+      ctx.strokeStyle   = '#7f1d1d';
+      ctx.lineWidth     = 6;
+      const txt = '! BOSS !';
+      ctx.strokeText(txt, W / 2, H * 0.32);
+      ctx.fillText(txt,   W / 2, H * 0.32);
+      ctx.restore();
+    }
+  }
 
   // チャットティッカー（拠点では大きめ、ダンジョン中はコンパクト）
   drawChatTicker(ctx, W, H, gamePhase === 'DUNGEON');
