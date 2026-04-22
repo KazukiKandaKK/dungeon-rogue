@@ -26,6 +26,8 @@ interface SkylineLayer {
   vertices: Array<[number, number]>;
   /** この層の上端 Y（画面比 0..1） */
   topRatio: number;
+  /** この層の地平線 Y（px）。シルエット polygon はここで閉じる。 */
+  horizonY: number;
   /** この層の基準色（時間帯ブレンド前のニュートラル） */
   baseColor: { r: number; g: number; b: number };
 }
@@ -83,23 +85,31 @@ function _generateSilhouette(
 function _buildLayers(canvasW: number, canvasH: number): SkylineLayer[] {
   // 画面外まで広く取る（最大スクロール係数 0.3 を考慮し +50% 余白）
   const w = Math.ceil(canvasW * 1.5);
+  // 見下ろし視点のゲームなので、遠景は画面上端の薄いリボンに限定する。
+  // 地平線（horizon）は canvasH の 0.12〜0.18 付近。ここより下には何も塗らない。
+  const L1horizon = canvasH * 0.14;
+  const L2horizon = canvasH * 0.16;
+  const L3horizon = canvasH * 0.18;
   const layers: SkylineLayer[] = [
     {
       scroll: 0.05,
-      vertices: _generateSilhouette(0xA13F71, w, canvasH * 0.45, canvasH * 0.18, 0.0),
+      vertices: _generateSilhouette(0xA13F71, w, L1horizon, canvasH * 0.08, 0.0),
       topRatio: 0.0,
+      horizonY: L1horizon,
       baseColor: { r: 90, g: 95, b: 130 }, // 遠い山並み（青灰）
     },
     {
       scroll: 0.15,
-      vertices: _generateSilhouette(0x5C8BCE, w, canvasH * 0.52, canvasH * 0.16, 0.08),
+      vertices: _generateSilhouette(0x5C8BCE, w, L2horizon, canvasH * 0.07, 0.08),
       topRatio: 0.0,
+      horizonY: L2horizon,
       baseColor: { r: 60, g: 65, b: 95 }, // 中景：尖塔混じりの山
     },
     {
       scroll: 0.30,
-      vertices: _generateSilhouette(0x2D9B7A, w, canvasH * 0.58, canvasH * 0.13, 0.05),
+      vertices: _generateSilhouette(0x2D9B7A, w, L3horizon, canvasH * 0.06, 0.05),
       topRatio: 0.0,
+      horizonY: L3horizon,
       baseColor: { r: 35, g: 40, b: 65 }, // 近景：城壁・パゴダ
     },
   ];
@@ -187,16 +197,17 @@ export function drawSkyline(
 
   ctx.save();
 
-  // ── 1. 空のグラデーション帯（画面上 60% を覆う） ──
-  // BASE のマップ自体に背景色が塗られているので、上方の 60% 帯にだけ薄く重ねる。
+  // ── 1. 空のグラデーション帯（画面最上部 20% に限定） ──
+  // 見下ろし視点のゲームなので、空は上端に薄くだけ乗せる。ゲームプレイ領域は覆わない。
   {
-    const skyTop    = `rgba(${sky.r},${sky.g},${sky.b},0.42)`;
+    const skyBandH = canvasH * 0.20;
+    const skyTop    = `rgba(${sky.r},${sky.g},${sky.b},0.28)`;
     const skyBottom = `rgba(${sky.r},${sky.g},${sky.b},0.00)`;
-    const grad = ctx.createLinearGradient(0, 0, 0, canvasH * 0.62);
+    const grad = ctx.createLinearGradient(0, 0, 0, skyBandH);
     grad.addColorStop(0, skyTop);
     grad.addColorStop(1, skyBottom);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvasW, canvasH * 0.62);
+    ctx.fillRect(0, 0, canvasW, skyBandH);
   }
 
   // ── 2. 各シルエット層 ──
@@ -218,21 +229,22 @@ export function drawSkyline(
     const b = Math.round(lerp(layer.baseColor.b, tint.b, distance * 0.7));
     const layerAlpha = (0.55 + 0.15 * (1 - distance)) * fogFactor;
 
-    // パスを組み立て
+    // パスを組み立て。polygon は horizonY で閉じる（下端は地平線、canvasH ではない）。
     ctx.beginPath();
     const verts = layer.vertices;
     const xShift = baseShiftX + offsetX;
     if (verts.length === 0) continue;
-    ctx.moveTo(verts[0][0] + xShift, canvasH);
+    const horizon = layer.horizonY;
+    ctx.moveTo(verts[0][0] + xShift, horizon);
     for (const [vx, vy] of verts) {
       ctx.lineTo(vx + xShift, vy);
     }
-    ctx.lineTo(verts[verts.length - 1][0] + xShift, canvasH);
+    ctx.lineTo(verts[verts.length - 1][0] + xShift, horizon);
     ctx.closePath();
 
-    // 上から下へのグラデーション（上＝シルエット色、下＝少し明るく → 接地感）
+    // 上から地平線へのグラデーション（上＝シルエット色、下端は接地を示す明るさ）
     const topY = Math.min(...verts.map(v => v[1]));
-    const grad = ctx.createLinearGradient(0, topY, 0, canvasH);
+    const grad = ctx.createLinearGradient(0, topY, 0, horizon);
     grad.addColorStop(0,   `rgba(${r},${g},${b},${layerAlpha.toFixed(3)})`);
     grad.addColorStop(0.7, `rgba(${Math.round(r * 0.85)},${Math.round(g * 0.85)},${Math.round(b * 0.9)},${(layerAlpha * 0.85).toFixed(3)})`);
     grad.addColorStop(1,   `rgba(${Math.round(r * 0.7)},${Math.round(g * 0.7)},${Math.round(b * 0.8)},${(layerAlpha * 0.65).toFixed(3)})`);

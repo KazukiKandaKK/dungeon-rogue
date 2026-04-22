@@ -47,18 +47,20 @@ export function drawGodRays(
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
-  // 5〜7 本の光線。位置と角度は決定論的に。
-  const RAY_COUNT = 6;
+  // 4 本の細い光線。見下ろし視点なので画面上部だけに薄く降る。
+  const RAY_COUNT = 4;
   // 太陽は朝ならやや左、夕ならやや右にあると仮定して角度を変える
   const baseAngle = useDawn ? Math.PI * 0.32 : Math.PI * 0.68; // 上→下方向の傾き
   for (let i = 0; i < RAY_COUNT; i++) {
     const seedHash = hash2(i + 1, useDawn ? 7 : 13);
     const tx = (seedHash % 1000) / 1000; // 0..1
     const startX = canvasW * (tx * 1.4 - 0.2); // 画面端を超えても良い
-    const angleJitter = ((seedHash >> 10) % 200 - 100) / 1000; // ±0.1 rad
+    const angleJitter = ((seedHash >>> 10) % 200 - 100) / 1000; // ±0.1 rad
     const angle = baseAngle + angleJitter;
-    const length = canvasH * (1.1 + ((seedHash >> 20) % 100) / 500);
-    const width = canvasW * (0.06 + ((seedHash >> 16) % 50) / 800);
+    // 光線は画面上端 30% の範囲だけに抑える
+    const length = canvasH * (0.25 + ((seedHash >>> 20) % 100) / 2000);
+    // 幅も細く（以前の 1/3）
+    const width = canvasW * (0.020 + ((seedHash >>> 16) % 50) / 3000);
 
     const dx = Math.cos(angle) * length;
     const dy = Math.sin(angle) * length;
@@ -66,7 +68,8 @@ export function drawGodRays(
     const endX = startX + dx;
     const endY = dy; // 開始 y=0 から
 
-    const rayAlpha = amt * breathe * (0.30 + 0.18 * (((seedHash >> 8) % 100) / 100));
+    // アルファも以前の 1/3 程度に抑える
+    const rayAlpha = amt * breathe * (0.10 + 0.08 * (((seedHash >>> 8) % 100) / 100));
 
     // 線形グラデーション：頭側が明るく、末端で消える
     const grad = ctx.createLinearGradient(startX, 0, endX, endY);
@@ -115,11 +118,12 @@ function _getMotes(): Mote[] {
   if (_motesCache) return _motesCache;
   const arr: Mote[] = [];
   for (let i = 0; i < _MOTE_COUNT; i++) {
-    const h = hash2(i + 17, i * 31 + 5);
+    const h = hash2(i + 17, i * 31 + 5) >>> 0;
+    // シフトは全て符号なし（>>>）で。符号付き >> だと最上位ビット立ち時に負値化する。
     const baseX = (h % 10000) / 10000;
-    const baseY = ((h >> 13) % 10000) / 10000;
-    const driftSeed = (h >> 7) % 1000;
-    const size = 0.8 + (((h >> 24) % 100) / 100) * 1.2; // 0.8..2.0
+    const baseY = ((h >>> 13) % 10000) / 10000;
+    const driftSeed = (h >>> 7) % 1000;
+    const size = 0.8 + (((h >>> 24) % 100) / 100) * 1.2; // 0.8..2.0
     arr.push({ baseX, baseY, driftSeed, size });
   }
   _motesCache = arr;
@@ -139,13 +143,13 @@ export function drawDustMotes(
 ): void {
   if (!ctx || !ctx.canvas) return;
   const p = ((phase % 1) + 1) % 1;
-  // 時間帯ごとの輝度係数
+  // 時間帯ごとの輝度係数（控えめに。screen ブレンドなので小さくして良い）
   let brightness: number;
-  if (p < 0.05 || p > 0.95) brightness = 0.10; // 深夜
-  else if (p < 0.20) brightness = 1.0;          // 朝
-  else if (p < 0.45) brightness = 0.40;         // 昼
-  else if (p < 0.65) brightness = 1.0;          // 夕
-  else brightness = 0.20;                       // 夜
+  if (p < 0.05 || p > 0.95) brightness = 0.05; // 深夜
+  else if (p < 0.20) brightness = 0.35;         // 朝
+  else if (p < 0.45) brightness = 0.15;         // 昼
+  else if (p < 0.65) brightness = 0.35;         // 夕
+  else brightness = 0.08;                       // 夜
   if (brightness < 0.05) return;
 
   const motes = _getMotes();
@@ -162,7 +166,7 @@ export function drawDustMotes(
     const sway = Math.sin(tSec * 0.6 + m.driftSeed * 0.3) * 6;
     const x = m.baseX * canvasW + sway;
 
-    const a = brightness * 0.55;
+    const a = brightness * 0.35;
     ctx.fillStyle = `rgba(255,235,190,${a.toFixed(3)})`;
     ctx.beginPath();
     ctx.arc(x, y, m.size, 0, Math.PI * 2);
