@@ -44,6 +44,16 @@ import {
   drawAmbientCreatures,
   type AmbientCreature,
 } from './ambient-creatures.js';
+import { drawSkyline } from './skyline.js';
+import {
+  drawGodRays,
+  drawDustMotes,
+  drawEdgeFog,
+} from './atmosphere.js';
+import {
+  drawFootprints,
+  type Footprint,
+} from '../systems/footprints.js';
 import type { SpriteLoader } from '../core/sprites.js';
 import type { DungeonDef } from '../world/dungeon_defs.js';
 
@@ -366,6 +376,8 @@ export interface BaseObjectsContext {
   ambientCreatures?: import('./ambient-creatures.js').AmbientCreature[];
   /** 触れ回し NPC の位置一覧（声の波紋を描画する起点） */
   crierPositions?:   Array<{ tx: number; ty: number }>;
+  /** プレイヤーの足跡リスト（main.js 側で保持。描画専用） */
+  footprints?:       Footprint[];
 }
 
 // ─── 内部純粋関数 ──────────────────────────────
@@ -4502,8 +4514,33 @@ function drawCityDecor(
   // ═════ 15. 天候レイヤ（雨・雪・霧・花吹雪。2 分おきに抽選） ═════
   updateAndDrawBaseWeather(ctx, camOffX, camOffY, now);
 
+  // ═════ 15.5 大気（神の光・砂埃・距離フォグ） — 時間帯オーバーレイの直前 ═════
+  drawAtmosphereLayer(ctx, now);
+
   // ═════ 16. 時間帯オーバーレイ（朝・昼・夕・夜の空気色） ═════
   drawTimeOfDayOverlay(ctx, camOffX, camOffY, now);
+}
+
+/**
+ * 大気エフェクトをまとめて描画する小ラッパ。
+ * god rays → dust motes → edge fog の順で重ね、雨雪のときは god rays を抑える。
+ * 時間帯オーバーレイの直前（drawCityDecor 内）から呼ばれる。
+ */
+function drawAtmosphereLayer(
+  ctx: CanvasRenderingContext2D,
+  now: number,
+): void {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  const phase = getTimeOfDayPhase(now);
+  // god rays：雨・雪のときは強度を 0.2 倍に落とす
+  let rayIntensity = 1.0;
+  if (_currentWeather && (_currentWeather.type === 'rain' || _currentWeather.type === 'snow')) {
+    rayIntensity = 0.2;
+  }
+  drawGodRays(ctx, W, H, now, phase, rayIntensity);
+  drawDustMotes(ctx, W, H, now, phase);
+  drawEdgeFog(ctx, W, H, _currentWeather, phase);
 }
 
 /**
@@ -4715,11 +4752,25 @@ export function drawBaseObjects(
   };
   const _prompt = (text: string, x: number, y: number) => _label(text, x, y, '#ffffff', 11);
 
+  // ── 遠景パララックス（山・尖塔・城壁シルエット） ──
+  // BASE 拠点で最初に乗せる空気層。マップは main.js 側で先に塗られている。
+  {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    const phase = getTimeOfDayPhase(now);
+    drawSkyline(ctx, W, H, camOffX, camOffY, now, phase, _currentWeather);
+  }
+
   // ── アンビエント：街全体に舞う光の粒 ──
   drawGrandAmbientMotes(ctx, camOffX, camOffY, now);
 
   // ── 街の装飾レイヤ（石畳・街灯・ベンチ・街路樹・市場・裏路地） ──
   drawCityDecor(ctx, camOffX, camOffY, now);
+
+  // ── プレイヤーの足跡（地面の上、アクター・建物の下） ──
+  if (c.footprints && c.footprints.length > 0) {
+    drawFootprints(ctx, c.footprints, camOffX, camOffY, now);
+  }
 
   // ── 装飾：中央モニュメント（オベリスク＋浮遊クリスタル） ──
   {

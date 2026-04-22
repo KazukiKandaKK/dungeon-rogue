@@ -81,6 +81,7 @@ import { APPEARANCES, APPEARANCE_IDS, TINTS } from '../data/appearances.js';
 import { drawAttackPreview, drawEnemyRanges, drawFloorItems, drawChests, drawInfiniteEscapePrompt } from '../ui/dungeon.js';
 import { drawBaseObjects } from '../ui/base-objects.js';
 import { createAmbientCreatures, updateAmbientCreatures } from '../ui/ambient-creatures.js';
+import { emitFootprint, tickFootprints } from '../systems/footprints.js';
 import {
   buildDefaultBaseInteractables,
   findInteractableNear,
@@ -128,6 +129,9 @@ let pet               = null;      // 現在の Pet インスタンス
 let baseNpcs          = [];        // 拠点を歩く冒険者NPC（BaseNpc[]）
 let ambientCreatures  = [];        // 街にいる小動物（描画用、ロジックには絡まない）
 let baseInteractables = [];        // 拠点のインタラクト可能オブジェクト（ベンチ/井戸/焚き火/看板 等）
+let footprints        = [];        // プレイヤーの足跡（BASE のみ。寿命付き）
+let _lastFootprintTile = { tx: -1, ty: -1 };
+const FOOTPRINT_LIFETIME_MS = 8000;
 let _lastInteractTime = 0;         // [E] 連打防止のためのスロットル（ms）
 let lastWorldEventId  = null;      // ワールドイベント切替検知用
 let playerAppearance  = null;      // { species, tint } | null
@@ -1255,6 +1259,10 @@ function startLoop(canvas) {
         n.update(dt, map, blockers.concat(others));
       }
     }
+    // 足跡の寿命を進める（BASE のみ）
+    if (gamePhase === 'BASE' && footprints.length > 0) {
+      tickFootprints(footprints, Date.now(), FOOTPRINT_LIFETIME_MS);
+    }
     // 街の小動物（描画用）の徘徊更新
     if (gamePhase === 'BASE' && ambientCreatures.length > 0 && map) {
       // 夜間ファクタを base-objects から間接的に取りたいが、ここは時刻ベースで近似計算
@@ -1797,8 +1805,26 @@ function _handleBaseInput() {
     // プレイヤーが動いたらペットも1マス追従（BASE では戦闘させない）
     if (player.tx !== prevTx || player.ty !== prevTy) {
       _doPetBaseStep();
+      // 足跡を 1 マスごとに 1 つ落とす（最終位置のみ。DASH の場合も終端 1 つ）。
+      _emitPlayerFootprint(prevTx, prevTy);
     }
   }
+}
+
+// プレイヤーが BASE を 1 タイル移動した瞬間に足跡を生やすヘルパ。
+// prevTx/prevTy は移動前のタイル。今の player.tx/ty が移動後。
+function _emitPlayerFootprint(prevTx, prevTy) {
+  if (!player) return;
+  // 同じタイルなら出さない（タイル単位で 1 つ）
+  if (_lastFootprintTile.tx === player.tx && _lastFootprintTile.ty === player.ty) return;
+  const dx = player.tx - prevTx;
+  const dy = player.ty - prevTy;
+  if (dx === 0 && dy === 0) return;
+  const angle = Math.atan2(dy, dx);
+  const wx = (player.tx + 0.5) * TILE_SIZE;
+  const wy = (player.ty + 0.5) * TILE_SIZE + TILE_SIZE * 0.30; // 足元寄り
+  emitFootprint(footprints, wx, wy, angle, Date.now());
+  _lastFootprintTile = { tx: player.tx, ty: player.ty };
 }
 
 // ── 委託露店の売値計算 ─────────────────────────
@@ -2964,6 +2990,9 @@ function _startDungeon(dungeonId) {
   gamePhase      = 'DUNGEON';
   floorNumber    = 1;
   turnCount      = 0;
+  // BASE 専用の足跡はダンジョン突入で破棄
+  footprints.length = 0;
+  _lastFootprintTile = { tx: -1, ty: -1 };
   _buildFloor(null);
   const floorLabel = dungeon.infinite ? '∞' : dungeon.maxFloors;
   const msg = dungeon.bossRush
@@ -3435,6 +3464,7 @@ function _draw(ctx, W, H, now) {
       questActive: _questActiveCount(), questClaimable: _questClaimableCount(),
       ambientCreatures,
       crierPositions: baseNpcs.filter(n => n.role === 'crier').map(n => ({ tx: n.tx, ty: n.ty })),
+      footprints,
     });
     // ベンチ／井戸／焚き火／看板 など小物のインタラクトオブジェクト
     drawBaseInteractables(
