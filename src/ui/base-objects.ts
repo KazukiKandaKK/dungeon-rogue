@@ -73,6 +73,7 @@ import {
   getTimeOfDayPhase,
   getTimeOfDayLabel,
   getTimeOfDayIcon,
+  getSunVector,
 } from './daylight.js';
 
 /** 線形補間。 */
@@ -4507,6 +4508,70 @@ function drawCityDecor(
 }
 
 /**
+ * BASE 拠点の主要な建物・モニュメント・噴水から、太陽ベクトルに沿って
+ * 地面に倒れる接地影を一括描画する。footprints の次、建物本体描画の前に呼ぶ。
+ *
+ * 影の形状は単純な楕円だが、太陽高度が低いほど長くなり、昼は小さく丸くなる。
+ * 色相は daylight.ts の SunVec.tint を使用して時間帯に同期する。
+ */
+function drawBuildingGroundShadows(
+  ctx: CanvasRenderingContext2D,
+  camOffX: number, camOffY: number, now: number,
+): void {
+  const ts = TILE_SIZE;
+  const sun = getSunVector(getTimeOfDayPhase(now));
+  // 夜帯はほぼ影を描かない
+  if (sun.alpha < 0.18) return;
+
+  // [tx, ty, 幅タイル, 高さタイル, 影強さ倍率]
+  // 座標は建物の中心に対する基準点（drawBaseObjects の呼び出しに合わせる）
+  const entries: Array<[number, number, number, number, number]> = [
+    // モニュメント
+    [BASE_MONUMENT_POS.tx, BASE_MONUMENT_POS.ty, 1.0, 1.2, 1.3],
+    // 噴水（2×2 の中心）
+    [BASE_FOUNTAIN_POS.tx + 0.5, BASE_FOUNTAIN_POS.ty + 0.5, 1.6, 1.0, 0.8],
+    // 建物群（3×2 想定、高さ約1.5）
+    [BASE_SHOP_POS.tx,    BASE_SHOP_POS.ty,    2.4, 1.6, 1.1],
+    [BASE_CASINO_POS.tx,  BASE_CASINO_POS.ty,  2.4, 1.6, 1.1],
+    [BASE_STALL_POS.tx,   BASE_STALL_POS.ty,   2.4, 1.6, 1.0],
+    [BASE_LOAN_POS.tx,    BASE_LOAN_POS.ty,    2.4, 1.6, 1.0],
+    [BASE_RECLASS_POS.tx, BASE_RECLASS_POS.ty, 2.4, 1.6, 1.1],
+    [BASE_CRAFT_POS.tx,   BASE_CRAFT_POS.ty,   2.4, 1.6, 1.1],
+    // 小さい建物（1×1）
+    [BASE_SHRINE_POS.tx,    BASE_SHRINE_POS.ty,    1.0, 1.2, 0.9],
+    [BASE_QUEST_POS.tx,     BASE_QUEST_POS.ty,     1.0, 1.2, 0.9],
+    [BASE_RECEPTION_POS.tx, BASE_RECEPTION_POS.ty, 1.0, 1.2, 0.9],
+    // 酒場・交易人（大型）
+    [BASE_TAVERN_POS.tx,  BASE_TAVERN_POS.ty,  2.6, 1.8, 1.2],
+    [BASE_TRADER_POS.tx,  BASE_TRADER_POS.ty,  2.6, 1.8, 1.2],
+  ];
+
+  ctx.save();
+  for (const [tx, ty, w, h, strength] of entries) {
+    // 建物中心のスクリーン座標
+    const bcx = (tx + 0.5) * ts + camOffX;
+    const bcy = (ty + 0.5) * ts + camOffY;
+    // 接地点（建物の足元付近）
+    const footY = bcy + h * ts * 0.25;
+
+    // 楕円の長軸は建物の幅 + 太陽高度が低いほど長く伸ばす
+    const rx = (w * ts * 0.55) * (0.9 + sun.lengthMult * 0.45);
+    const ry = (h * ts * 0.20);
+    const offset = rx * 0.45;
+    const ex = bcx + sun.dx * offset;
+    const ey = footY + sun.dy * offset * 0.30;
+    const angle = Math.atan2(sun.dy, sun.dx);
+
+    ctx.globalAlpha = Math.min(1, strength * (sun.alpha + 0.08));
+    ctx.fillStyle = sun.tint;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, rx, ry, angle, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
  * 大気エフェクトをまとめて描画する小ラッパ。
  * god rays → dust motes → edge fog の順で重ね、雨雪のときは god rays を抑える。
  * 時間帯オーバーレイの直前（drawCityDecor 内）から呼ばれる。
@@ -4718,6 +4783,38 @@ function drawCityLighting(
     ctx.fill();
   }
 
+  // ── 夜間のボリューメトリック光柱（街灯から床面へ円錐状に広がる） ──
+  // 夜ほど強く、昼はほぼ無効。雨/霧のときはさらに濃く見せる。
+  if (nightFactor > 0.25) {
+    const beamStrength = Math.min(1, (nightFactor - 0.25) / 0.6);
+    const wetBoost = _currentWeather
+      ? (_currentWeather.type === 'fog' ? 0.4 : _currentWeather.type === 'rain' ? 0.25 : 0)
+      : 0;
+    const totalAlpha = (0.22 + wetBoost) * beamStrength;
+    for (const [tx, ty, seed] of lampCenters) {
+      const lx = cx(tx) - ts * 0.5;
+      const ly = cy(ty) - ts * 0.45;
+      const flicker = flick(seed, 0.007);
+      // 円錐：光源からやや下に伸ばす（トップダウンだが「奥行き」を示す）
+      const beamH = ts * 2.2;
+      const beamW = ts * 1.1;
+      ctx.save();
+      ctx.translate(lx, ly);
+      const beam = ctx.createLinearGradient(0, 0, 0, beamH);
+      beam.addColorStop(0,   `rgba(255,220,140,${(totalAlpha * flicker).toFixed(3)})`);
+      beam.addColorStop(0.5, `rgba(255,190,100,${(totalAlpha * 0.55 * flicker).toFixed(3)})`);
+      beam.addColorStop(1,   'rgba(255,160,60,0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(beamW * 0.5, beamH);
+      ctx.lineTo(-beamW * 0.5, beamH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -4756,6 +4853,10 @@ export function drawBaseObjects(
   if (c.footprints && c.footprints.length > 0) {
     drawFootprints(ctx, c.footprints, camOffX, camOffY, now);
   }
+
+  // ── 建物の接地影（太陽方向に伸びる）──
+  // 朝夕は長く・正午は短く、夜は月光相当の弱い影。
+  drawBuildingGroundShadows(ctx, camOffX, camOffY, now);
 
   // ── 装飾：中央モニュメント（オベリスク＋浮遊クリスタル） ──
   {
